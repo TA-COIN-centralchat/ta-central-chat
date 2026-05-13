@@ -1,4 +1,27 @@
 import { supabase } from './supabaseClient';
+
+export const getAgents = async () => {
+  const { data, error } = await supabase
+    .from('agents')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching agents:', error);
+    throw error;
+  }
+
+  return data.map((agent) => ({
+    id: agent.id,
+    name: agent.full_name,
+    role: agent.role,
+    email: agent.email,
+    status: agent.status,
+    activeTickets: agent.active_tickets || 0,
+    resolvedToday: agent.resolved_today || 0,
+  }));
+};
+
 export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => {
   const { data, error } = await supabase
     .from('tickets')
