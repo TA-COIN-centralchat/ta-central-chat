@@ -13,6 +13,7 @@ const AllTicketsPage = () => {
   const loadTickets = async () => {
     try {
       setLoading(true);
+
       const data = await getTickets();
 
       setTickets(data);
@@ -86,14 +87,16 @@ const AllTicketsPage = () => {
               />
 
               <div className="mt-3 flex gap-2 overflow-x-auto">
-                {['All', 'New', 'In Progress', 'Pending'].map((item) => (
-                  <button
-                    key={item}
-                    className="rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
-                  >
-                    {item}
-                  </button>
-                ))}
+                {['All', 'New', 'Assigned', 'In Progress', 'Pending'].map(
+                  (item) => (
+                    <button
+                      key={item}
+                      className="rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -119,7 +122,10 @@ const AllTicketsPage = () => {
                 onTicketUpdated={handleTicketUpdated}
               />
 
-              <TicketDetailsPanel ticket={selectedTicket} />
+              <TicketDetailsPanel
+                ticket={selectedTicket}
+                onTicketUpdated={handleTicketUpdated}
+              />
             </>
           )}
         </div>

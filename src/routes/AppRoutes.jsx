@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import DashboardPage from '../pages/DashboardPage';
@@ -12,6 +13,7 @@ import ClosedTicketsPage from '../pages/ClosedTicketsPage';
 import CategoriesPage from '../pages/CategoriesPage';
 import ReportsPage from '../pages/ReportsPage';
 import ChannelTicketsPage from '../pages/ChannelTicketsPage';
+import AuditLogsPage from '../pages/AuditLogsPage';
 
 const ComingSoonPage = ({ title }) => {
   return (
@@ -68,7 +70,7 @@ const AppRoutes = () => {
         <Route path="/settings" element={<SettingsPage />} />
 
         <Route path="/customers" element={<ComingSoonPage title="Customers" />} />
-        <Route path="/audit-logs" element={<ComingSoonPage title="Audit Logs" />} />
+        <Route path="/audit-logs" element={<AuditLogsPage />} />
 
         <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>
