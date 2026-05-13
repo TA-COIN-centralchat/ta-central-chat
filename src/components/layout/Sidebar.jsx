@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BarChart3,
   CheckCircle,
@@ -16,8 +16,9 @@ import {
   Users,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { getTickets } from '../../services/ticketService';
 
-const menuGroups = [
+const buildMenuGroups = (counts) => [
   {
     title: 'Overview',
     defaultOpen: true,
@@ -31,13 +32,13 @@ const menuGroups = [
     title: 'Tickets',
     defaultOpen: true,
     items: [
-      { label: 'All Tickets', path: '/tickets', icon: Inbox, count: 24 },
-      { label: 'Waiting Queue', path: '/waiting-queue', icon: Clock, count: 5 },
+      { label: 'All Tickets', path: '/tickets', icon: Inbox, count: counts.allTickets },
+      { label: 'Waiting Queue', path: '/waiting-queue', icon: Clock, count: counts.waitingQueue },
       {
         label: 'Pending Investigation',
         path: '/pending-investigation',
         icon: ShieldCheck,
-        count: 3,
+        count: counts.pendingInvestigation,
       },
       { label: 'Closed Tickets', path: '/closed-tickets', icon: CheckCircle },
       { label: 'Walk-in / Manual', path: '/manual-ticket', icon: ClipboardList },
@@ -47,8 +48,13 @@ const menuGroups = [
     title: 'Channels',
     defaultOpen: false,
     items: [
-      { label: 'Chatbot (Website)', path: '/chatbot', icon: MessageCircle, count: 11 },
-      { label: 'Telegram', path: '/telegram', icon: Send, count: 4 },
+      {
+        label: 'Chatbot (Website)',
+        path: '/chatbot',
+        icon: MessageCircle,
+        count: counts.websiteChatbot,
+      },
+      { label: 'Telegram', path: '/telegram', icon: Send, count: counts.telegram },
     ],
   },
   {
@@ -64,12 +70,48 @@ const menuGroups = [
 ];
 
 const Sidebar = () => {
-  const initialOpenGroups = menuGroups.reduce((acc, group) => {
-    acc[group.title] = group.defaultOpen;
-    return acc;
-  }, {});
+  const [counts, setCounts] = useState({
+    allTickets: 0,
+    waitingQueue: 0,
+    pendingInvestigation: 0,
+    websiteChatbot: 0,
+    telegram: 0,
+  });
 
-  const [openGroups, setOpenGroups] = useState(initialOpenGroups);
+  const [openGroups, setOpenGroups] = useState({
+    Overview: true,
+    Tickets: true,
+    Channels: false,
+    Management: false,
+  });
+
+  useEffect(() => {
+    const loadCounts = async () => {
+      try {
+        const tickets = await getTickets();
+
+        setCounts({
+          allTickets: tickets.length,
+          waitingQueue: tickets.filter(
+            (ticket) => ticket.status === 'New' || ticket.assignedTo === 'Unassigned'
+          ).length,
+          pendingInvestigation: tickets.filter(
+            (ticket) => ticket.status === 'Pending Investigation'
+          ).length,
+          websiteChatbot: tickets.filter(
+            (ticket) => ticket.channel === 'Website Chatbot'
+          ).length,
+          telegram: tickets.filter((ticket) => ticket.channel === 'Telegram').length,
+        });
+      } catch (error) {
+        console.error('Failed to load sidebar counts:', error);
+      }
+    };
+
+    loadCounts();
+  }, []);
+
+  const menuGroups = buildMenuGroups(counts);
 
   const toggleGroup = (title) => {
     setOpenGroups((prev) => ({
@@ -135,7 +177,7 @@ const Sidebar = () => {
                             {item.label}
                           </span>
 
-                          {item.count ? (
+                          {typeof item.count === 'number' && item.count > 0 ? (
                             <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
                               {item.count}
                             </span>
