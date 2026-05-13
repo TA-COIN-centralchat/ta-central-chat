@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import DashboardPage from '../pages/DashboardPage';
@@ -67,10 +66,10 @@ const AppRoutes = () => {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/audit-logs" element={<AuditLogsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
         <Route path="/customers" element={<ComingSoonPage title="Customers" />} />
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
 
         <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>

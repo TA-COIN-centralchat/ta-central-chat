@@ -27,6 +27,7 @@ const menuItems = [
   { label: 'Agents', path: '/agents', icon: Users },
   { label: 'Categories', path: '/categories', icon: Tags },
   { label: 'Reports', path: '/reports', icon: BarChart3 },
+  { label: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -39,6 +40,7 @@ const Sidebar = () => {
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-lg font-bold text-slate-950">
               $
             </div>
+
             <div>
               <div className="text-lg font-bold">T.A Coin</div>
               <div className="text-sm text-slate-400">Central Chat</div>
