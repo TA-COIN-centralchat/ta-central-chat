@@ -29,58 +29,54 @@ const ReportsPage = () => {
     loadReports();
   }, []);
 
-  const getCountByStatus = (status) =>
+  const countByStatus = (status) =>
     tickets.filter((ticket) => ticket.status === status).length;
 
-  const getCountByChannel = (channel) =>
-    tickets.filter((ticket) => ticket.channel === channel).length;
+  const channelStats = Object.values(
+    tickets.reduce((acc, ticket) => {
+      const key = ticket.channel || 'Unknown';
 
-  const getCountByCategory = (category) =>
-    tickets.filter((ticket) => ticket.category === category).length;
+      if (!acc[key]) {
+        acc[key] = {
+          channel: key,
+          tickets: 0,
+        };
+      }
+
+      acc[key].tickets += 1;
+      return acc;
+    }, {})
+  );
+
+  const issueStats = Object.values(
+    tickets.reduce((acc, ticket) => {
+      const key = ticket.category || 'Other';
+
+      if (!acc[key]) {
+        acc[key] = {
+          issue: key,
+          tickets: 0,
+        };
+      }
+
+      acc[key].tickets += 1;
+      return acc;
+    }, {})
+  );
 
   const reportCards = [
     { label: 'Total Tickets', value: tickets.length },
-    { label: 'New Tickets', value: getCountByStatus('New') },
-    { label: 'In Progress', value: getCountByStatus('In Progress') },
-    {
-      label: 'Pending Investigation',
-      value: getCountByStatus('Pending Investigation'),
-    },
+    { label: 'New Tickets', value: countByStatus('New') },
+    { label: 'Assigned', value: countByStatus('Assigned') },
+    { label: 'In Progress', value: countByStatus('In Progress') },
+    { label: 'Pending Investigation', value: countByStatus('Pending Investigation') },
     {
       label: 'Resolved / Closed',
       value: tickets.filter(
         (ticket) => ticket.status === 'Resolved' || ticket.status === 'Closed'
       ).length,
     },
-    { label: 'Available Agents', value: agents.filter((a) => a.status === 'Available').length },
   ];
-
-  const channels = ['Website Chatbot', 'Telegram', 'Walk-in', 'Phone Call', 'Office Visit'];
-  const categories = [
-    'Payment Issue',
-    'Withdrawal Issue',
-    'Deposit Issue',
-    'P2P Issue',
-    'Login Issue',
-    'KYC Issue',
-    'Account Issue',
-    'Complaint',
-    'Other',
-  ];
-
-  const channelStats = channels
-    .map((channel) => ({
-      channel,
-      tickets: getCountByChannel(channel),
-    }))
-    .filter((item) => item.tickets > 0);
-
-  const issueStats = categories
-    .map((issue) => ({
-      issue,
-      tickets: getCountByCategory(issue),
-    }))
-    .filter((item) => item.tickets > 0);
 
   return (
     <DashboardLayout
@@ -113,30 +109,20 @@ const ReportsPage = () => {
 
               <div className="mt-5 space-y-4">
                 {channelStats.length === 0 ? (
-                  <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    No channel data available.
-                  </div>
+                  <Empty text="No channel data available." />
                 ) : (
                   channelStats.map((item) => {
                     const percentage =
                       tickets.length > 0 ? (item.tickets / tickets.length) * 100 : 0;
 
                     return (
-                      <div key={item.channel}>
-                        <div className="mb-2 flex justify-between text-sm">
-                          <span className="font-medium text-slate-700">
-                            {item.channel}
-                          </span>
-                          <span className="text-slate-500">{item.tickets}</span>
-                        </div>
-
-                        <div className="h-3 rounded-full bg-slate-100">
-                          <div
-                            className="h-3 rounded-full bg-blue-600"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
+                      <ProgressRow
+                        key={item.channel}
+                        label={item.channel}
+                        value={item.tickets}
+                        percentage={percentage}
+                        color="bg-blue-600"
+                      />
                     );
                   })
                 )}
@@ -148,30 +134,20 @@ const ReportsPage = () => {
 
               <div className="mt-5 space-y-4">
                 {issueStats.length === 0 ? (
-                  <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    No issue type data available.
-                  </div>
+                  <Empty text="No issue type data available." />
                 ) : (
                   issueStats.map((item) => {
                     const percentage =
                       tickets.length > 0 ? (item.tickets / tickets.length) * 100 : 0;
 
                     return (
-                      <div key={item.issue}>
-                        <div className="mb-2 flex justify-between text-sm">
-                          <span className="font-medium text-slate-700">
-                            {item.issue}
-                          </span>
-                          <span className="text-slate-500">{item.tickets}</span>
-                        </div>
-
-                        <div className="h-3 rounded-full bg-slate-100">
-                          <div
-                            className="h-3 rounded-full bg-emerald-600"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
+                      <ProgressRow
+                        key={item.issue}
+                        label={item.issue}
+                        value={item.tickets}
+                        percentage={percentage}
+                        color="bg-emerald-600"
+                      />
                     );
                   })
                 )}
@@ -184,7 +160,7 @@ const ReportsPage = () => {
               <div>
                 <h2 className="font-semibold text-slate-950">Agent Performance</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Overview of active tickets and resolved tickets by agent.
+                  Overview of active tickets and assigned tickets by agent.
                 </p>
               </div>
 
@@ -217,7 +193,9 @@ const ReportsPage = () => {
                         <td className="px-5 py-4 font-medium text-slate-900">
                           {agent.name}
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{agent.role}</td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {agent.role}
+                        </td>
                         <td className="px-5 py-4">
                           <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
                             {agent.status}
@@ -255,5 +233,27 @@ const ReportsPage = () => {
     </DashboardLayout>
   );
 };
+
+const ProgressRow = ({ label, value, percentage, color }) => (
+  <div>
+    <div className="mb-2 flex justify-between text-sm">
+      <span className="font-medium text-slate-700">{label}</span>
+      <span className="text-slate-500">{value}</span>
+    </div>
+
+    <div className="h-3 rounded-full bg-slate-100">
+      <div
+        className={`h-3 rounded-full ${color}`}
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  </div>
+);
+
+const Empty = ({ text }) => (
+  <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+    {text}
+  </div>
+);
 
 export default ReportsPage;
