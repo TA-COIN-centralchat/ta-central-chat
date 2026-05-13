@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import {
   BarChart3,
   CheckCircle,
+  ChevronDown,
   ClipboardList,
   Clock,
   Inbox,
@@ -15,23 +17,67 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
-const menuItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'All Tickets', path: '/tickets', icon: Inbox, count: 24 },
-  { label: 'Chatbot (Website)', path: '/chatbot', icon: MessageCircle, count: 11 },
-  { label: 'Telegram', path: '/telegram', icon: Send, count: 4 },
-  { label: 'Walk-in / Manual', path: '/manual-ticket', icon: ClipboardList },
-  { label: 'Waiting Queue', path: '/waiting-queue', icon: Clock, count: 5 },
-  { label: 'Pending Investigation', path: '/pending-investigation', icon: ShieldCheck, count: 3 },
-  { label: 'Closed Tickets', path: '/closed-tickets', icon: CheckCircle },
-  { label: 'Agents', path: '/agents', icon: Users },
-  { label: 'Categories', path: '/categories', icon: Tags },
-  { label: 'Reports', path: '/reports', icon: BarChart3 },
-  { label: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck },
-  { label: 'Settings', path: '/settings', icon: Settings },
+const menuGroups = [
+  {
+    title: 'Overview',
+    defaultOpen: true,
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Reports', path: '/reports', icon: BarChart3 },
+      { label: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck },
+    ],
+  },
+  {
+    title: 'Tickets',
+    defaultOpen: true,
+    items: [
+      { label: 'All Tickets', path: '/tickets', icon: Inbox, count: 24 },
+      { label: 'Waiting Queue', path: '/waiting-queue', icon: Clock, count: 5 },
+      {
+        label: 'Pending Investigation',
+        path: '/pending-investigation',
+        icon: ShieldCheck,
+        count: 3,
+      },
+      { label: 'Closed Tickets', path: '/closed-tickets', icon: CheckCircle },
+      { label: 'Walk-in / Manual', path: '/manual-ticket', icon: ClipboardList },
+    ],
+  },
+  {
+    title: 'Channels',
+    defaultOpen: false,
+    items: [
+      { label: 'Chatbot (Website)', path: '/chatbot', icon: MessageCircle, count: 11 },
+      { label: 'Telegram', path: '/telegram', icon: Send, count: 4 },
+    ],
+  },
+  {
+    title: 'Management',
+    defaultOpen: false,
+    items: [
+      { label: 'Customers', path: '/customers', icon: Users },
+      { label: 'Agents', path: '/agents', icon: Users },
+      { label: 'Categories', path: '/categories', icon: Tags },
+      { label: 'Settings', path: '/settings', icon: Settings },
+    ],
+  },
 ];
 
 const Sidebar = () => {
+  const initialOpenGroups = menuGroups.reduce((acc, group) => {
+    acc[group.title] = group.defaultOpen;
+    return acc;
+  }, {});
+
+  const [openGroups, setOpenGroups] = useState(initialOpenGroups);
+
+  const toggleGroup = (title) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
+  };
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-72 bg-slate-950 text-white">
       <div className="flex h-full flex-col">
@@ -48,35 +94,60 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="space-y-3">
+            {menuGroups.map((group) => (
+              <div key={group.title}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.title)}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                >
+                  <span>{group.title}</span>
 
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <span className="flex items-center gap-3">
-                  <Icon size={18} />
-                  {item.label}
-                </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      openGroups[group.title] ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
 
-                {item.count ? (
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
-                    {item.count}
-                  </span>
-                ) : null}
-              </NavLink>
-            );
-          })}
+                {openGroups[group.title] && (
+                  <div className="mt-1 space-y-1">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={({ isActive }) =>
+                            `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition ${
+                              isActive
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                            }`
+                          }
+                        >
+                          <span className="flex items-center gap-3">
+                            <Icon size={18} />
+                            {item.label}
+                          </span>
+
+                          {item.count ? (
+                            <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
+                              {item.count}
+                            </span>
+                          ) : null}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </nav>
 
         <div className="border-t border-white/10 p-4">
