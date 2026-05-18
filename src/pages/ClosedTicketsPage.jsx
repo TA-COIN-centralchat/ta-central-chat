@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getTickets } from '../services/ticketService';
 
 const ClosedTicketsPage = () => {
+  const navigate = useNavigate();
+
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,6 +16,7 @@ const ClosedTicketsPage = () => {
         setLoading(true);
 
         const data = await getTickets();
+
         const filteredTickets = data.filter(
           (ticket) => ticket.status === 'Closed' || ticket.status === 'Resolved'
         );
@@ -26,6 +31,15 @@ const ClosedTicketsPage = () => {
 
     loadClosedTickets();
   }, []);
+
+  const openTicket = (ticket) => {
+    navigate(`/tickets/${ticket.dbId}`, {
+      state: {
+        from: '/closed-tickets',
+        fromLabel: 'Closed Tickets',
+      },
+    });
+  };
 
   return (
     <DashboardLayout
@@ -80,32 +94,59 @@ const ClosedTicketsPage = () => {
 
               <tbody className="divide-y divide-slate-100">
                 {tickets.map((ticket) => (
-                  <tr key={ticket.dbId}>
-                    <td className="px-5 py-4 font-medium text-slate-900">
+                  <tr
+                    key={ticket.dbId}
+                    onClick={() => openTicket(ticket)}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
+                    <td className="whitespace-nowrap px-5 py-4 font-semibold text-slate-900">
                       {ticket.id}
                     </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {ticket.customer}
+
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-slate-900">
+                        {ticket.customer}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {ticket.phone ||
+                          ticket.telegram ||
+                          ticket.email ||
+                          'No contact'}
+                      </div>
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {ticket.channel}
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {ticket.category}
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {ticket.assignedTo}
                     </td>
+
                     <td className="px-5 py-4">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
                         {ticket.status}
                       </span>
                     </td>
+
                     <td className="max-w-xs px-5 py-4 text-slate-600">
                       {ticket.lastMessage}
                     </td>
+
                     <td className="px-5 py-4">
-                      <button className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openTicket(ticket);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                      >
+                        <Eye size={16} />
                         View
                       </button>
                     </td>

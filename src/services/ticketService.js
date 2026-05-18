@@ -137,6 +137,35 @@ export const getRawAgents = async () => {
   return data || [];
 };
 
+export const createAgent = async (formData) => {
+  const { data, error } = await supabase
+    .from('agents')
+    .insert({
+      full_name: formData.fullName,
+      email: formData.email,
+      role: formData.role,
+      status: 'Offline',
+      active_tickets: 0,
+      resolved_today: 0,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating agent:', error);
+    throw error;
+  }
+
+  await supabase.from('audit_logs').insert({
+    user_name: 'Agent Dara',
+    role: 'Admin',
+    action: 'Agent Created',
+    details: `New agent account created for ${formData.fullName} (${formData.role}). Default status set to Offline.`,
+  });
+
+  return data;
+};
+
 export const createTicketWithAutoAssign = async (formData) => {
   const { data: availableAgents, error: agentError } = await supabase
     .from('agents')

@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getTickets } from '../services/ticketService';
 
 const InvestigationPage = () => {
+  const navigate = useNavigate();
+
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,6 +16,7 @@ const InvestigationPage = () => {
         setLoading(true);
 
         const data = await getTickets();
+
         const filteredTickets = data.filter(
           (ticket) => ticket.status === 'Pending Investigation'
         );
@@ -27,9 +32,18 @@ const InvestigationPage = () => {
     loadInvestigationTickets();
   }, []);
 
+  const openTicket = (ticket) => {
+    navigate(`/tickets/${ticket.dbId}`, {
+      state: {
+        from: '/pending-investigation',
+        fromLabel: 'Investigation',
+      },
+    });
+  };
+
   return (
     <DashboardLayout
-      title="Pending Investigation"
+      title="Investigation"
       description="Tickets that cannot be solved immediately and need internal follow-up."
     >
       <div className="rounded-2xl border border-slate-200 bg-white">
@@ -72,39 +86,71 @@ const InvestigationPage = () => {
                   <th className="px-5 py-3">Issue Type</th>
                   <th className="px-5 py-3">Assigned To</th>
                   <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Last Updated</th>
+                  <th className="px-5 py-3">Created</th>
                   <th className="px-5 py-3">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100">
                 {tickets.map((ticket) => (
-                  <tr key={ticket.dbId}>
-                    <td className="px-5 py-4 font-medium text-slate-900">
+                  <tr
+                    key={ticket.dbId}
+                    onClick={() => openTicket(ticket)}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
+                    <td className="whitespace-nowrap px-5 py-4 font-semibold text-slate-900">
                       {ticket.id}
                     </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {ticket.customer}
+
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-slate-900">
+                        {ticket.customer}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {ticket.phone ||
+                          ticket.telegram ||
+                          ticket.email ||
+                          'No contact'}
+                      </div>
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {ticket.channel}
                     </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {ticket.category}
+
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-slate-800">
+                        {ticket.category}
+                      </div>
+                      <div className="mt-1 max-w-xs truncate text-xs text-slate-500">
+                        {ticket.subCategory || ticket.lastMessage}
+                      </div>
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {ticket.assignedTo}
                     </td>
+
                     <td className="px-5 py-4">
-                      <span className="rounded-full bg-orange-50 px-3 py-1 text-xs text-orange-700">
+                      <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
                         {ticket.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-slate-600">
+
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-600">
                       {ticket.time}
                     </td>
+
                     <td className="px-5 py-4">
-                      <button className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openTicket(ticket);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                      >
+                        <Eye size={16} />
                         View
                       </button>
                     </td>

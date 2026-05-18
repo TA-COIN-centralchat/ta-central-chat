@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   autoAssignWaitingTickets,
@@ -6,6 +7,8 @@ import {
 } from '../services/ticketService';
 
 const WaitingQueuePage = () => {
+  const navigate = useNavigate();
+
   const [waitingTickets, setWaitingTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
@@ -79,6 +82,7 @@ const WaitingQueuePage = () => {
             </span>
 
             <button
+              type="button"
               onClick={handleAutoAssign}
               disabled={assigning}
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -112,7 +116,7 @@ const WaitingQueuePage = () => {
             {waitingTickets.map((ticket, index) => (
               <div
                 key={ticket.dbId}
-                className="grid grid-cols-[80px_1fr_180px_180px_160px] items-center gap-4 p-5"
+                className="grid grid-cols-[80px_1fr_180px_180px_220px] items-center gap-4 p-5"
               >
                 <div>
                   <div className="text-xs text-slate-400">Queue</div>
@@ -149,8 +153,17 @@ const WaitingQueuePage = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
                   <button
+                    type="button"
+                    onClick={() => navigate(`/tickets/${ticket.dbId}`)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                  >
+                    View
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleAutoAssign}
                     disabled={assigning}
                     className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"

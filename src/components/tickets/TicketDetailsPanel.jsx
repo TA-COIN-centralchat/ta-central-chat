@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Lock } from 'lucide-react';
 import ReassignTicketModal from './ReassignTicketModal';
 
 const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
   const [showReassign, setShowReassign] = useState(false);
   const [localAssignedTo, setLocalAssignedTo] = useState(ticket?.assignedTo);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocalAssignedTo(ticket?.assignedTo);
+  }, [ticket?.assignedTo]);
 
   if (!ticket) {
     return (
@@ -14,6 +20,9 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
       </aside>
     );
   }
+
+  const isTicketLocked =
+    ticket.status === 'Resolved' || ticket.status === 'Closed';
 
   const handleReassignUpdated = async (newAgentName) => {
     setLocalAssignedTo(newAgentName);
@@ -34,6 +43,19 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
         </div>
 
         <div className="space-y-5 p-4">
+          {isTicketLocked && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="flex items-center gap-2 font-semibold text-slate-800">
+                <Lock size={16} />
+                Ticket Locked
+              </div>
+              <p className="mt-1">
+                This ticket is {ticket.status}. It is now read-only and cannot
+                be reassigned from this panel.
+              </p>
+            </div>
+          )}
+
           <section>
             <h3 className="mb-3 text-sm font-semibold text-slate-900">
               Customer Information
@@ -48,7 +70,10 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             <div className="space-y-3 text-sm">
               <Detail label="Full Name" value={ticket.customer} />
               <Detail label="Phone" value={ticket.phone || 'Not provided'} />
-              <Detail label="Telegram" value={ticket.telegram || 'Not provided'} />
+              <Detail
+                label="Telegram"
+                value={ticket.telegram || 'Not provided'}
+              />
               <Detail label="Email" value={ticket.email || 'Not provided'} />
               <Detail
                 label="T.A Coin User ID"
@@ -66,9 +91,15 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             <div className="space-y-3 text-sm">
               <Detail label="Ticket ID" value={ticket.id} />
               <Detail label="Issue Type" value={ticket.category} />
-              <Detail label="Sub-category" value={ticket.subCategory || 'Not provided'} />
+              <Detail
+                label="Sub-category"
+                value={ticket.subCategory || 'Not provided'}
+              />
               <Detail label="Status" value={ticket.status} />
-              <Detail label="Assigned To" value={localAssignedTo || ticket.assignedTo} />
+              <Detail
+                label="Assigned To"
+                value={localAssignedTo || ticket.assignedTo}
+              />
               <Detail
                 label="Transaction ID"
                 value={ticket.transactionId || 'Not provided'}
@@ -83,13 +114,24 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             </h3>
 
             <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => setShowReassign(true)}
-                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Reassign Ticket
-              </button>
+              {isTicketLocked ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500"
+                >
+                  <Lock size={16} />
+                  Reassign Disabled
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowReassign(true)}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Reassign Ticket
+                </button>
+              )}
 
               <button
                 type="button"
@@ -106,11 +148,20 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             </h3>
 
             <div className="space-y-3 border-l border-slate-200 pl-4 text-sm">
-              <TimelineItem title="Ticket created" time={ticket.time || 'Unknown'} />
+              <TimelineItem
+                title="Ticket created"
+                time={ticket.time || 'Unknown'}
+              />
               <TimelineItem
                 title={`Assigned to ${localAssignedTo || ticket.assignedTo}`}
                 time={ticket.time || 'Unknown'}
               />
+              {isTicketLocked && (
+                <TimelineItem
+                  title={`Ticket marked as ${ticket.status}`}
+                  time="Latest update"
+                />
+              )}
             </div>
           </section>
 
@@ -120,7 +171,10 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             </h3>
 
             <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Internal notes added in the chat window will be saved in Supabase.
+              Internal notes added in the chat window are saved in Supabase.
+              {isTicketLocked
+                ? ' Since this ticket is closed/resolved, new notes cannot be added from the chat box.'
+                : ''}
             </div>
           </section>
         </div>

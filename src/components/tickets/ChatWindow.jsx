@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Paperclip, SendHorizontal } from 'lucide-react';
+import { Lock, Paperclip, SendHorizontal } from 'lucide-react';
 import ResolveTicketModal from './ResolveTicketModal';
 import EscalateTicketModal from './EscalateTicketModal';
 import {
@@ -21,6 +21,9 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
   const [localTicketStatus, setLocalTicketStatus] = useState(
     ticket?.status || ''
   );
+
+  const isTicketLocked =
+    localTicketStatus === 'Resolved' || localTicketStatus === 'Closed';
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -46,6 +49,11 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
   }, [ticket?.dbId]);
 
   const handleSendMessage = async () => {
+    if (isTicketLocked) {
+      alert('This ticket is closed/resolved. You cannot send new messages.');
+      return;
+    }
+
     if (!replyText.trim() || !ticket?.dbId) return;
 
     try {
@@ -100,21 +108,30 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
             </div>
 
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowResolve(true)}
-                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
-              >
-                Resolve
-              </button>
+              {isTicketLocked ? (
+                <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
+                  <Lock size={16} />
+                  Ticket Locked
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowResolve(true)}
+                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+                  >
+                    Resolve
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setShowEscalate(true)}
-                className="rounded-xl bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-700"
-              >
-                Escalate
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowEscalate(true)}
+                    className="rounded-xl bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-700"
+                  >
+                    Escalate
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -194,61 +211,75 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
         </div>
 
         <div className="border-t border-slate-200 p-4">
-          <div className="mb-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveMode('reply')}
-              className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
-                activeMode === 'reply'
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              Reply
-            </button>
+          {isTicketLocked ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <div className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-slate-700">
+                <Lock size={16} />
+                This ticket is {localTicketStatus}
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Conversation is locked. Agents can view history but cannot send new replies or internal notes.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveMode('reply')}
+                  className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
+                    activeMode === 'reply'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  Reply
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveMode('internal')}
-              className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
-                activeMode === 'internal'
-                  ? 'bg-amber-50 text-amber-700'
-                  : 'text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              Internal Note
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveMode('internal')}
+                  className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
+                    activeMode === 'internal'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  Internal Note
+                </button>
+              </div>
 
-          <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <button
-              type="button"
-              className="rounded-xl p-2 text-slate-500 hover:bg-white"
-            >
-              <Paperclip size={18} />
-            </button>
+              <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <button
+                  type="button"
+                  className="rounded-xl p-2 text-slate-500 hover:bg-white"
+                >
+                  <Paperclip size={18} />
+                </button>
 
-            <textarea
-              rows="2"
-              value={replyText}
-              onChange={(event) => setReplyText(event.target.value)}
-              placeholder={
-                activeMode === 'reply'
-                  ? 'Type your reply to customer...'
-                  : 'Type internal note for staff only...'
-              }
-              className="flex-1 resize-none bg-transparent text-sm outline-none"
-            />
+                <textarea
+                  rows="2"
+                  value={replyText}
+                  onChange={(event) => setReplyText(event.target.value)}
+                  placeholder={
+                    activeMode === 'reply'
+                      ? 'Type your reply to customer...'
+                      : 'Type internal note for staff only...'
+                  }
+                  className="flex-1 resize-none bg-transparent text-sm outline-none"
+                />
 
-            <button
-              type="button"
-              onClick={handleSendMessage}
-              disabled={sending || !replyText.trim()}
-              className="rounded-xl bg-blue-600 p-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <SendHorizontal size={18} />
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={handleSendMessage}
+                  disabled={sending || !replyText.trim()}
+                  className="rounded-xl bg-blue-600 p-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <SendHorizontal size={18} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
