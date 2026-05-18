@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -9,6 +9,7 @@ const ClosedTicketsPage = () => {
 
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const loadClosedTickets = async () => {
@@ -32,6 +33,29 @@ const ClosedTicketsPage = () => {
     loadClosedTickets();
   }, []);
 
+  const filteredTickets = useMemo(() => {
+    const searchValue = searchTerm.toLowerCase().trim();
+
+    if (!searchValue) return tickets;
+
+    return tickets.filter((ticket) => {
+      return (
+        ticket.id?.toLowerCase().includes(searchValue) ||
+        ticket.customer?.toLowerCase().includes(searchValue) ||
+        ticket.channel?.toLowerCase().includes(searchValue) ||
+        ticket.category?.toLowerCase().includes(searchValue) ||
+        ticket.subCategory?.toLowerCase().includes(searchValue) ||
+        ticket.status?.toLowerCase().includes(searchValue) ||
+        ticket.assignedTo?.toLowerCase().includes(searchValue) ||
+        ticket.phone?.toLowerCase().includes(searchValue) ||
+        ticket.telegram?.toLowerCase().includes(searchValue) ||
+        ticket.email?.toLowerCase().includes(searchValue) ||
+        ticket.accountId?.toLowerCase().includes(searchValue) ||
+        ticket.transactionId?.toLowerCase().includes(searchValue)
+      );
+    });
+  }, [tickets, searchTerm]);
+
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
@@ -47,19 +71,21 @@ const ClosedTicketsPage = () => {
       description="View resolved and archived customer support tickets."
     >
       <div className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
           <div>
             <h2 className="font-semibold text-slate-950">
               Closed Ticket Archive
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Historical support records for review and reporting.
+              {filteredTickets.length} of {tickets.length} closed/resolved tickets shown.
             </p>
           </div>
 
           <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search closed tickets..."
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-80"
           />
         </div>
 
@@ -67,13 +93,13 @@ const ClosedTicketsPage = () => {
           <div className="p-10 text-center text-sm text-slate-500">
             Loading closed tickets...
           </div>
-        ) : tickets.length === 0 ? (
+        ) : filteredTickets.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-lg font-semibold text-slate-900">
               No closed tickets found
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              Resolved or closed tickets will appear here.
+              Try changing your search keyword.
             </p>
           </div>
         ) : (
@@ -93,7 +119,7 @@ const ClosedTicketsPage = () => {
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {tickets.map((ticket) => (
+                {filteredTickets.map((ticket) => (
                   <tr
                     key={ticket.dbId}
                     onClick={() => openTicket(ticket)}
@@ -134,7 +160,9 @@ const ClosedTicketsPage = () => {
                     </td>
 
                     <td className="max-w-xs px-5 py-4 text-slate-600">
-                      {ticket.lastMessage}
+                      <div className="truncate">
+                        {ticket.lastMessage || 'No summary available.'}
+                      </div>
                     </td>
 
                     <td className="px-5 py-4">

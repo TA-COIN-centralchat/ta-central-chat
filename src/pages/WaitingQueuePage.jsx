@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
@@ -13,6 +14,7 @@ const WaitingQueuePage = () => {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [message, setMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadWaitingTickets = async () => {
     try {
@@ -60,35 +62,78 @@ const WaitingQueuePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const filteredWaitingTickets = useMemo(() => {
+    const searchValue = searchTerm.toLowerCase().trim();
+
+    if (!searchValue) return waitingTickets;
+
+    return waitingTickets.filter((ticket) => {
+      return (
+        ticket.id?.toLowerCase().includes(searchValue) ||
+        ticket.customer?.toLowerCase().includes(searchValue) ||
+        ticket.channel?.toLowerCase().includes(searchValue) ||
+        ticket.category?.toLowerCase().includes(searchValue) ||
+        ticket.subCategory?.toLowerCase().includes(searchValue) ||
+        ticket.status?.toLowerCase().includes(searchValue) ||
+        ticket.assignedTo?.toLowerCase().includes(searchValue) ||
+        ticket.phone?.toLowerCase().includes(searchValue) ||
+        ticket.telegram?.toLowerCase().includes(searchValue) ||
+        ticket.email?.toLowerCase().includes(searchValue) ||
+        ticket.accountId?.toLowerCase().includes(searchValue) ||
+        ticket.transactionId?.toLowerCase().includes(searchValue)
+      );
+    });
+  }, [waitingTickets, searchTerm]);
+
+  const openTicket = (ticket) => {
+    navigate(`/tickets/${ticket.dbId}`, {
+      state: {
+        from: '/waiting-queue',
+        fromLabel: 'Waiting Queue',
+      },
+    });
+  };
+
   return (
     <DashboardLayout
       title="Waiting Queue"
       description="Tickets waiting for an available support agent."
     >
       <div className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 p-5">
-          <div>
-            <h2 className="font-semibold text-slate-950">
-              Unassigned Tickets
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              The system auto-assigns queue tickets to available agents with the lowest workload.
-            </p>
+        <div className="border-b border-slate-200 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-semibold text-slate-950">
+                Unassigned Tickets
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {filteredWaitingTickets.length} of {waitingTickets.length} waiting tickets shown.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
+                {waitingTickets.length} Waiting
+              </span>
+
+              <button
+                type="button"
+                onClick={handleAutoAssign}
+                disabled={assigning}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {assigning ? 'Assigning...' : 'Auto Assign Queue'}
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
-              {waitingTickets.length} Waiting
-            </span>
-
-            <button
-              type="button"
-              onClick={handleAutoAssign}
-              disabled={assigning}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {assigning ? 'Assigning...' : 'Auto Assign Queue'}
-            </button>
+          <div className="mt-5">
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search queue tickets..."
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-96"
+            />
           </div>
         </div>
 
@@ -102,7 +147,7 @@ const WaitingQueuePage = () => {
           <div className="p-10 text-center text-sm text-slate-500">
             Loading waiting queue...
           </div>
-        ) : waitingTickets.length === 0 ? (
+        ) : filteredWaitingTickets.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-lg font-semibold text-slate-900">
               Waiting queue is empty
@@ -112,67 +157,100 @@ const WaitingQueuePage = () => {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {waitingTickets.map((ticket, index) => (
-              <div
-                key={ticket.dbId}
-                className="grid grid-cols-[80px_1fr_180px_180px_220px] items-center gap-4 p-5"
-              >
-                <div>
-                  <div className="text-xs text-slate-400">Queue</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-950">
-                    #{index + 1}
-                  </div>
-                </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Queue</th>
+                  <th className="px-5 py-3">Ticket</th>
+                  <th className="px-5 py-3">Customer</th>
+                  <th className="px-5 py-3">Channel</th>
+                  <th className="px-5 py-3">Issue Type</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Action</th>
+                </tr>
+              </thead>
 
-                <div>
-                  <div className="font-semibold text-slate-900">
-                    {ticket.id}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-600">
-                    {ticket.customer} · {ticket.channel}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-500">
-                    {ticket.lastMessage}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-slate-400">Issue Type</div>
-                  <div className="mt-1 text-sm font-medium text-slate-800">
-                    {ticket.category}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-slate-400">Status</div>
-                  <div className="mt-1">
-                    <span className="rounded-full bg-orange-50 px-3 py-1 text-xs text-orange-700">
-                      {ticket.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/tickets/${ticket.dbId}`)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+              <tbody className="divide-y divide-slate-100">
+                {filteredWaitingTickets.map((ticket, index) => (
+                  <tr
+                    key={ticket.dbId}
+                    onClick={() => openTicket(ticket)}
+                    className="cursor-pointer hover:bg-slate-50"
                   >
-                    View
-                  </button>
+                    <td className="px-5 py-4">
+                      <div className="text-xs text-slate-400">Position</div>
+                      <div className="mt-1 font-semibold text-slate-950">
+                        #{index + 1}
+                      </div>
+                    </td>
 
-                  <button
-                    type="button"
-                    onClick={handleAutoAssign}
-                    disabled={assigning}
-                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Assign
-                  </button>
-                </div>
-              </div>
-            ))}
+                    <td className="px-5 py-4">
+                      <div className="font-semibold text-slate-900">
+                        {ticket.id}
+                      </div>
+                      <div className="mt-1 max-w-xs truncate text-xs text-slate-500">
+                        {ticket.lastMessage}
+                      </div>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-slate-900">
+                        {ticket.customer}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {ticket.phone ||
+                          ticket.telegram ||
+                          ticket.email ||
+                          'No contact'}
+                      </div>
+                    </td>
+
+                    <td className="px-5 py-4 text-slate-600">
+                      {ticket.channel}
+                    </td>
+
+                    <td className="px-5 py-4 text-slate-600">
+                      {ticket.category}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+                        {ticket.status}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openTicket(ticket);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                        >
+                          <Eye size={16} />
+                          View
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleAutoAssign();
+                          }}
+                          disabled={assigning}
+                          className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Assign
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

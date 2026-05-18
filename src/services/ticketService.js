@@ -1,4 +1,29 @@
 import { supabase } from './supabaseClient';
+export const createCategory = async (formData) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({
+      name: formData.name,
+      description: formData.description || null,
+      status: 'Active',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating category:', error);
+    throw error;
+  }
+
+  await supabase.from('audit_logs').insert({
+    user_name: 'Agent Dara',
+    role: 'Admin',
+    action: 'Category Created',
+    details: `New category created: ${formData.name}.`,
+  });
+
+  return data;
+};
 
 export const getTickets = async () => {
   const { data, error } = await supabase

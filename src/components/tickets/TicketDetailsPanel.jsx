@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, X } from 'lucide-react';
 import ReassignTicketModal from './ReassignTicketModal';
+import { supabase } from '../../services/supabaseClient';
 
 const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
   const [showReassign, setShowReassign] = useState(false);
+  const [showAuditHistory, setShowAuditHistory] = useState(false);
   const [localAssignedTo, setLocalAssignedTo] = useState(ticket?.assignedTo);
 
   useEffect(() => {
@@ -70,10 +72,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             <div className="space-y-3 text-sm">
               <Detail label="Full Name" value={ticket.customer} />
               <Detail label="Phone" value={ticket.phone || 'Not provided'} />
-              <Detail
-                label="Telegram"
-                value={ticket.telegram || 'Not provided'}
-              />
+              <Detail label="Telegram" value={ticket.telegram || 'Not provided'} />
               <Detail label="Email" value={ticket.email || 'Not provided'} />
               <Detail
                 label="T.A Coin User ID"
@@ -135,6 +134,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
 
               <button
                 type="button"
+                onClick={() => setShowAuditHistory(true)}
                 className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 View Audit History
@@ -186,7 +186,128 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
         ticket={ticket}
         onUpdated={handleReassignUpdated}
       />
+
+      <AuditHistoryModal
+        open={showAuditHistory}
+        onClose={() => setShowAuditHistory(false)}
+        ticket={ticket}
+      />
     </>
+  );
+};
+
+const AuditHistoryModal = ({ open, onClose, ticket }) => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !ticket?.dbId) return;
+
+    const loadAuditLogs = async () => {
+      try {
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .eq('ticket_id', ticket.dbId)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        setLogs(data || []);
+      } catch (error) {
+        console.error('Failed to load ticket audit history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAuditLogs();
+  }, [open, ticket?.dbId]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-200 p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">
+              Audit History
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Activity history for {ticket?.id}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-5">
+          {loading ? (
+            <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+              Loading audit history...
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="rounded-xl bg-slate-50 p-6 text-center">
+              <div className="font-semibold text-slate-900">
+                No audit history found
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Actions for this ticket will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="rounded-2xl border border-slate-200 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-slate-900">
+                        {log.action}
+                      </div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        {log.user_name || 'System'} · {log.role || 'System'}
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-400">
+                      {new Date(log.created_at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                    {log.details || 'No details provided.'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-slate-200 p-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

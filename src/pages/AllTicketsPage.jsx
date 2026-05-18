@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye } from 'lucide-react';
+import { Download, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getTickets } from '../services/ticketService';
@@ -105,10 +105,89 @@ const AllTicketsPage = () => {
     });
   };
 
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) return '';
+
+    const stringValue = String(value).replaceAll('"', '""');
+
+    if (
+      stringValue.includes(',') ||
+      stringValue.includes('"') ||
+      stringValue.includes('\n')
+    ) {
+      return `"${stringValue}"`;
+    }
+
+    return stringValue;
+  };
+
+  const handleExportCsv = () => {
+    if (filteredTickets.length === 0) {
+      alert('No tickets available to export.');
+      return;
+    }
+
+    const headers = [
+      'Ticket ID',
+      'Customer',
+      'Channel',
+      'Issue Type',
+      'Sub-category',
+      'Status',
+      'Assigned Agent',
+      'Phone',
+      'Telegram',
+      'Email',
+      'T.A Coin User ID',
+      'Transaction ID',
+      'Issue Description / Summary',
+      'Created Time',
+    ];
+
+    const rows = filteredTickets.map((ticket) => [
+      ticket.id,
+      ticket.customer,
+      ticket.channel,
+      ticket.category,
+      ticket.subCategory || '',
+      ticket.status,
+      ticket.assignedTo,
+      ticket.phone || '',
+      ticket.telegram || '',
+      ticket.email || '',
+      ticket.accountId || '',
+      ticket.transactionId || '',
+      ticket.lastMessage || '',
+      ticket.time || '',
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCsvValue).join(','),
+      ...rows.map((row) => row.map(escapeCsvValue).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const statusName = statusFilter.replaceAll(' ', '-').toLowerCase();
+    const channelName = channelFilter.replaceAll(' ', '-').toLowerCase();
+
+    link.href = url;
+    link.download = `ta-coin-tickets-${statusName}-${channelName}-${today}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <DashboardLayout
       title="All Tickets"
-      description="Search, filter, and open customer support tickets."
+      description="Search, filter, export, and open customer support tickets."
     >
       <div className="rounded-2xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-5">
@@ -120,13 +199,24 @@ const AllTicketsPage = () => {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('/manual-ticket')}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + New Ticket
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Download size={16} />
+                Export CSV
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/manual-ticket')}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                + New Ticket
+              </button>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-[1fr_220px_220px]">

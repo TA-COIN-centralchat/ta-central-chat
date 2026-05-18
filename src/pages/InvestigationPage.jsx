@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -9,6 +9,7 @@ const InvestigationPage = () => {
 
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const loadInvestigationTickets = async () => {
@@ -32,47 +33,79 @@ const InvestigationPage = () => {
     loadInvestigationTickets();
   }, []);
 
+  const filteredTickets = useMemo(() => {
+    const searchValue = searchTerm.toLowerCase().trim();
+
+    if (!searchValue) return tickets;
+
+    return tickets.filter((ticket) => {
+      return (
+        ticket.id?.toLowerCase().includes(searchValue) ||
+        ticket.customer?.toLowerCase().includes(searchValue) ||
+        ticket.channel?.toLowerCase().includes(searchValue) ||
+        ticket.category?.toLowerCase().includes(searchValue) ||
+        ticket.subCategory?.toLowerCase().includes(searchValue) ||
+        ticket.status?.toLowerCase().includes(searchValue) ||
+        ticket.assignedTo?.toLowerCase().includes(searchValue) ||
+        ticket.phone?.toLowerCase().includes(searchValue) ||
+        ticket.telegram?.toLowerCase().includes(searchValue) ||
+        ticket.email?.toLowerCase().includes(searchValue) ||
+        ticket.accountId?.toLowerCase().includes(searchValue) ||
+        ticket.transactionId?.toLowerCase().includes(searchValue)
+      );
+    });
+  }, [tickets, searchTerm]);
+
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
         from: '/pending-investigation',
-        fromLabel: 'Investigation',
+        fromLabel: 'Pending Investigation',
       },
     });
   };
 
   return (
     <DashboardLayout
-      title="Investigation"
+      title="Pending Investigation"
       description="Tickets that cannot be solved immediately and need internal follow-up."
     >
       <div className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
           <div>
             <h2 className="font-semibold text-slate-950">
               Investigation Tickets
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Customer session may be ended, but internal investigation continues.
+              {filteredTickets.length} of {tickets.length} pending investigation tickets shown.
             </p>
           </div>
 
-          <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
-            {tickets.length} Pending
-          </span>
+          <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search investigation tickets..."
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-80"
+            />
+
+            <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
+              {tickets.length} Pending
+            </span>
+          </div>
         </div>
 
         {loading ? (
           <div className="p-10 text-center text-sm text-slate-500">
             Loading pending investigation tickets...
           </div>
-        ) : tickets.length === 0 ? (
+        ) : filteredTickets.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-lg font-semibold text-slate-900">
-              No pending investigation tickets
+              No pending investigation tickets found
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              Escalated tickets will appear here.
+              Try changing your search keyword.
             </p>
           </div>
         ) : (
@@ -92,7 +125,7 @@ const InvestigationPage = () => {
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {tickets.map((ticket) => (
+                {filteredTickets.map((ticket) => (
                   <tr
                     key={ticket.dbId}
                     onClick={() => openTicket(ticket)}

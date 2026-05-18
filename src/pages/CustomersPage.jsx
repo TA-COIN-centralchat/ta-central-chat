@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { supabase } from '../services/supabaseClient';
 
@@ -6,6 +6,7 @@ const CustomersPage = () => {
   const [customers, setCustomers] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const loadCustomers = async () => {
@@ -54,23 +55,42 @@ const CustomersPage = () => {
     ).length;
   };
 
+  const filteredCustomers = useMemo(() => {
+    const searchValue = searchTerm.toLowerCase().trim();
+
+    if (!searchValue) return customers;
+
+    return customers.filter((customer) => {
+      return (
+        customer.full_name?.toLowerCase().includes(searchValue) ||
+        customer.phone?.toLowerCase().includes(searchValue) ||
+        customer.email?.toLowerCase().includes(searchValue) ||
+        customer.telegram_username?.toLowerCase().includes(searchValue) ||
+        customer.ta_coin_user_id?.toLowerCase().includes(searchValue) ||
+        customer.source_channel?.toLowerCase().includes(searchValue)
+      );
+    });
+  }, [customers, searchTerm]);
+
   return (
     <DashboardLayout
       title="Customers"
       description="View customer profiles and support history."
     >
       <div className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
           <div>
             <h2 className="font-semibold text-slate-950">Customer Records</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Customer information collected from Telegram, website chatbot, and manual tickets.
+              {filteredCustomers.length} of {customers.length} customers shown.
             </p>
           </div>
 
           <input
-            placeholder="Search customers..."
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search name, phone, email, Telegram, T.A Coin ID..."
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-96"
           />
         </div>
 
@@ -78,13 +98,13 @@ const CustomersPage = () => {
           <div className="p-10 text-center text-sm text-slate-500">
             Loading customers...
           </div>
-        ) : customers.length === 0 ? (
+        ) : filteredCustomers.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-lg font-semibold text-slate-900">
               No customers found
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              Customers will appear here after tickets are created.
+              Try changing your search keyword.
             </p>
           </div>
         ) : (
@@ -105,8 +125,8 @@ const CustomersPage = () => {
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {customers.map((customer) => (
-                  <tr key={customer.id}>
+                {filteredCustomers.map((customer) => (
+                  <tr key={customer.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4 font-medium text-slate-900">
                       {customer.full_name}
                     </td>
@@ -128,7 +148,7 @@ const CustomersPage = () => {
                     </td>
 
                     <td className="px-5 py-4">
-                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                         {customer.source_channel || 'Unknown'}
                       </span>
                     </td>
@@ -142,7 +162,9 @@ const CustomersPage = () => {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-slate-600">
-                      {new Date(customer.created_at).toLocaleDateString()}
+                      {customer.created_at
+                        ? new Date(customer.created_at).toLocaleDateString()
+                        : 'N/A'}
                     </td>
                   </tr>
                 ))}

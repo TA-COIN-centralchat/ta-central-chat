@@ -15,6 +15,25 @@ import ReportsPage from '../pages/ReportsPage';
 import ChannelTicketsPage from '../pages/ChannelTicketsPage';
 import AuditLogsPage from '../pages/AuditLogsPage';
 import CustomersPage from '../pages/CustomersPage';
+import ProtectedRoute from './ProtectedRoute';
+
+const ADMIN = ['Admin'];
+
+const ALL_ROLES = [
+  'Admin',
+  'Customer Service Agent',
+  'Customer Support Agent',
+];
+
+const ADMIN_AND_SERVICE = ['Admin', 'Customer Service Agent'];
+
+const ADMIN_AND_SUPPORT = ['Admin', 'Customer Support Agent'];
+
+const SERVICE_AND_SUPPORT = [
+  'Admin',
+  'Customer Service Agent',
+  'Customer Support Agent',
+];
 
 const ComingSoonPage = ({ title }) => {
   return (
@@ -29,6 +48,14 @@ const ComingSoonPage = ({ title }) => {
   );
 };
 
+const protect = (allowedRoles, element) => {
+  return (
+    <ProtectedRoute allowedRoles={allowedRoles}>
+      {element}
+    </ProtectedRoute>
+  );
+};
+
 const AppRoutes = () => {
   return (
     <BrowserRouter>
@@ -36,54 +63,127 @@ const AppRoutes = () => {
         <Route path="/" element={<Navigate to="/tickets" replace />} />
 
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
 
-        <Route path="/tickets" element={<AllTicketsPage />} />
-        <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
+        <Route
+          path="/dashboard"
+          element={protect(ALL_ROLES, <DashboardPage />)}
+        />
+
+        <Route
+          path="/tickets"
+          element={protect(SERVICE_AND_SUPPORT, <AllTicketsPage />)}
+        />
+
+        <Route
+          path="/tickets/:ticketId"
+          element={protect(SERVICE_AND_SUPPORT, <TicketDetailPage />)}
+        />
 
         <Route
           path="/chatbot"
-          element={
+          element={protect(
+            ADMIN_AND_SERVICE,
             <ChannelTicketsPage
               channelName="Website Chatbot"
               title="Chatbot Tickets"
               description="Manage tickets received from the landing page chatbot."
               workspaceBasePath="/chatbot"
             />
-          }
+          )}
         />
-        <Route path="/chatbot/:ticketId" element={<TicketDetailPage />} />
+
+        <Route
+          path="/chatbot/:ticketId"
+          element={protect(ADMIN_AND_SERVICE, <TicketDetailPage />)}
+        />
 
         <Route
           path="/telegram"
-          element={
+          element={protect(
+            ADMIN_AND_SERVICE,
             <ChannelTicketsPage
               channelName="Telegram"
               title="Telegram Tickets"
               description="Manage tickets received from the T.A Coin Telegram Bot."
               workspaceBasePath="/telegram"
             />
-          }
+          )}
         />
-        <Route path="/telegram/:ticketId" element={<TicketDetailPage />} />
 
-        <Route path="/manual-ticket" element={<ManualTicketPage />} />
-        <Route path="/waiting-queue" element={<WaitingQueuePage />} />
-        <Route path="/pending-investigation" element={<InvestigationPage />} />
-        <Route path="/closed-tickets" element={<ClosedTicketsPage />} />
+        <Route
+          path="/telegram/:ticketId"
+          element={protect(ADMIN_AND_SERVICE, <TicketDetailPage />)}
+        />
 
-        <Route path="/customers" element={<CustomersPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
-        <Route path="/categories" element={<CategoriesPage />} />
+        <Route
+          path="/manual-ticket"
+          element={protect(ADMIN_AND_SERVICE, <ManualTicketPage />)}
+        />
 
-        <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/waiting-queue"
+          element={protect(ADMIN_AND_SERVICE, <WaitingQueuePage />)}
+        />
 
-        <Route path="/account-management" element={<ComingSoonPage title="Account Management" />} />
-        <Route path="/popups" element={<ComingSoonPage title="Popups" />} />
-        <Route path="/news-portal" element={<ComingSoonPage title="News Portal" />} />
-        <Route path="/job-applications" element={<ComingSoonPage title="Job Applications" />} />
+        <Route
+          path="/pending-investigation"
+          element={protect(ADMIN_AND_SUPPORT, <InvestigationPage />)}
+        />
+
+        <Route
+          path="/closed-tickets"
+          element={protect(SERVICE_AND_SUPPORT, <ClosedTicketsPage />)}
+        />
+
+        <Route
+          path="/customers"
+          element={protect(SERVICE_AND_SUPPORT, <CustomersPage />)}
+        />
+
+        <Route
+          path="/agents"
+          element={protect(ADMIN, <AgentsPage />)}
+        />
+
+        <Route
+          path="/categories"
+          element={protect(ADMIN, <CategoriesPage />)}
+        />
+
+        <Route
+          path="/reports"
+          element={protect(ADMIN, <ReportsPage />)}
+        />
+
+        <Route
+          path="/audit-logs"
+          element={protect(ADMIN, <AuditLogsPage />)}
+        />
+
+        <Route
+          path="/settings"
+          element={protect(ADMIN, <SettingsPage />)}
+        />
+
+        <Route
+          path="/account-management"
+          element={protect(ADMIN, <ComingSoonPage title="Account Management" />)}
+        />
+
+        <Route
+          path="/popups"
+          element={protect(ADMIN, <ComingSoonPage title="Popups" />)}
+        />
+
+        <Route
+          path="/news-portal"
+          element={protect(ADMIN, <ComingSoonPage title="News Portal" />)}
+        />
+
+        <Route
+          path="/job-applications"
+          element={protect(ADMIN, <ComingSoonPage title="Job Applications" />)}
+        />
 
         <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>
