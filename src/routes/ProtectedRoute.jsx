@@ -1,23 +1,24 @@
 import { ShieldAlert } from 'lucide-react';
 
-export const currentUserRole = 'Admin';
+export const DEFAULT_ROLE = 'Admin';
 
-// Later this role should come from Supabase Auth / logged-in agent profile.
-// Test roles:
-// export const currentUserRole = 'Customer Service Agent';
-// export const currentUserRole = 'Customer Support Agent';
+// eslint-disable-next-line react-refresh/only-export-components
+export const getCurrentUserRole = () => {
+  return localStorage.getItem('currentUserRole') || DEFAULT_ROLE;
+};
 
 const ProtectedRoute = ({ allowedRoles, children }) => {
+  const currentUserRole = getCurrentUserRole();
   const hasAccess = allowedRoles.includes(currentUserRole);
 
   if (!hasAccess) {
-    return <AccessDenied allowedRoles={allowedRoles} />;
+    return <AccessDenied allowedRoles={allowedRoles} currentUserRole={currentUserRole} />;
   }
 
   return children;
 };
 
-const AccessDenied = ({ allowedRoles }) => {
+const AccessDenied = ({ allowedRoles, currentUserRole }) => {
   return (
     <div className="min-h-screen bg-slate-50 p-6 lg:p-10">
       <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center">

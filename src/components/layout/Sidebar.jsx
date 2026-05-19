@@ -18,8 +18,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { getTickets } from '../../services/ticketService';
-
-const currentUserRole = 'Admin';
+import { getCurrentUserRole } from '../../routes/ProtectedRoute';
 
 /*
   Role access plan:
@@ -33,10 +32,6 @@ const currentUserRole = 'Admin';
   Customer Support Agent
   → investigation/support-focused work
 */
-
-const canAccess = (allowedRoles) => {
-  return allowedRoles.includes(currentUserRole);
-};
 
 const buildMenuGroups = (counts) => [
   {
@@ -155,6 +150,8 @@ const buildMenuGroups = (counts) => [
 ];
 
 const Sidebar = ({ open = false, onClose }) => {
+  const currentUserRole = getCurrentUserRole();
+
   const [counts, setCounts] = useState({
     allTickets: 0,
     waitingQueue: 0,
@@ -197,6 +194,10 @@ const Sidebar = ({ open = false, onClose }) => {
 
     loadCounts();
   }, []);
+
+  const canAccess = (allowedRoles) => {
+    return allowedRoles.includes(currentUserRole);
+  };
 
   const menuGroups = buildMenuGroups(counts)
     .map((group) => ({
