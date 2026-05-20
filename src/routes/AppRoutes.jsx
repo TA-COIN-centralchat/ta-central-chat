@@ -15,6 +15,7 @@ import ReportsPage from '../pages/ReportsPage';
 import ChannelTicketsPage from '../pages/ChannelTicketsPage';
 import AuditLogsPage from '../pages/AuditLogsPage';
 import CustomersPage from '../pages/CustomersPage';
+import LiveChatPage from '../pages/LiveChatPage';
 import ProtectedRoute from './ProtectedRoute';
 
 const ADMIN = ['Admin'];
@@ -95,6 +96,11 @@ const AppRoutes = () => {
         <Route
           path="/chatbot/:ticketId"
           element={protect(ADMIN_AND_SERVICE, <TicketDetailPage />)}
+        />
+
+        <Route
+          path="/live-chat"
+          element={protect(ADMIN_AND_SERVICE, <LiveChatPage />)}
         />
 
         <Route

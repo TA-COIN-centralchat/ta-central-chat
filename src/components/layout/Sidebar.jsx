@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ClipboardList,
   Clock,
+  Headphones,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { getTickets } from '../../services/ticketService';
+import { getActiveSessions } from '../../services/realtimeChat';
 import { getCurrentUserRole } from '../../routes/ProtectedRoute';
 
 /*
@@ -102,6 +104,13 @@ const buildMenuGroups = (counts) => [
     defaultOpen: false,
     items: [
       {
+        label: 'Live Chat',
+        path: '/live-chat',
+        icon: Headphones,
+        count: counts.liveChat,
+        roles: ['Admin', 'Customer Service Agent'],
+      },
+      {
         label: 'Chatbot (Website)',
         path: '/chatbot',
         icon: MessageCircle,
@@ -156,6 +165,7 @@ const Sidebar = ({ open = false, onClose }) => {
     allTickets: 0,
     waitingQueue: 0,
     pendingInvestigation: 0,
+    liveChat: 0,
     websiteChatbot: 0,
     telegram: 0,
   });
@@ -170,7 +180,10 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const tickets = await getTickets();
+        const [tickets, chatSessions] = await Promise.all([
+          getTickets(),
+          getActiveSessions().catch(() => []),
+        ]);
 
         setCounts({
           allTickets: tickets.length,
@@ -181,6 +194,7 @@ const Sidebar = ({ open = false, onClose }) => {
           pendingInvestigation: tickets.filter(
             (ticket) => ticket.status === 'Pending Investigation'
           ).length,
+          liveChat: chatSessions.filter((s) => s.status === 'waiting').length,
           websiteChatbot: tickets.filter(
             (ticket) => ticket.channel === 'Website Chatbot'
           ).length,

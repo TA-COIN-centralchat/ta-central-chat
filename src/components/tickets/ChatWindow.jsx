@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Lock, Paperclip, SendHorizontal } from 'lucide-react';
 import ResolveTicketModal from './ResolveTicketModal';
 import EscalateTicketModal from './EscalateTicketModal';
@@ -6,6 +6,7 @@ import {
   getMessagesByTicketId,
   sendTicketMessage,
 } from '../../services/ticketService';
+import { subscribeToTicketMessages } from '../../services/realtimeChat';
 
 const ChatWindow = ({ ticket, onTicketUpdated }) => {
   const [showResolve, setShowResolve] = useState(false);
@@ -22,6 +23,9 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
     ticket?.status || ''
   );
 
+  const realtimeSubRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
   const isTicketLocked =
     localTicketStatus === 'Resolved' || localTicketStatus === 'Closed';
 
@@ -29,6 +33,11 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalTicketStatus(ticket?.status || '');
   }, [ticket?.status]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (!ticket?.dbId) return;
@@ -46,6 +55,39 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
     };
 
     loadMessages();
+
+    // Subscribe to realtime message inserts for this ticket
+    if (realtimeSubRef.current) {
+      realtimeSubRef.current.unsubscribe();
+    }
+
+    realtimeSubRef.current = subscribeToTicketMessages(ticket.dbId, (rawMsg) => {
+      // Transform the raw DB row to match the format from getMessagesByTicketId
+      const newMessage = {
+        id: rawMsg.id,
+        sender: rawMsg.sender_type,
+        name: rawMsg.sender_name,
+        text: rawMsg.message_text,
+        isInternalNote: rawMsg.is_internal_note,
+        time: new Date(rawMsg.created_at).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+
+      setMessages((prev) => {
+        // Prevent duplicates (the optimistic insert from handleSendMessage)
+        if (prev.some((m) => m.id === newMessage.id)) return prev;
+        return [...prev, newMessage];
+      });
+    });
+
+    return () => {
+      if (realtimeSubRef.current) {
+        realtimeSubRef.current.unsubscribe();
+        realtimeSubRef.current = null;
+      }
+    };
   }, [ticket?.dbId]);
 
   const handleSendMessage = async () => {
@@ -208,6 +250,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
               );
             })
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="border-t border-slate-200 p-4">
