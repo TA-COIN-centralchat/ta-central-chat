@@ -22,19 +22,6 @@ import { getTickets } from '../../services/ticketService';
 import { getActiveSessions } from '../../services/realtimeChat';
 import { getCurrentUserRole } from '../../routes/ProtectedRoute';
 
-/*
-  Role access plan:
-
-  Admin
-  → full access
-
-  Customer Service Agent
-  → daily ticket handling, channels, manual ticket, queue, customers
-
-  Customer Support Agent
-  → investigation/support-focused work
-*/
-
 const buildMenuGroups = (counts) => [
   {
     title: 'Overview',
@@ -86,6 +73,13 @@ const buildMenuGroups = (counts) => [
         roles: ['Admin', 'Customer Support Agent'],
       },
       {
+        label: 'Ready to Contact',
+        path: '/ready-to-contact',
+        icon: Send,
+        count: counts.readyToContact,
+        roles: ['Admin', 'Customer Support Agent'],
+      },
+      {
         label: 'Closed Tickets',
         path: '/closed-tickets',
         icon: CheckCircle,
@@ -118,7 +112,7 @@ const buildMenuGroups = (counts) => [
         roles: ['Admin', 'Customer Service Agent'],
       },
       {
-        label: 'Telegram',
+        label: 'Telegram Sessions',
         path: '/telegram',
         icon: Send,
         count: counts.telegram,

@@ -11,6 +11,7 @@ const statusOptions = [
   'In Progress',
   'Waiting for Customer',
   'Pending Investigation',
+  'Ready to Contact Customer',
   'Resolved',
   'Closed',
 ];

@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
-import { Lock, Paperclip, SendHorizontal, Image as ImageIcon } from 'lucide-react';
+import { Lock, Paperclip, SendHorizontal } from 'lucide-react';
 import ResolveTicketModal from './ResolveTicketModal';
 import EscalateTicketModal from './EscalateTicketModal';
 import {
   getMessagesByTicketId,
   sendTicketMessage,
+  updateTicketStatus,
 } from '../../services/ticketService';
 import { subscribeToTicketMessages } from '../../services/realtimeChat';
 
@@ -18,7 +19,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
   const [replyText, setReplyText] = useState('');
   const [activeMode, setActiveMode] = useState('reply');
   const [sending, setSending] = useState(false);
-  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const [localTicketStatus, setLocalTicketStatus] = useState(
     ticket?.status || ''
@@ -29,6 +30,9 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
   const isTicketLocked =
     localTicketStatus === 'Resolved' || localTicketStatus === 'Closed';
+
+  const canMarkReadyToContact =
+    localTicketStatus === 'Pending Investigation' && !isTicketLocked;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -69,7 +73,6 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
         sender: rawMsg.sender_type,
         name: rawMsg.sender_name,
         text: rawMsg.message_text,
-        attachmentUrl: rawMsg.attachment_url || null,
         isInternalNote: rawMsg.is_internal_note,
         time: new Date(rawMsg.created_at).toLocaleTimeString([], {
           hour: '2-digit',
@@ -121,6 +124,38 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
     }
   };
 
+  const handleMarkReadyToContact = async () => {
+    if (!ticket?.dbId) return;
+
+    const confirmed = window.confirm(
+      'Mark this ticket as Ready to Contact Customer?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setUpdatingStatus(true);
+
+      await updateTicketStatus({
+        ticketId: ticket.dbId,
+        status: 'Ready to Contact Customer',
+        auditDetails:
+          'Internal investigation completed. Ticket is ready for agent to contact the customer.',
+      });
+
+      setLocalTicketStatus('Ready to Contact Customer');
+
+      if (onTicketUpdated) {
+        await onTicketUpdated();
+      }
+    } catch (error) {
+      console.error('Failed to update ticket status:', error);
+      alert('Failed to update ticket status. Please check console.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   if (!ticket) {
     return (
       <section className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white">
@@ -138,9 +173,9 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
   return (
     <>
-      <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white">
+      <section className="flex h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <div className="text-lg font-semibold text-slate-950">
                 {ticket.customer}
@@ -151,7 +186,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {isTicketLocked ? (
                 <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
                   <Lock size={16} />
@@ -159,6 +194,19 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 </div>
               ) : (
                 <>
+                  {canMarkReadyToContact && (
+                    <button
+                      type="button"
+                      onClick={handleMarkReadyToContact}
+                      disabled={updatingStatus}
+                      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {updatingStatus
+                        ? 'Updating...'
+                        : 'Mark Ready to Contact'}
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setShowResolve(true)}
@@ -237,19 +285,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                     }`}
                   >
                     <div className="text-sm leading-relaxed">
-                      {message.attachmentUrl ? (
-                        <>
-                          {message.text !== '[Image]' && <p>{message.text}</p>}
-                          <img
-                            src={message.attachmentUrl}
-                            alt="Attachment"
-                            className="mt-2 max-h-52 max-w-full cursor-pointer rounded-xl border border-slate-200 object-cover transition hover:opacity-90"
-                            onClick={() => setLightboxUrl(message.attachmentUrl)}
-                          />
-                        </>
-                      ) : (
-                        message.text
-                      )}
+                      {message.text}
                     </div>
 
                     <div
@@ -275,11 +311,20 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 This ticket is {localTicketStatus}
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                Conversation is locked. Agents can view history but cannot send new replies or internal notes.
+                Conversation is locked. Agents can view history but cannot send
+                new replies or internal notes.
               </p>
             </div>
           ) : (
             <>
+              {localTicketStatus === 'Ready to Contact Customer' && (
+                <div className="mb-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-700">
+                  Internal investigation is completed. Contact the customer,
+                  then move the ticket to Waiting for Customer or Resolve it
+                  after confirmation.
+                </div>
+              )}
+
               <div className="mb-3 flex gap-2">
                 <button
                   type="button"
@@ -339,20 +384,6 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
           )}
         </div>
       </section>
-
-      {/* Image Lightbox Overlay */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <img
-            src={lightboxUrl}
-            alt="Full size attachment"
-            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-          />
-        </div>
-      )}
 
       <ResolveTicketModal
         open={showResolve}

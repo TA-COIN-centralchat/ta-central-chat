@@ -2,20 +2,23 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import DashboardPage from '../pages/DashboardPage';
 import AllTicketsPage from '../pages/AllTicketsPage';
-import TicketDetailPage from '../pages/TicketDetailPage';
 import LoginPage from '../pages/LoginPage';
 import ManualTicketPage from '../pages/ManualTicketPage';
 import AgentsPage from '../pages/AgentsPage';
 import SettingsPage from '../pages/SettingsPage';
 import WaitingQueuePage from '../pages/WaitingQueuePage';
 import InvestigationPage from '../pages/InvestigationPage';
+import ReadyToContactPage from '../pages/ReadyToContactPage';
 import ClosedTicketsPage from '../pages/ClosedTicketsPage';
 import CategoriesPage from '../pages/CategoriesPage';
 import ReportsPage from '../pages/ReportsPage';
 import ChannelTicketsPage from '../pages/ChannelTicketsPage';
 import AuditLogsPage from '../pages/AuditLogsPage';
 import CustomersPage from '../pages/CustomersPage';
+import TicketDetailPage from '../pages/TicketDetailPage';
+import SessionWorkspacePage from '../pages/SessionWorkspacePage';
 import LiveChatPage from '../pages/LiveChatPage';
+
 import ProtectedRoute from './ProtectedRoute';
 
 const ADMIN = ['Admin'];
@@ -30,40 +33,20 @@ const ADMIN_AND_SERVICE = ['Admin', 'Customer Service Agent'];
 
 const ADMIN_AND_SUPPORT = ['Admin', 'Customer Support Agent'];
 
-const SERVICE_AND_SUPPORT = [
-  'Admin',
-  'Customer Service Agent',
-  'Customer Support Agent',
-];
-
-const ComingSoonPage = ({ title }) => {
-  return (
-    <div className="min-h-screen bg-slate-50 p-10">
-      <div className="rounded-2xl border border-slate-200 bg-white p-8">
-        <h1 className="text-2xl font-semibold text-slate-950">{title}</h1>
-        <p className="mt-2 text-slate-500">
-          This page is not built yet. We will add it later.
-        </p>
-      </div>
-    </div>
-  );
-};
-
-const protect = (allowedRoles, element) => {
-  return (
-    <ProtectedRoute allowedRoles={allowedRoles}>
-      {element}
-    </ProtectedRoute>
-  );
-};
+const protect = (roles, element) => (
+  <ProtectedRoute allowedRoles={roles}>{element}</ProtectedRoute>
+);
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/tickets" replace />} />
-
         <Route path="/login" element={<LoginPage />} />
+
+        <Route
+          path="/"
+          element={<Navigate to="/dashboard" replace />}
+        />
 
         <Route
           path="/dashboard"
@@ -72,30 +55,37 @@ const AppRoutes = () => {
 
         <Route
           path="/tickets"
-          element={protect(SERVICE_AND_SUPPORT, <AllTicketsPage />)}
+          element={protect(ALL_ROLES, <AllTicketsPage />)}
         />
 
         <Route
           path="/tickets/:ticketId"
-          element={protect(SERVICE_AND_SUPPORT, <TicketDetailPage />)}
+          element={protect(ALL_ROLES, <TicketDetailPage />)}
         />
 
         <Route
-          path="/chatbot"
-          element={protect(
-            ADMIN_AND_SERVICE,
-            <ChannelTicketsPage
-              channelName="Website Chatbot"
-              title="Chatbot Tickets"
-              description="Manage tickets received from the landing page chatbot."
-              workspaceBasePath="/chatbot"
-            />
-          )}
+          path="/waiting-queue"
+          element={protect(ALL_ROLES, <WaitingQueuePage />)}
         />
 
         <Route
-          path="/chatbot/:ticketId"
-          element={protect(ADMIN_AND_SERVICE, <TicketDetailPage />)}
+          path="/investigation"
+          element={protect(ALL_ROLES, <InvestigationPage />)}
+        />
+
+        <Route
+          path="/ready-to-contact"
+          element={protect(ALL_ROLES, <ReadyToContactPage />)}
+        />
+
+        <Route
+          path="/closed"
+          element={protect(ALL_ROLES, <ClosedTicketsPage />)}
+        />
+
+        <Route
+          path="/manual-ticket"
+          element={protect(ALL_ROLES, <ManualTicketPage />)}
         />
 
         <Route
@@ -104,51 +94,34 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/chatbot"
+          element={protect(ADMIN_AND_SERVICE, <ChannelTicketsPage />)}
+        />
+
+        <Route
           path="/telegram"
+          element={protect(ADMIN_AND_SERVICE, <ChannelTicketsPage />)}
+        />
+
+        <Route
+          path="/chatbot/:sessionId"
           element={protect(
             ADMIN_AND_SERVICE,
-            <ChannelTicketsPage
-              channelName="Telegram"
-              title="Telegram Tickets"
-              description="Manage tickets received from the T.A Coin Telegram Bot."
-              workspaceBasePath="/telegram"
-            />
+            <SessionWorkspacePage />
           )}
         />
 
         <Route
-          path="/telegram/:ticketId"
-          element={protect(ADMIN_AND_SERVICE, <TicketDetailPage />)}
-        />
-
-        <Route
-          path="/manual-ticket"
-          element={protect(ADMIN_AND_SERVICE, <ManualTicketPage />)}
-        />
-
-        <Route
-          path="/waiting-queue"
-          element={protect(ADMIN_AND_SERVICE, <WaitingQueuePage />)}
-        />
-
-        <Route
-          path="/pending-investigation"
-          element={protect(ADMIN_AND_SUPPORT, <InvestigationPage />)}
-        />
-
-        <Route
-          path="/closed-tickets"
-          element={protect(SERVICE_AND_SUPPORT, <ClosedTicketsPage />)}
+          path="/telegram/:sessionId"
+          element={protect(
+            ADMIN_AND_SERVICE,
+            <SessionWorkspacePage />
+          )}
         />
 
         <Route
           path="/customers"
-          element={protect(SERVICE_AND_SUPPORT, <CustomersPage />)}
-        />
-
-        <Route
-          path="/agents"
-          element={protect(ADMIN, <AgentsPage />)}
+          element={protect(ALL_ROLES, <CustomersPage />)}
         />
 
         <Route
@@ -167,31 +140,19 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/agents"
+          element={protect(ADMIN_AND_SUPPORT, <AgentsPage />)}
+        />
+
+        <Route
           path="/settings"
           element={protect(ADMIN, <SettingsPage />)}
         />
 
         <Route
-          path="/account-management"
-          element={protect(ADMIN, <ComingSoonPage title="Account Management" />)}
+          path="*"
+          element={<Navigate to="/dashboard" replace />}
         />
-
-        <Route
-          path="/popups"
-          element={protect(ADMIN, <ComingSoonPage title="Popups" />)}
-        />
-
-        <Route
-          path="/news-portal"
-          element={protect(ADMIN, <ComingSoonPage title="News Portal" />)}
-        />
-
-        <Route
-          path="/job-applications"
-          element={protect(ADMIN, <ComingSoonPage title="Job Applications" />)}
-        />
-
-        <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>
     </BrowserRouter>
   );
