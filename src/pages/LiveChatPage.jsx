@@ -10,6 +10,7 @@ import {
   Radio,
   Ticket,
   Image as ImageIcon,
+  Timer,
 } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { supabase } from '../services/supabaseClient';
@@ -66,8 +67,8 @@ const LiveChatPage = () => {
           return [...prev, newSession];
         }
         if (eventType === 'UPDATE') {
-          // If closed, remove from list
           if (newSession.status === 'closed') {
+            // Remove closed sessions from the active list
             return prev.filter((s) => s.id !== newSession.id);
           }
           return prev.map((s) => (s.id === newSession.id ? newSession : s));
@@ -82,7 +83,11 @@ const LiveChatPage = () => {
       if (eventType === 'UPDATE' && newSession) {
         setSelectedSession((prev) => {
           if (prev && prev.id === newSession.id) {
-            if (newSession.status === 'closed') return null;
+            if (newSession.status === 'closed') {
+              // Keep the session visible but mark it as closed
+              // so the agent can see the timeout message and chat history
+              return { ...newSession, _closedWhileViewing: true };
+            }
             return newSession;
           }
           return prev;
@@ -277,6 +282,14 @@ const LiveChatPage = () => {
         </span>
       );
     }
+    if (status === 'closed') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
+          <Timer size={12} />
+          Timed Out
+        </span>
+      );
+    }
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
         {status}
@@ -468,6 +481,17 @@ const LiveChatPage = () => {
                       </button>
                     </>
                   )}
+                  {selectedSession.status === 'closed' && (
+                    <button
+                      type="button"
+                      onClick={handleCreateTicket}
+                      className="flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                      title="Create a support ticket from this timed-out chat session"
+                    >
+                      <Ticket size={16} />
+                      Create Ticket
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -545,7 +569,33 @@ const LiveChatPage = () => {
 
               {/* Input */}
               <div className="border-t border-slate-200 p-4">
-                {selectedSession.status === 'waiting' ? (
+                {selectedSession.status === 'closed' ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+                    <div className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-slate-700">
+                      <Timer size={16} />
+                      Session Closed
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {selectedSession._closedWhileViewing
+                        ? 'This session was closed due to user inactivity. The conversation history is preserved above.'
+                        : 'This session is closed. You can review the conversation history above.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSession(null);
+                        setMessages([]);
+                        if (msgSubRef.current) {
+                          msgSubRef.current.unsubscribe();
+                          msgSubRef.current = null;
+                        }
+                      }}
+                      className="mt-3 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : selectedSession.status === 'waiting' ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
                     <p className="text-sm font-medium text-amber-700">
                       Claim this session to start chatting
