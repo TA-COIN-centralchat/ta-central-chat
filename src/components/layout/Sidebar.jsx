@@ -18,9 +18,10 @@ import {
   X,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+
 import { getTickets } from '../../services/ticketService';
 import { getActiveSessions } from '../../services/realtimeChat';
-import { getCurrentUserRole } from '../../routes/ProtectedRoute';
+import { getCurrentUserRole } from '../../utils/authUtils';
 
 const buildMenuGroups = (counts) => [
   {
@@ -63,33 +64,34 @@ const buildMenuGroups = (counts) => [
         path: '/waiting-queue',
         icon: Clock,
         count: counts.waitingQueue,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
         label: 'Pending Investigation',
-        path: '/pending-investigation',
+        path: '/investigation',
         icon: ShieldCheck,
         count: counts.pendingInvestigation,
-        roles: ['Admin', 'Customer Support Agent'],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
         label: 'Ready to Contact',
         path: '/ready-to-contact',
         icon: Send,
         count: counts.readyToContact,
-        roles: ['Admin', 'Customer Support Agent'],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
         label: 'Closed Tickets',
-        path: '/closed-tickets',
+        path: '/closed',
         icon: CheckCircle,
+        count: counts.closedTickets,
         roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
         label: 'Walk-in / Manual',
         path: '/manual-ticket',
         icon: ClipboardList,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
     ],
   },
@@ -159,6 +161,8 @@ const Sidebar = ({ open = false, onClose }) => {
     allTickets: 0,
     waitingQueue: 0,
     pendingInvestigation: 0,
+    readyToContact: 0,
+    closedTickets: 0,
     liveChat: 0,
     websiteChatbot: 0,
     telegram: 0,
@@ -181,19 +185,67 @@ const Sidebar = ({ open = false, onClose }) => {
 
         setCounts({
           allTickets: tickets.length,
-          waitingQueue: tickets.filter(
-            (ticket) =>
-              ticket.status === 'New' || ticket.assignedTo === 'Unassigned'
-          ).length,
-          pendingInvestigation: tickets.filter(
-            (ticket) => ticket.status === 'Pending Investigation'
-          ).length,
-          liveChat: chatSessions.filter((s) => s.status === 'waiting').length,
-          websiteChatbot: tickets.filter(
-            (ticket) => ticket.channel === 'Website Chatbot'
-          ).length,
-          telegram: tickets.filter((ticket) => ticket.channel === 'Telegram')
-            .length,
+
+          waitingQueue: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'new' ||
+              status === 'waiting queue' ||
+              ticket.assignedTo === 'Unassigned'
+            );
+          }).length,
+
+          pendingInvestigation: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'pending investigation' ||
+              status === 'pending' ||
+              status === 'pending review' ||
+              status === 'investigation' ||
+              status === 'under investigation'
+            );
+          }).length,
+
+          readyToContact: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'ready to contact' ||
+              status === 'ready-to-contact'
+            );
+          }).length,
+
+          closedTickets: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'closed' ||
+              status === 'resolved' ||
+              status === 'completed'
+            );
+          }).length,
+
+          liveChat: chatSessions.filter((session) => {
+            return session.status === 'waiting';
+          }).length,
+
+          websiteChatbot: tickets.filter((ticket) => {
+            const channel = ticket.channel?.toLowerCase().trim();
+
+            return (
+              channel === 'website chatbot' ||
+              channel === 'chatbot' ||
+              channel === 'website'
+            );
+          }).length,
+
+          telegram: tickets.filter((ticket) => {
+            const channel = ticket.channel?.toLowerCase().trim();
+
+            return channel === 'telegram';
+          }).length,
         });
       } catch (error) {
         console.error('Failed to load sidebar counts:', error);
@@ -272,6 +324,7 @@ const Sidebar = ({ open = false, onClose }) => {
               <div className="text-xs uppercase tracking-wide text-slate-400">
                 Current Role
               </div>
+
               <div className="mt-1 text-sm font-semibold text-white">
                 {currentUserRole}
               </div>
@@ -337,6 +390,7 @@ const Sidebar = ({ open = false, onClose }) => {
             <div className="mb-3 rounded-2xl bg-white/5 p-3">
               <div className="text-sm font-semibold">Agent Dara</div>
               <div className="text-xs text-slate-400">{currentUserRole}</div>
+
               <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 Available

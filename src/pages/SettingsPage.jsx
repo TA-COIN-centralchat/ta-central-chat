@@ -1,5 +1,5 @@
 import DashboardLayout from '../components/layout/DashboardLayout';
-import { getCurrentUserRole } from '../routes/ProtectedRoute';
+import { getCurrentUserRole } from '../utils/authUtils';
 
 const SettingsPage = () => {
   const currentUserRole = getCurrentUserRole();

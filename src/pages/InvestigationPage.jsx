@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getTickets } from '../services/ticketService';
 
@@ -18,11 +19,17 @@ const InvestigationPage = () => {
 
         const data = await getTickets();
 
-        const filteredTickets = data.filter(
-          (ticket) => ticket.status === 'Pending Investigation'
-        );
+        const investigationTickets = data.filter((ticket) => {
+          const status = ticket.status?.toLowerCase().trim();
 
-        setTickets(filteredTickets);
+          return (
+            status === 'pending investigation' ||
+            status === 'pending' ||
+            status === 'pending review'
+          );
+        });
+
+        setTickets(investigationTickets);
       } catch (error) {
         console.error('Failed to load investigation tickets:', error);
       } finally {
@@ -59,7 +66,7 @@ const InvestigationPage = () => {
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
-        from: '/pending-investigation',
+        from: '/investigation',
         fromLabel: 'Pending Investigation',
       },
     });
@@ -76,6 +83,7 @@ const InvestigationPage = () => {
             <h2 className="font-semibold text-slate-950">
               Investigation Tickets
             </h2>
+
             <p className="mt-1 text-sm text-slate-500">
               {filteredTickets.length} of {tickets.length} pending investigation tickets shown.
             </p>
@@ -104,8 +112,9 @@ const InvestigationPage = () => {
             <div className="text-lg font-semibold text-slate-900">
               No pending investigation tickets found
             </div>
+
             <p className="mt-2 text-sm text-slate-500">
-              Try changing your search keyword.
+              No tickets currently have Pending, Pending Review, or Pending Investigation status.
             </p>
           </div>
         ) : (
@@ -139,6 +148,7 @@ const InvestigationPage = () => {
                       <div className="font-medium text-slate-900">
                         {ticket.customer}
                       </div>
+
                       <div className="mt-1 text-xs text-slate-500">
                         {ticket.phone ||
                           ticket.telegram ||
@@ -148,20 +158,21 @@ const InvestigationPage = () => {
                     </td>
 
                     <td className="px-5 py-4 text-slate-600">
-                      {ticket.channel}
+                      {ticket.channel || '-'}
                     </td>
 
                     <td className="px-5 py-4">
                       <div className="font-medium text-slate-800">
-                        {ticket.category}
+                        {ticket.category || '-'}
                       </div>
+
                       <div className="mt-1 max-w-xs truncate text-xs text-slate-500">
-                        {ticket.subCategory || ticket.lastMessage}
+                        {ticket.subCategory || ticket.lastMessage || '-'}
                       </div>
                     </td>
 
                     <td className="px-5 py-4 text-slate-600">
-                      {ticket.assignedTo}
+                      {ticket.assignedTo || 'Unassigned'}
                     </td>
 
                     <td className="px-5 py-4">
@@ -171,7 +182,7 @@ const InvestigationPage = () => {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-slate-600">
-                      {ticket.time}
+                      {ticket.time || '-'}
                     </td>
 
                     <td className="px-5 py-4">

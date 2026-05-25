@@ -1,138 +1,216 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import {
-  createChatSession,
-  sendMessage,
-  getSessionMessages,
-  subscribeToSessionMessages,
-  subscribeToSessionStatus,
-  getOrCreateUserId,
-} from '../lib/realtimeChat';
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from './services/supabaseClient';
 
-/**
- * Hook for user-side real-time agent chat via Supabase Realtime.
- * Replaces the old WebSocket-based connection entirely.
- */
-export const useAgentConnection = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isWaiting, setIsWaiting] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [session, setSession] = useState(null);
-  const [agentJoined, setAgentJoined] = useState(false);
+const DEFAULT_AGENT_NAME = 'Agent Dara';
 
-  const messageSubRef = useRef(null);
-  const statusSubRef = useRef(null);
-  const userId = useRef(getOrCreateUserId());
+const generateUserId = () => {
+  const existingId = localStorage.getItem('ta_coin_agent_user_id');
 
-  /**
-   * Start a new agent chat session
-   */
-  const connectToAgent = useCallback(async (description = '') => {
-    try {
-      setIsWaiting(true);
-      setMessages([]);
-      setAgentJoined(false);
+  if (existingId) {
+    return existingId;
+  }
 
-      // Create session in Supabase
-      const newSession = await createChatSession(userId.current, {
-        description,
-        userAgent: navigator.userAgent,
-        page: window.location.pathname,
-      });
+  const newId = `agent-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 
-      setSession(newSession);
+  localStorage.setItem('ta_coin_agent_user_id', newId);
 
-      // Send the initial description as first message
-      if (description) {
-        await sendMessage(newSession.id, 'user', userId.current, description);
-      }
+  return newId;
+};
 
-      // Subscribe to new messages in this session
-      messageSubRef.current = subscribeToSessionMessages(newSession.id, (msg) => {
-        setMessages((prev) => {
-          // Prevent duplicates
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      });
-
-      // Subscribe to session status changes (agent joining, session closing)
-      statusSubRef.current = subscribeToSessionStatus(newSession.id, (updatedSession) => {
-        setSession(updatedSession);
-        if (updatedSession.status === 'active' && updatedSession.agent_id) {
-          setAgentJoined(true);
-          setIsWaiting(false);
-          setIsConnected(true);
-        }
-        if (updatedSession.status === 'closed') {
-          setIsConnected(false);
-          setIsWaiting(false);
-        }
-      });
-
-      // Load any existing messages (in case of reconnection)
-      const existingMessages = await getSessionMessages(newSession.id);
-      if (existingMessages.length > 0) {
-        setMessages(existingMessages);
-      }
-
-      return newSession;
-    } catch (err) {
-      console.error('Failed to create agent session:', err);
-      setIsWaiting(false);
-      throw err;
-    }
-  }, []);
-
-  /**
-   * Send a message from the user side
-   */
-  const sendUserMessage = useCallback(async (text) => {
-    if (!session) {
-      console.error('No active session');
-      return;
-    }
-    try {
-      await sendMessage(session.id, 'user', userId.current, text);
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      throw err;
-    }
-  }, [session]);
-
-  /**
-   * Disconnect and clean up subscriptions
-   */
-  const disconnect = useCallback(() => {
-    if (messageSubRef.current) {
-      messageSubRef.current.unsubscribe();
-      messageSubRef.current = null;
-    }
-    if (statusSubRef.current) {
-      statusSubRef.current.unsubscribe();
-      statusSubRef.current = null;
-    }
-    setIsConnected(false);
-    setIsWaiting(false);
-    setSession(null);
-    setAgentJoined(false);
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, [disconnect]);
-
+const formatMessage = (message) => {
   return {
-    connectToAgent,
-    sendMessage: sendUserMessage,
-    disconnect,
-    isConnected,
-    isWaiting,
-    agentJoined,
-    messages,
-    session,
-    userId: userId.current,
+    id: message.id,
+    sessionId: message.session_id,
+    senderType: message.sender_type,
+    senderName: message.sender_name,
+    messageText: message.message_text,
+    createdAt: message.created_at,
+    isAgent: message.sender_type === 'agent',
   };
 };
+
+const useAgentConnection = (sessionId) => {
+  const [userId] = useState(() => generateUserId());
+  const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
+  const [messages, setMessages] = useState([]);
+
+  const loadSession = useCallback(async () => {
+    if (!sessionId) {
+      setSession(null);
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      const { data: messageData, error: messageError } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (messageError) {
+        throw messageError;
+      }
+
+      setSession(sessionData);
+      setMessages((messageData || []).map(formatMessage));
+      setConnected(true);
+    } catch (error) {
+      console.error('Failed to load agent session:', error);
+      setConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSession();
+  }, [loadSession]);
+
+  useEffect(() => {
+    if (!sessionId) return undefined;
+
+    const channel = supabase
+      .channel(`agent-session-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, formatMessage(payload.new)]);
+        }
+      )
+      .subscribe((status) => {
+        setConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionId]);
+
+  const sendMessage = useCallback(
+    async (messageText) => {
+      if (!sessionId) {
+        throw new Error('Missing session ID.');
+      }
+
+      if (!messageText?.trim()) {
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: sessionId,
+          sender_type: 'agent',
+          sender_name:
+            localStorage.getItem('currentUserName') || DEFAULT_AGENT_NAME,
+          message_text: messageText.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to send agent message:', error);
+        throw error;
+      }
+
+      return formatMessage(data);
+    },
+    [sessionId]
+  );
+
+  const updateSessionStatus = useCallback(
+    async (status) => {
+      if (!sessionId) {
+        throw new Error('Missing session ID.');
+      }
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to update session status:', error);
+        throw error;
+      }
+
+      setSession(data);
+      return data;
+    },
+    [sessionId]
+  );
+
+  const assignSessionToMe = useCallback(async () => {
+    if (!sessionId) {
+      throw new Error('Missing session ID.');
+    }
+
+    const agentId = localStorage.getItem('currentAgentId');
+    const agentName =
+      localStorage.getItem('currentUserName') || DEFAULT_AGENT_NAME;
+
+    const { data, error } = await supabase
+      .from('sessions')
+      .update({
+        assigned_agent_id: agentId || null,
+        assigned_agent_name: agentName,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to assign session:', error);
+      throw error;
+    }
+
+    setSession(data);
+    return data;
+  }, [sessionId]);
+
+  return {
+    connected,
+    loading,
+    messages,
+    session,
+    userId,
+    sendMessage,
+    updateSessionStatus,
+    assignSessionToMe,
+    reloadSession: loadSession,
+  };
+};
+
+export default useAgentConnection;

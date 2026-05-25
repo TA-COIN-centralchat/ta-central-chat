@@ -43,10 +43,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
-        <Route
-          path="/"
-          element={<Navigate to="/dashboard" replace />}
-        />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         <Route
           path="/dashboard"
@@ -95,12 +92,18 @@ const AppRoutes = () => {
 
         <Route
           path="/chatbot"
-          element={protect(ADMIN_AND_SERVICE, <ChannelTicketsPage />)}
+          element={protect(
+            ADMIN_AND_SERVICE,
+            <ChannelTicketsPage channel="Chatbot" />
+          )}
         />
 
         <Route
           path="/telegram"
-          element={protect(ADMIN_AND_SERVICE, <ChannelTicketsPage />)}
+          element={protect(
+            ADMIN_AND_SERVICE,
+            <ChannelTicketsPage channel="Telegram" />
+          )}
         />
 
         <Route
@@ -149,10 +152,7 @@ const AppRoutes = () => {
           element={protect(ADMIN, <SettingsPage />)}
         />
 
-        <Route
-          path="*"
-          element={<Navigate to="/dashboard" replace />}
-        />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );
