@@ -2,44 +2,230 @@ import { supabase } from './supabaseClient';
 
 /**
  * Supabase Realtime Chat Service
- * Replaces the WebSocket-based agent-server.js with Supabase Realtime channels.
- * No separate server needed — works globally out of the box.
- *
- * Tables used:
- *   - chat_sessions  (id, user_id, status, agent_id, created_at, updated_at, metadata)
- *   - chat_messages   (id, session_id, sender_role, sender_id, content, created_at, metadata)
+ * Uses:
+ * - chat_sessions  (id, user_id, status, agent_id, created_at, updated_at, metadata)
+ * - chat_messages  (id, session_id, sender_role, sender_id, content, created_at, metadata)
  */
+
+const SESSION_DURATION_MINUTES = 20;
+const WARNING_MINUTES_BEFORE_END = 5;
+const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
+
+const WARNING_MESSAGE =
+  'Dear customer, do you have any other questions? This chat session will automatically end in 2 minutes if there is no response.';
+
+const AUTO_END_MESSAGE =
+  'This chat session has ended due to inactivity. If you need more help, please start a new chat.';
+
+const getCurrentUserRole = () => {
+  return localStorage.getItem('currentUserRole');
+};
+
+const getCurrentAgentId = () => {
+  return localStorage.getItem('currentAgentId');
+};
+
+const getCurrentUserName = () => {
+  return localStorage.getItem('currentUserName') || 'Agent';
+};
+
+const isAdmin = () => {
+  return getCurrentUserRole() === 'Admin';
+};
+
+const isCustomerServiceAgent = () => {
+  return getCurrentUserRole() === 'Customer Service Agent';
+};
+
+const getExpiryIso = () => {
+  return new Date(
+    Date.now() + SESSION_DURATION_MINUTES * 60 * 1000
+  ).toISOString();
+};
+
+// eslint-disable-next-line no-unused-vars
+const normalizeStatus = (status = '') => {
+  const value = String(status).toLowerCase().trim();
+
+  if (value === 'waiting' || value === 'new') return 'waiting';
+  if (value === 'active' || value === 'assigned' || value === 'in progress') {
+    return 'active';
+  }
+  if (value === 'closed' || value === 'ended' || value === 'timeout') {
+    return 'closed';
+  }
+
+  return value || 'waiting';
+};
+
+const logSupabaseError = (label, error) => {
+  console.error(label, {
+    message: error?.message,
+    details: error?.details,
+    hint: error?.hint,
+    code: error?.code,
+  });
+};
+
+const getSessionMetadata = (session) => {
+  return session?.metadata && typeof session.metadata === 'object'
+    ? session.metadata
+    : {};
+};
+
+const refreshSessionTimerMetadata = (sessionMetadata = {}) => {
+  return {
+    ...sessionMetadata,
+    expiresAt: getExpiryIso(),
+    warningSentAt: null,
+    lastActivityAt: new Date().toISOString(),
+  };
+};
+
+const findAvailableAgentForSession = async () => {
+  const { data: agents, error: agentError } = await supabase
+    .from('agents')
+    .select('id, full_name, email, role, status')
+    .eq('status', 'Available');
+
+  if (agentError) {
+    logSupabaseError('Error finding available live chat agent:', agentError);
+    throw agentError;
+  }
+
+  if (!agents || agents.length === 0) {
+    return null;
+  }
+
+  const { data: activeSessions, error: sessionError } = await supabase
+    .from('chat_sessions')
+    .select('id, agent_id, status')
+    .eq('status', 'active')
+    .not('agent_id', 'is', null);
+
+  if (sessionError) {
+    logSupabaseError('Error checking active chat sessions:', sessionError);
+    throw sessionError;
+  }
+
+  const agentsWithActiveCount = agents.map((agent) => {
+    const activeSessionCount = (activeSessions || []).filter(
+      (session) => session.agent_id === agent.id
+    ).length;
+
+    return {
+      ...agent,
+      activeSessionCount,
+    };
+  });
+
+  const eligibleAgents = agentsWithActiveCount.filter(
+    (agent) => agent.activeSessionCount < MAX_ACTIVE_SESSIONS_PER_AGENT
+  );
+
+  if (eligibleAgents.length === 0) {
+    return null;
+  }
+
+  const lowestCount = Math.min(
+    ...eligibleAgents.map((agent) => agent.activeSessionCount)
+  );
+
+  const lowestAgents = eligibleAgents.filter(
+    (agent) => agent.activeSessionCount === lowestCount
+  );
+
+  return lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
+};
 
 // ─── Session Management ───────────────────────────────────────────
 
 /**
- * Create a new chat session for a user requesting agent support
+ * Create a new chat session for a user requesting agent support.
+ * Auto-assigns to an available agent if possible.
  */
 export async function createChatSession(userId, metadata = {}) {
+  const selectedAgent = await findAvailableAgentForSession();
+
+  const sessionMetadata = {
+    ...metadata,
+    autoAssigned: Boolean(selectedAgent),
+    assignedAgentName: selectedAgent?.full_name || null,
+    assignedAgentEmail: selectedAgent?.email || null,
+    expiresAt: selectedAgent ? getExpiryIso() : null,
+    warningSentAt: null,
+    lastActivityAt: new Date().toISOString(),
+  };
+
   const { data, error } = await supabase
     .from('chat_sessions')
     .insert({
       user_id: userId,
-      status: 'waiting',
-      metadata,
+      status: selectedAgent ? 'active' : 'waiting',
+      agent_id: selectedAgent?.id || null,
+      metadata: sessionMetadata,
     })
     .select()
     .single();
 
   if (error) throw error;
+
+  if (selectedAgent) {
+    await supabase.from('chat_messages').insert({
+      session_id: data.id,
+      sender_role: 'system',
+      sender_id: 'system',
+      content: `You are now connected with ${selectedAgent.full_name}.`,
+      metadata: {
+        type: 'auto_assigned',
+        agentId: selectedAgent.id,
+        agentName: selectedAgent.full_name,
+      },
+    });
+  } else {
+    await supabase.from('chat_messages').insert({
+      session_id: data.id,
+      sender_role: 'system',
+      sender_id: 'system',
+      content:
+        'Thank you for contacting us. All agents are currently busy, but someone will assist you shortly.',
+      metadata: {
+        type: 'waiting_queue',
+      },
+    });
+  }
+
   return data;
 }
 
 /**
- * Agent claims a waiting session
+ * Agent claims a waiting session.
  */
 export async function claimSession(sessionId, agentId) {
+  const currentAgentId = agentId || getCurrentAgentId();
+  const currentAgentName = getCurrentUserName();
+
+  const { data: existingSession, error: existingError } = await supabase
+    .from('chat_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+
+  if (existingError) throw existingError;
+
+  const existingMetadata = getSessionMetadata(existingSession);
+
   const { data, error } = await supabase
     .from('chat_sessions')
     .update({
       status: 'active',
-      agent_id: agentId,
+      agent_id: currentAgentId,
       updated_at: new Date().toISOString(),
+      metadata: refreshSessionTimerMetadata({
+        ...existingMetadata,
+        assignedAgentName: currentAgentName,
+        manuallyClaimed: true,
+      }),
     })
     .eq('id', sessionId)
     .eq('status', 'waiting')
@@ -51,14 +237,29 @@ export async function claimSession(sessionId, agentId) {
 }
 
 /**
- * Close a chat session
+ * Close a chat session.
  */
 export async function closeSession(sessionId) {
+  const { data: existingSession, error: existingError } = await supabase
+    .from('chat_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+
+  if (existingError) throw existingError;
+
+  const existingMetadata = getSessionMetadata(existingSession);
+
   const { data, error } = await supabase
     .from('chat_sessions')
     .update({
       status: 'closed',
       updated_at: new Date().toISOString(),
+      metadata: {
+        ...existingMetadata,
+        endedAt: new Date().toISOString(),
+        endedReason: 'closed_by_agent',
+      },
     })
     .eq('id', sessionId)
     .select()
@@ -69,21 +270,38 @@ export async function closeSession(sessionId) {
 }
 
 /**
- * Get all waiting/active sessions (for agent dashboard)
+ * Get all waiting/active sessions.
+ * Admin sees all.
+ * Customer Service Agent sees waiting + own active sessions.
+ * Other agents see own sessions only.
  */
 export async function getActiveSessions() {
-  const { data, error } = await supabase
+  const currentAgentId = getCurrentAgentId();
+
+  let query = supabase
     .from('chat_sessions')
     .select('*')
     .in('status', ['waiting', 'active'])
     .order('created_at', { ascending: true });
+
+  if (getCurrentUserRole() && !isAdmin()) {
+    if (!currentAgentId) return [];
+
+    if (isCustomerServiceAgent()) {
+      query = query.or(`agent_id.eq.${currentAgentId},agent_id.is.null`);
+    } else {
+      query = query.eq('agent_id', currentAgentId);
+    }
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];
 }
 
 /**
- * Get a single session by ID
+ * Get a single session by ID.
  */
 export async function getSessionById(sessionId) {
   const { data, error } = await supabase
@@ -99,14 +317,15 @@ export async function getSessionById(sessionId) {
 // ─── Message Management ───────────────────────────────────────────
 
 /**
- * Send a message in a chat session
- * @param {string} sessionId
- * @param {'user'|'agent'|'bot'|'system'} senderRole
- * @param {string} senderId
- * @param {string} content
- * @param {object} metadata - optional metadata (e.g. { agentName: 'Dara' })
+ * Send a message in a chat session.
  */
-export async function sendMessage(sessionId, senderRole, senderId, content, metadata = {}) {
+export async function sendMessage(
+  sessionId,
+  senderRole,
+  senderId,
+  content,
+  metadata = {}
+) {
   const { data, error } = await supabase
     .from('chat_messages')
     .insert({
@@ -121,17 +340,43 @@ export async function sendMessage(sessionId, senderRole, senderId, content, meta
 
   if (error) throw error;
 
-  // Also bump the session's updated_at so the sidebar list stays sorted
-  await supabase
+  const shouldRefreshTimer =
+    senderRole === 'user' ||
+    senderRole === 'customer' ||
+    senderRole === 'agent';
+
+  const { data: existingSession, error: sessionReadError } = await supabase
     .from('chat_sessions')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', sessionId);
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+
+  if (!sessionReadError && existingSession) {
+    const existingMetadata = getSessionMetadata(existingSession);
+
+    const updatedMetadata = shouldRefreshTimer
+      ? refreshSessionTimerMetadata(existingMetadata)
+      : existingMetadata;
+
+    await supabase
+      .from('chat_sessions')
+      .update({
+        updated_at: new Date().toISOString(),
+        metadata: updatedMetadata,
+      })
+      .eq('id', sessionId);
+  } else {
+    await supabase
+      .from('chat_sessions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', sessionId);
+  }
 
   return data;
 }
 
 /**
- * Get all messages for a session
+ * Get all messages for a session.
  */
 export async function getSessionMessages(sessionId) {
   const { data, error } = await supabase
@@ -144,10 +389,93 @@ export async function getSessionMessages(sessionId) {
   return data || [];
 }
 
+/**
+ * Check active sessions and send 2-minute warning / auto-close.
+ * This can run from LiveChatPage every 30 seconds.
+ */
+export async function processChatSessionTimeouts() {
+  const now = new Date();
+
+  const { data: sessions, error } = await supabase
+    .from('chat_sessions')
+    .select('*')
+    .eq('status', 'active');
+
+  if (error) {
+    logSupabaseError('Error loading active sessions for timeout check:', error);
+    throw error;
+  }
+
+  for (const session of sessions || []) {
+    const metadata = getSessionMetadata(session);
+    const expiresAtValue = metadata.expiresAt;
+
+    if (!expiresAtValue) continue;
+
+    const expiresAt = new Date(expiresAtValue);
+    const remainingMs = expiresAt.getTime() - now.getTime();
+
+    if (remainingMs <= 0) {
+      const endedMetadata = {
+        ...metadata,
+        endedAt: now.toISOString(),
+        endedReason: 'inactivity_timeout',
+      };
+
+      await supabase
+        .from('chat_sessions')
+        .update({
+          status: 'closed',
+          updated_at: now.toISOString(),
+          metadata: endedMetadata,
+        })
+        .eq('id', session.id);
+
+      await supabase.from('chat_messages').insert({
+        session_id: session.id,
+        sender_role: 'system',
+        sender_id: 'system',
+        content: AUTO_END_MESSAGE,
+        metadata: {
+          type: 'auto_end',
+        },
+      });
+
+      continue;
+    }
+
+    const warningThresholdMs = WARNING_MINUTES_BEFORE_END * 60 * 1000;
+    const warningAlreadySent = Boolean(metadata.warningSentAt);
+
+    if (remainingMs <= warningThresholdMs && !warningAlreadySent) {
+      await supabase.from('chat_messages').insert({
+        session_id: session.id,
+        sender_role: 'system',
+        sender_id: 'system',
+        content: WARNING_MESSAGE,
+        metadata: {
+          type: 'timeout_warning',
+        },
+      });
+
+      await supabase
+        .from('chat_sessions')
+        .update({
+          updated_at: now.toISOString(),
+          metadata: {
+            ...metadata,
+            warningSentAt: now.toISOString(),
+          },
+        })
+        .eq('id', session.id);
+    }
+  }
+}
+
 // ─── Realtime Subscriptions ───────────────────────────────────────
 
 /**
- * Subscribe to new messages in a specific session (for both user and agent)
+ * Subscribe to new messages in a specific session.
  */
 export function subscribeToSessionMessages(sessionId, onMessage) {
   const channel = supabase
@@ -170,7 +498,7 @@ export function subscribeToSessionMessages(sessionId, onMessage) {
 }
 
 /**
- * Subscribe to session status changes (for user to know when agent joins)
+ * Subscribe to session status changes.
  */
 export function subscribeToSessionStatus(sessionId, onStatusChange) {
   const channel = supabase
@@ -193,7 +521,7 @@ export function subscribeToSessionStatus(sessionId, onStatusChange) {
 }
 
 /**
- * Subscribe to all session changes (for agent dashboard — live chat page)
+ * Subscribe to all session changes.
  */
 export function subscribeToAllSessions(onSessionChange) {
   const channel = supabase
@@ -215,7 +543,7 @@ export function subscribeToAllSessions(onSessionChange) {
 }
 
 /**
- * Subscribe to realtime changes on the messages table (for ticket ChatWindow)
+ * Subscribe to realtime changes on the messages table for ticket ChatWindow.
  */
 export function subscribeToTicketMessages(ticketId, onMessage) {
   const channel = supabase
@@ -239,26 +567,30 @@ export function subscribeToTicketMessages(ticketId, onMessage) {
 
 // ─── Utility ──────────────────────────────────────────────────────
 
-/**
- * Generate a unique anonymous user ID (for the customer-facing chatbot)
- */
 export function getOrCreateUserId() {
   let userId = localStorage.getItem('tacoin_chat_user_id');
+
   if (!userId) {
     userId = 'user_' + crypto.randomUUID();
     localStorage.setItem('tacoin_chat_user_id', userId);
   }
+
   return userId;
 }
 
-/**
- * Generate a unique agent ID (for agent dashboard)
- */
 export function getOrCreateAgentId() {
+  const loggedInAgentId = localStorage.getItem('currentAgentId');
+
+  if (loggedInAgentId) {
+    return loggedInAgentId;
+  }
+
   let agentId = localStorage.getItem('tacoin_agent_id');
+
   if (!agentId) {
     agentId = 'agent_' + crypto.randomUUID();
     localStorage.setItem('tacoin_agent_id', agentId);
   }
+
   return agentId;
 }

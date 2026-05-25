@@ -22,9 +22,21 @@ const logSupabaseError = (label, error) => {
   });
 };
 
+const getCurrentUserRole = () => {
+  return localStorage.getItem('currentUserRole');
+};
+
+const getCurrentAgentId = () => {
+  return localStorage.getItem('currentAgentId');
+};
+
+const isAdmin = () => {
+  return getCurrentUserRole() === 'Admin';
+};
+
 const createAuditLog = async ({
-  userName = 'Agent Dara',
-  role = 'Admin',
+  userName = 'System',
+  role = 'System',
   action,
   ticketId = null,
   details,
@@ -84,7 +96,7 @@ export const getCategories = async () => {
     .from('categories')
     .select('*')
     .ilike('status', 'active')
-    .order('created_at', { ascending: false });
+    .order('name', { ascending: true });
 
   if (error) {
     logSupabaseError('Error fetching categories:', error);
@@ -111,8 +123,8 @@ export const createCategory = async (formData) => {
   }
 
   await createAuditLog({
-    userName: 'Agent Dara',
-    role: 'Admin',
+    userName: localStorage.getItem('currentUserName') || 'Admin',
+    role: localStorage.getItem('currentUserRole') || 'Admin',
     action: 'Category Created',
     details: `New category created: ${formData.name}.`,
   });
@@ -125,7 +137,9 @@ export const createCategory = async (formData) => {
 ========================= */
 
 export const getTickets = async () => {
-  const { data, error } = await supabase
+  const currentAgentId = getCurrentAgentId();
+
+  let query = supabase
     .from('tickets')
     .select(`
       *,
@@ -148,12 +162,65 @@ export const getTickets = async () => {
     `)
     .order('created_at', { ascending: false });
 
+  // Admin can see all tickets.
+  // Normal agents can only see tickets assigned to them.
+  if (!isAdmin()) {
+    if (!currentAgentId) {
+      return [];
+    }
+
+    query = query.eq('assigned_agent_id', currentAgentId);
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     logSupabaseError('Error fetching tickets:', error);
     throw error;
   }
 
   return (data || []).map(mapTicket);
+};
+
+export const getTicketById = async (ticketId) => {
+  const currentAgentId = getCurrentAgentId();
+
+  let query = supabase
+    .from('tickets')
+    .select(`
+      *,
+      customers (
+        id,
+        full_name,
+        phone,
+        email,
+        telegram_username,
+        ta_coin_user_id,
+        source_channel
+      ),
+      agents (
+        id,
+        full_name,
+        email,
+        role,
+        status
+      )
+    `)
+    .eq('id', ticketId)
+    .single();
+
+  const { data, error } = await query;
+
+  if (error) {
+    logSupabaseError('Error fetching ticket by ID:', error);
+    throw error;
+  }
+
+  if (!isAdmin() && data.assigned_agent_id !== currentAgentId) {
+    throw new Error('You do not have permission to view this ticket.');
+  }
+
+  return mapTicket(data);
 };
 
 export const createTicketWithAutoAssign = async (formData) => {
@@ -279,6 +346,25 @@ export const createTicketWithAutoAssign = async (formData) => {
 };
 
 export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => {
+  const currentAgentId = getCurrentAgentId();
+
+  if (!isAdmin()) {
+    const { data: existingTicket, error: checkError } = await supabase
+      .from('tickets')
+      .select('id, assigned_agent_id')
+      .eq('id', ticketId)
+      .single();
+
+    if (checkError) {
+      logSupabaseError('Error checking ticket permission:', checkError);
+      throw checkError;
+    }
+
+    if (existingTicket.assigned_agent_id !== currentAgentId) {
+      throw new Error('You do not have permission to update this ticket.');
+    }
+  }
+
   const { data, error } = await supabase
     .from('tickets')
     .update({
@@ -295,8 +381,8 @@ export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => 
   }
 
   await createAuditLog({
-    userName: 'Agent Dara',
-    role: 'Customer Service Agent',
+    userName: localStorage.getItem('currentUserName') || 'Agent',
+    role: localStorage.getItem('currentUserRole') || 'Customer Service Agent',
     action: `Ticket Status Updated to ${status}`,
     ticketId,
     details: auditDetails || `Ticket status changed to ${status}.`,
@@ -310,6 +396,25 @@ export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => 
 ========================= */
 
 export const getMessagesByTicketId = async (ticketId) => {
+  const currentAgentId = getCurrentAgentId();
+
+  if (!isAdmin()) {
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('id, assigned_agent_id')
+      .eq('id', ticketId)
+      .single();
+
+    if (ticketError) {
+      logSupabaseError('Error checking message permission:', ticketError);
+      throw ticketError;
+    }
+
+    if (ticket.assigned_agent_id !== currentAgentId) {
+      throw new Error('You do not have permission to view messages for this ticket.');
+    }
+  }
+
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -339,6 +444,25 @@ export const sendTicketMessage = async ({
   messageText,
   isInternalNote = false,
 }) => {
+  const currentAgentId = getCurrentAgentId();
+
+  if (!isAdmin()) {
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('id, assigned_agent_id')
+      .eq('id', ticketId)
+      .single();
+
+    if (ticketError) {
+      logSupabaseError('Error checking send message permission:', ticketError);
+      throw ticketError;
+    }
+
+    if (ticket.assigned_agent_id !== currentAgentId) {
+      throw new Error('You do not have permission to reply to this ticket.');
+    }
+  }
+
   const { data, error } = await supabase
     .from('messages')
     .insert({
@@ -371,10 +495,21 @@ export const sendTicketMessage = async ({
 ========================= */
 
 export const getAgents = async () => {
-  const { data, error } = await supabase
+  const currentAgentId = getCurrentAgentId();
+
+  let query = supabase
     .from('agents')
     .select('*')
     .order('created_at', { ascending: false });
+
+  // Admin sees all agents.
+  // Agent sees only their own profile.
+  if (!isAdmin()) {
+    if (!currentAgentId) return [];
+    query = query.eq('id', currentAgentId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     logSupabaseError('Error fetching agents:', error);
@@ -383,12 +518,14 @@ export const getAgents = async () => {
 
   return (data || []).map((agent) => ({
     id: agent.id,
+    authUserId: agent.auth_user_id,
     name: agent.full_name,
     role: agent.role,
     email: agent.email,
-    status: agent.status,
+    status: agent.status || 'Offline',
     activeTickets: agent.active_tickets || 0,
     resolvedToday: agent.resolved_today || 0,
+    createdAt: agent.created_at,
   }));
 };
 
@@ -403,36 +540,38 @@ export const getRawAgents = async () => {
     throw error;
   }
 
+  if (!isAdmin()) {
+    const currentAgentId = getCurrentAgentId();
+    return (data || []).filter((agent) => agent.id === currentAgentId);
+  }
+
   return data || [];
 };
 
 export const createAgent = async (formData) => {
-  const { data, error } = await supabase
-    .from('agents')
-    .insert({
-      full_name: formData.fullName,
+  if (!isAdmin()) {
+    throw new Error('Only Admin can create agent accounts.');
+  }
+
+  const { data, error } = await supabase.functions.invoke('create-agent', {
+    body: {
+      fullName: formData.fullName,
       email: formData.email,
+      password: formData.password,
       role: formData.role,
-      status: 'Offline',
-      active_tickets: 0,
-      resolved_today: 0,
-    })
-    .select()
-    .single();
+    },
+  });
 
   if (error) {
-    logSupabaseError('Error creating agent:', error);
+    console.error('Error invoking create-agent function:', error);
     throw error;
   }
 
-  await createAuditLog({
-    userName: 'Agent Dara',
-    role: 'Admin',
-    action: 'Agent Created',
-    details: `New agent account created for ${formData.fullName} (${formData.role}). Default status set to Offline.`,
-  });
+  if (data?.error) {
+    throw new Error(data.error);
+  }
 
-  return data;
+  return data.agent;
 };
 
 /* =========================
@@ -440,6 +579,10 @@ export const createAgent = async (formData) => {
 ========================= */
 
 export const autoAssignWaitingTickets = async () => {
+  if (!isAdmin()) {
+    throw new Error('Only Admin can auto-assign waiting tickets.');
+  }
+
   const { data: waitingTickets, error: ticketError } = await supabase
     .from('tickets')
     .select('*')
@@ -550,6 +693,10 @@ export const autoAssignWaitingTickets = async () => {
 };
 
 export const reassignTicket = async ({ ticketId, newAgentId, reason }) => {
+  if (!isAdmin()) {
+    throw new Error('Only Admin can reassign tickets.');
+  }
+
   const { data: currentTicket, error: ticketError } = await supabase
     .from('tickets')
     .select('id, ticket_number, assigned_agent_id')
@@ -562,7 +709,6 @@ export const reassignTicket = async ({ ticketId, newAgentId, reason }) => {
   }
 
   const oldAgentId = currentTicket.assigned_agent_id;
-
   let oldAgent = null;
 
   if (oldAgentId) {
@@ -621,8 +767,8 @@ export const reassignTicket = async ({ ticketId, newAgentId, reason }) => {
     .eq('id', newAgent.id);
 
   await createAuditLog({
-    userName: 'Agent Dara',
-    role: 'Admin',
+    userName: localStorage.getItem('currentUserName') || 'Admin',
+    role: localStorage.getItem('currentUserRole') || 'Admin',
     action: 'Ticket Reassigned',
     ticketId,
     details: `Ticket ${currentTicket.ticket_number} reassigned from ${

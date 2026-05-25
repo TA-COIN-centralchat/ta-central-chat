@@ -17,11 +17,17 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
 import { getTickets } from '../../services/ticketService';
 import { getActiveSessions } from '../../services/realtimeChat';
-import { getCurrentUserRole } from '../../utils/authUtils';
+import { supabase } from '../../services/supabaseClient';
+import {
+  clearCurrentUser,
+  getCurrentAgentId,
+  getCurrentUserName,
+  getCurrentUserRole,
+} from '../../utils/authUtils';
 
 const buildMenuGroups = (counts) => [
   {
@@ -155,7 +161,11 @@ const buildMenuGroups = (counts) => [
 ];
 
 const Sidebar = ({ open = false, onClose }) => {
+  const navigate = useNavigate();
+
   const currentUserRole = getCurrentUserRole();
+  const currentUserName = getCurrentUserName();
+  const currentAgentId = getCurrentAgentId();
 
   const [counts, setCounts] = useState({
     allTickets: 0,
@@ -211,10 +221,7 @@ const Sidebar = ({ open = false, onClose }) => {
           readyToContact: tickets.filter((ticket) => {
             const status = ticket.status?.toLowerCase().trim();
 
-            return (
-              status === 'ready to contact' ||
-              status === 'ready-to-contact'
-            );
+            return status === 'ready to contact' || status === 'ready-to-contact';
           }).length,
 
           closedTickets: tickets.filter((ticket) => {
@@ -279,6 +286,27 @@ const Sidebar = ({ open = false, onClose }) => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      if (currentAgentId) {
+        await supabase
+          .from('agents')
+          .update({ status: 'Offline' })
+          .eq('id', currentAgentId);
+      }
+
+      await supabase.auth.signOut();
+      clearCurrentUser();
+
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+
+      clearCurrentUser();
+      navigate('/login', { replace: true });
+    }
+  };
+
   return (
     <>
       {open && (
@@ -326,7 +354,7 @@ const Sidebar = ({ open = false, onClose }) => {
               </div>
 
               <div className="mt-1 text-sm font-semibold text-white">
-                {currentUserRole}
+                {currentUserRole || 'No role'}
               </div>
             </div>
 
@@ -388,8 +416,13 @@ const Sidebar = ({ open = false, onClose }) => {
 
           <div className="border-t border-white/10 p-4">
             <div className="mb-3 rounded-2xl bg-white/5 p-3">
-              <div className="text-sm font-semibold">Agent Dara</div>
-              <div className="text-xs text-slate-400">{currentUserRole}</div>
+              <div className="text-sm font-semibold">
+                {currentUserName || 'Unknown User'}
+              </div>
+
+              <div className="text-xs text-slate-400">
+                {currentUserRole || 'No role'}
+              </div>
 
               <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -397,7 +430,11 @@ const Sidebar = ({ open = false, onClose }) => {
               </div>
             </div>
 
-            <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-red-300 hover:bg-red-500/10">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+            >
               <LogOut size={18} />
               Logout
             </button>
