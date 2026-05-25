@@ -355,6 +355,7 @@ const LiveChatPage = () => {
                   const isSelected = selectedSession?.id === session.id;
                   const description =
                     session.metadata?.description || 'No description';
+                  const sessionUserId = session.user_id || 'Unknown user';
 
                   return (
                     <button
@@ -370,9 +371,9 @@ const LiveChatPage = () => {
                           <div className="flex items-center gap-2">
                             <User size={14} className="shrink-0 text-slate-400" />
                             <span className="truncate text-sm font-medium text-slate-900">
-                              {session.user_id.length > 20
-                                ? session.user_id.slice(0, 20) + '...'
-                                : session.user_id}
+                              {sessionUserId.length > 20
+                                ? sessionUserId.slice(0, 20) + '...'
+                                : sessionUserId}
                             </span>
                           </div>
                           <p className="mt-1 truncate text-xs text-slate-500">
@@ -436,9 +437,9 @@ const LiveChatPage = () => {
                   <div className="flex items-center gap-2">
                     <User size={16} className="text-slate-500" />
                     <span className="text-sm font-semibold text-slate-900">
-                      {selectedSession.user_id.length > 24
-                        ? selectedSession.user_id.slice(0, 24) + '...'
-                        : selectedSession.user_id}
+                      {(selectedSession.user_id || 'Unknown user').length > 24
+                        ? (selectedSession.user_id || 'Unknown user').slice(0, 24) + '...'
+                        : (selectedSession.user_id || 'Unknown user')}
                     </span>
                     {getStatusBadge(selectedSession.status)}
                   </div>
@@ -659,3 +660,4 @@ const LiveChatPage = () => {
 };
 
 export default LiveChatPage;
+
