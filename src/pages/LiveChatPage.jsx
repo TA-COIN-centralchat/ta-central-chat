@@ -6,10 +6,10 @@ import {
   CheckCircle,
   Send,
   User,
-  Info,
   XCircle,
   Radio,
   Ticket,
+  Image as ImageIcon,
 } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { supabase } from '../services/supabaseClient';
@@ -31,6 +31,7 @@ const LiveChatPage = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   const msgSubRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -512,7 +513,19 @@ const LiveChatPage = () => {
                           }`}
                         >
                           <div className="text-sm leading-relaxed">
-                            {msg.content}
+                            {msg.attachment_url ? (
+                              <>
+                                {msg.content !== '[Image]' && <p>{msg.content}</p>}
+                                <img
+                                  src={msg.attachment_url}
+                                  alt="Attachment"
+                                  className="mt-2 max-h-52 max-w-full cursor-pointer rounded-xl border border-slate-200 object-cover transition hover:opacity-90"
+                                  onClick={() => setLightboxUrl(msg.attachment_url)}
+                                />
+                              </>
+                            ) : (
+                              msg.content
+                            )}
                           </div>
                           <div
                             className={`mt-2 text-xs ${
@@ -577,6 +590,20 @@ const LiveChatPage = () => {
           )}
         </div>
       </div>
+
+      {/* Image Lightbox Overlay */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Full size attachment"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+          />
+        </div>
+      )}
     </DashboardLayout>
   );
 };

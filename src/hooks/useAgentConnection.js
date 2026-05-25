@@ -8,10 +8,6 @@ import {
   getOrCreateUserId,
 } from '../services/realtimeChat';
 
-/**
- * Hook for user-side real-time agent chat via Supabase Realtime.
- * Replaces the old WebSocket-based connection entirely.
- */
 export const useAgentConnection = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isWaiting, setIsWaiting] = useState(false);

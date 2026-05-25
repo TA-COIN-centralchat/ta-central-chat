@@ -81,6 +81,7 @@ export const getMessagesByTicketId = async (ticketId) => {
     sender: message.sender_type,
     name: message.sender_name,
     text: message.message_text,
+    attachmentUrl: message.attachment_url || null,
     isInternalNote: message.is_internal_note,
     time: new Date(message.created_at).toLocaleTimeString([], {
       hour: '2-digit',

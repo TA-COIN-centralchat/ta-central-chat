@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Lock, Paperclip, SendHorizontal } from 'lucide-react';
+import { Lock, Paperclip, SendHorizontal, Image as ImageIcon } from 'lucide-react';
 import ResolveTicketModal from './ResolveTicketModal';
 import EscalateTicketModal from './EscalateTicketModal';
 import {
@@ -18,6 +18,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
   const [replyText, setReplyText] = useState('');
   const [activeMode, setActiveMode] = useState('reply');
   const [sending, setSending] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   const [localTicketStatus, setLocalTicketStatus] = useState(
     ticket?.status || ''
@@ -68,6 +69,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
         sender: rawMsg.sender_type,
         name: rawMsg.sender_name,
         text: rawMsg.message_text,
+        attachmentUrl: rawMsg.attachment_url || null,
         isInternalNote: rawMsg.is_internal_note,
         time: new Date(rawMsg.created_at).toLocaleTimeString([], {
           hour: '2-digit',
@@ -235,7 +237,19 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                     }`}
                   >
                     <div className="text-sm leading-relaxed">
-                      {message.text}
+                      {message.attachmentUrl ? (
+                        <>
+                          {message.text !== '[Image]' && <p>{message.text}</p>}
+                          <img
+                            src={message.attachmentUrl}
+                            alt="Attachment"
+                            className="mt-2 max-h-52 max-w-full cursor-pointer rounded-xl border border-slate-200 object-cover transition hover:opacity-90"
+                            onClick={() => setLightboxUrl(message.attachmentUrl)}
+                          />
+                        </>
+                      ) : (
+                        message.text
+                      )}
                     </div>
 
                     <div
@@ -325,6 +339,20 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
           )}
         </div>
       </section>
+
+      {/* Image Lightbox Overlay */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Full size attachment"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+          />
+        </div>
+      )}
 
       <ResolveTicketModal
         open={showResolve}
