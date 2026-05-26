@@ -3,6 +3,10 @@ import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { supabase } from '../services/supabaseClient';
+import {
+  markAgentOnline,
+  startAgentHeartbeat,
+} from '../services/agentPresenceService';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -103,6 +107,15 @@ const LoginPage = () => {
         .from('agents')
         .update({ status: 'Available' })
         .eq('id', agent.id);
+
+      await markAgentOnline({
+        agentId: agent.id,
+        fullName: agent.full_name,
+        email: agent.email,
+        role: agent.role,
+      });
+
+      startAgentHeartbeat(agent.id);
 
       navigate(redirectPath, { replace: true });
     } catch (error) {
@@ -252,7 +265,8 @@ const LoginPage = () => {
           <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-xs leading-5 text-slate-500">
             Your email must exist in both Supabase Auth and the
             <span className="font-semibold text-slate-700"> agents </span>
-            table.
+            table. After login, your presence will be marked Online and
+            Available for real-time assignment.
           </div>
         </section>
       </div>

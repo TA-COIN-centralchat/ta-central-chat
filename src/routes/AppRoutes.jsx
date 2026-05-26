@@ -94,7 +94,12 @@ const AppRoutes = () => {
           path="/chatbot"
           element={protect(
             ADMIN_AND_SERVICE,
-            <ChannelTicketsPage channel="Chatbot" />
+            <ChannelTicketsPage
+              channelName="Website Chatbot"
+              title="Chatbot Sessions"
+              description="Customer conversations from the website chatbot."
+              workspaceBasePath="/chatbot"
+            />
           )}
         />
 
@@ -102,24 +107,23 @@ const AppRoutes = () => {
           path="/telegram"
           element={protect(
             ADMIN_AND_SERVICE,
-            <ChannelTicketsPage channel="Telegram" />
+            <ChannelTicketsPage
+              channelName="Telegram"
+              title="Telegram Sessions"
+              description="Customer conversations from the Telegram bot."
+              workspaceBasePath="/telegram"
+            />
           )}
         />
 
         <Route
           path="/chatbot/:sessionId"
-          element={protect(
-            ADMIN_AND_SERVICE,
-            <SessionWorkspacePage />
-          )}
+          element={protect(ADMIN_AND_SERVICE, <SessionWorkspacePage />)}
         />
 
         <Route
           path="/telegram/:sessionId"
-          element={protect(
-            ADMIN_AND_SERVICE,
-            <SessionWorkspacePage />
-          )}
+          element={protect(ADMIN_AND_SERVICE, <SessionWorkspacePage />)}
         />
 
         <Route
