@@ -169,7 +169,7 @@ const SessionWorkspacePage = () => {
           <button
             type="button"
             onClick={() => navigate(fromPath)}
-            className="mt-5 rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
             Back to {fromLabel}
           </button>

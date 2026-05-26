@@ -317,7 +317,7 @@ const DashboardPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate("/agents")}
-                  className="w-full rounded-xl border border-slate-200 h-10 px-4 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                 >
                   Manage Agents
                 </button>

@@ -615,7 +615,7 @@ const LiveChatPage = () => {
                   <button
                     type="button"
                     onClick={backToCards}
-                    className="mt-3 rounded-xl border border-slate-200 h-10 px-4 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                    className="mt-3 inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
                   >
                     Back to Sessions
                   </button>
