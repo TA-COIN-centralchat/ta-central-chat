@@ -1,26 +1,26 @@
-import { useEffect, useState } from 'react';
-import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import { supabase } from '../services/supabaseClient';
+import { supabase } from "../services/supabaseClient";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const redirectPath = location.state?.from || '/dashboard';
+  const redirectPath = location.state?.from || "/dashboard";
 
   const [checkingSession, setCheckingSession] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const checkExistingSession = async () => {
@@ -31,7 +31,7 @@ const LoginPage = () => {
 
         setHasSession(Boolean(session?.user));
       } catch (error) {
-        console.error('Failed to check existing session:', error);
+        console.error("Failed to check existing session:", error);
       } finally {
         setCheckingSession(false);
       }
@@ -46,7 +46,7 @@ const LoginPage = () => {
       [field]: value,
     }));
 
-    if (errorMessage) setErrorMessage('');
+    if (errorMessage) setErrorMessage("");
   };
 
   const handleLogin = async (event) => {
@@ -56,13 +56,13 @@ const LoginPage = () => {
     const password = formData.password;
 
     if (!email || !password) {
-      setErrorMessage('Please enter both email and password.');
+      setErrorMessage("Please enter both email and password.");
       return;
     }
 
     try {
       setLoggingIn(true);
-      setErrorMessage('');
+      setErrorMessage("");
 
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
@@ -77,37 +77,37 @@ const LoginPage = () => {
       const userEmail = authData.user?.email;
 
       if (!userEmail) {
-        throw new Error('Login succeeded, but no email was returned.');
+        throw new Error("Login succeeded, but no email was returned.");
       }
 
       const { data: agent, error: agentError } = await supabase
-        .from('agents')
-        .select('id, full_name, email, role, status')
-        .eq('email', userEmail)
+        .from("agents")
+        .select("id, full_name, email, role, status")
+        .eq("email", userEmail)
         .single();
 
       if (agentError || !agent) {
         await supabase.auth.signOut();
 
         throw new Error(
-          'Login successful, but no agent profile was found for this email. Please create an agent account with the same email.'
+          "Login successful, but no agent profile was found for this email. Please create an agent account with the same email.",
         );
       }
 
-      localStorage.setItem('currentAgentId', agent.id);
-      localStorage.setItem('currentUserName', agent.full_name);
-      localStorage.setItem('currentUserEmail', agent.email);
-      localStorage.setItem('currentUserRole', agent.role);
+      localStorage.setItem("currentAgentId", agent.id);
+      localStorage.setItem("currentUserName", agent.full_name);
+      localStorage.setItem("currentUserEmail", agent.email);
+      localStorage.setItem("currentUserRole", agent.role);
 
       await supabase
-        .from('agents')
-        .update({ status: 'Available' })
-        .eq('id', agent.id);
+        .from("agents")
+        .update({ status: "Available" })
+        .eq("id", agent.id);
 
       navigate(redirectPath, { replace: true });
     } catch (error) {
-      console.error('Login failed:', error);
-      setErrorMessage(error?.message || 'Login failed. Please try again.');
+      console.error("Login failed:", error);
+      setErrorMessage(error?.message || "Login failed. Please try again.");
     } finally {
       setLoggingIn(false);
     }
@@ -137,7 +137,7 @@ const LoginPage = () => {
         <section className="hidden bg-linear-to-br from-slate-950 via-slate-900 to-blue-950 p-10 text-white lg:block">
           <div className="flex h-full flex-col justify-between">
             <div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400 text-2xl font-bold text-slate-950">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400 text-2xl font-bold text-slate-950">
                 $
               </div>
 
@@ -190,13 +190,15 @@ const LoginPage = () => {
                 Email
               </label>
 
-              <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
+              <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 h-10 px-3.5 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
                 <Mail size={18} className="text-slate-400" />
 
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(event) => handleChange('email', event.target.value)}
+                  onChange={(event) =>
+                    handleChange("email", event.target.value)
+                  }
                   placeholder="agent@tacoin.com"
                   autoComplete="email"
                   className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
@@ -209,14 +211,14 @@ const LoginPage = () => {
                 Password
               </label>
 
-              <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
+              <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 h-10 px-3.5 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
                 <Lock size={18} className="text-slate-400" />
 
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(event) =>
-                    handleChange('password', event.target.value)
+                    handleChange("password", event.target.value)
                   }
                   placeholder="Enter password"
                   autoComplete="current-password"
@@ -244,7 +246,7 @@ const LoginPage = () => {
                   Signing in...
                 </>
               ) : (
-                'Login'
+                "Login"
               )}
             </button>
           </form>

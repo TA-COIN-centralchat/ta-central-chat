@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { createAgent } from '../../services/ticketService';
+import { useState } from "react";
+import { createAgent } from "../../services/ticketService";
 
 const CreateAgentModal = ({ open, onClose, onCreated }) => {
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    role: 'Customer Service Agent',
+    fullName: "",
+    email: "",
+    role: "Customer Service Agent",
   });
 
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
 
   const handleSubmit = async () => {
     if (!formData.fullName || !formData.email) {
-      alert('Please enter full name and email.');
+      alert("Please enter full name and email.");
       return;
     }
 
@@ -31,9 +31,9 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
       await createAgent(formData);
 
       setFormData({
-        fullName: '',
-        email: '',
-        role: 'Customer Service Agent',
+        fullName: "",
+        email: "",
+        role: "Customer Service Agent",
       });
 
       if (onCreated) {
@@ -42,8 +42,8 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
 
       onClose();
     } catch (error) {
-      console.error('Create agent error:', error);
-      alert('Failed to create agent. Email may already exist.');
+      console.error("Create agent error:", error);
+      alert("Failed to create agent. Email may already exist.");
     } finally {
       setLoading(false);
     }
@@ -52,12 +52,11 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
       <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-950">
-          Create Agent
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-950">Create Agent</h2>
 
         <p className="mt-2 text-sm text-slate-500">
-          Add a new support agent account. The default status will be Offline until the agent logs in.
+          Add a new support agent account. The default status will be Offline
+          until the agent logs in.
         </p>
 
         <div className="mt-5 space-y-4">
@@ -65,24 +64,22 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
             label="Full Name"
             placeholder="Example: Agent Dara"
             value={formData.fullName}
-            onChange={(value) => handleChange('fullName', value)}
+            onChange={(value) => handleChange("fullName", value)}
           />
 
           <Input
             label="Email"
             placeholder="agent@tacoin.com"
             value={formData.email}
-            onChange={(value) => handleChange('email', value)}
+            onChange={(value) => handleChange("email", value)}
           />
 
           <div>
-            <label className="text-sm font-medium text-slate-700">
-              Role
-            </label>
+            <label className="text-sm font-medium text-slate-700">Role</label>
             <select
               value={formData.role}
-              onChange={(event) => handleChange('role', event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              onChange={(event) => handleChange("role", event.target.value)}
+              className="mt-2 w-full rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
             >
               <option>Admin</option>
               <option>Customer Service Agent</option>
@@ -93,7 +90,9 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
           <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
             <div className="font-medium text-slate-900">Default Status</div>
             <p className="mt-1">
-              New agents will be created as <strong>Offline</strong>. Later, when login is connected, the system will change the status automatically.
+              New agents will be created as <strong>Offline</strong>. Later,
+              when login is connected, the system will change the status
+              automatically.
             </p>
           </div>
         </div>
@@ -102,7 +101,7 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 h-10 px-4 text-sm hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -111,9 +110,9 @@ const CreateAgentModal = ({ open, onClose, onCreated }) => {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Creating...' : 'Create Agent'}
+            {loading ? "Creating..." : "Create Agent"}
           </button>
         </div>
       </div>
@@ -128,7 +127,7 @@ const Input = ({ label, placeholder, value, onChange }) => (
       value={value}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
-      className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+      className="mt-2 w-full rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
     />
   </div>
 );

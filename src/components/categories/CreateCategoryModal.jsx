@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { createCategory } from '../../services/ticketService';
+import { useState } from "react";
+import { createCategory } from "../../services/ticketService";
 
 const CreateCategoryModal = ({ open, onClose, onCreated }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      alert('Please enter category name.');
+      alert("Please enter category name.");
       return;
     }
 
@@ -33,8 +33,8 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
       });
 
       setFormData({
-        name: '',
-        description: '',
+        name: "",
+        description: "",
       });
 
       if (onCreated) {
@@ -43,8 +43,8 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
 
       onClose();
     } catch (error) {
-      console.error('Create category error:', error);
-      alert('Failed to create category. Please check console.');
+      console.error("Create category error:", error);
+      alert("Failed to create category. Please check console.");
     } finally {
       setLoading(false);
     }
@@ -53,9 +53,7 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
       <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-950">
-          Add Category
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-950">Add Category</h2>
 
         <p className="mt-2 text-sm text-slate-500">
           Create a new issue category for customer support tickets.
@@ -68,9 +66,9 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
             </label>
             <input
               value={formData.name}
-              onChange={(event) => handleChange('name', event.target.value)}
+              onChange={(event) => handleChange("name", event.target.value)}
               placeholder="Example: P2P Issue"
-              className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
             />
           </div>
 
@@ -82,7 +80,7 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
               rows="4"
               value={formData.description}
               onChange={(event) =>
-                handleChange('description', event.target.value)
+                handleChange("description", event.target.value)
               }
               placeholder="Explain when this category should be used..."
               className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-blue-500"
@@ -101,7 +99,7 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 h-10 px-4 text-sm hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -110,9 +108,9 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Creating...' : 'Create Category'}
+            {loading ? "Creating..." : "Create Category"}
           </button>
         </div>
       </div>

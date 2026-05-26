@@ -1,14 +1,19 @@
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { getCurrentUserRole } from '../utils/authUtils';
+import { useEffect } from "react";
+import { getCurrentUserRole } from "../utils/authUtils";
+import { useLayout } from "../context/LayoutContext";
 
 const SettingsPage = () => {
+  const { setTitle, setDescription } = useLayout();
+
+  useEffect(() => {
+    setTitle("Settings");
+    setDescription("Manage dashboard configuration and system information.");
+  }, [setTitle, setDescription]);
+
   const currentUserRole = getCurrentUserRole();
 
   return (
-    <DashboardLayout
-      title="Settings"
-      description="Manage dashboard configuration and system information."
-    >
+    <>
       <div className="space-y-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-slate-950">
@@ -23,12 +28,12 @@ const SettingsPage = () => {
 
           <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
             <div>
-              <span className="font-medium text-slate-900">Current Role:</span>{' '}
+              <span className="font-medium text-slate-900">Current Role:</span>{" "}
               {currentUserRole}
             </div>
 
             <div className="mt-2">
-              <span className="font-medium text-slate-900">Role Source:</span>{' '}
+              <span className="font-medium text-slate-900">Role Source:</span>{" "}
               Temporary frontend role until Supabase Auth is connected.
             </div>
           </div>
@@ -115,7 +120,7 @@ const SettingsPage = () => {
           </div>
         </section>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

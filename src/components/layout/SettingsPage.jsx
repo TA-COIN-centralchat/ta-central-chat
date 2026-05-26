@@ -1,5 +1,5 @@
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { getCurrentUserRole } from '../routes/ProtectedRoute';
+import DashboardLayout from "../components/layout/DashboardLayout";
+import { getCurrentUserRole } from "../routes/ProtectedRoute";
 
 const SettingsPage = () => {
   const currentUserRole = getCurrentUserRole();
@@ -23,12 +23,12 @@ const SettingsPage = () => {
 
           <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
             <div>
-              <span className="font-medium text-slate-900">Current Role:</span>{' '}
+              <span className="font-medium text-slate-900">Current Role:</span>{" "}
               {currentUserRole}
             </div>
 
             <div className="mt-2">
-              <span className="font-medium text-slate-900">Role Source:</span>{' '}
+              <span className="font-medium text-slate-900">Role Source:</span>{" "}
               Temporary frontend role until Supabase Auth is connected.
             </div>
           </div>

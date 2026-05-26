@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Lock, X } from 'lucide-react';
-import ReassignTicketModal from './ReassignTicketModal';
-import { supabase } from '../../services/supabaseClient';
+import { useEffect, useState } from "react";
+import { Lock, X } from "lucide-react";
+import ReassignTicketModal from "./ReassignTicketModal";
+import { supabase } from "../../services/supabaseClient";
 
 const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
   const [showReassign, setShowReassign] = useState(false);
@@ -24,7 +24,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
   }
 
   const isTicketLocked =
-    ticket.status === 'Resolved' || ticket.status === 'Closed';
+    ticket.status === "Resolved" || ticket.status === "Closed";
 
   const handleReassignUpdated = async (newAgentName) => {
     setLocalAssignedTo(newAgentName);
@@ -71,12 +71,15 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
 
             <div className="space-y-3 text-sm">
               <Detail label="Full Name" value={ticket.customer} />
-              <Detail label="Phone" value={ticket.phone || 'Not provided'} />
-              <Detail label="Telegram" value={ticket.telegram || 'Not provided'} />
-              <Detail label="Email" value={ticket.email || 'Not provided'} />
+              <Detail label="Phone" value={ticket.phone || "Not provided"} />
+              <Detail
+                label="Telegram"
+                value={ticket.telegram || "Not provided"}
+              />
+              <Detail label="Email" value={ticket.email || "Not provided"} />
               <Detail
                 label="T.A Coin User ID"
-                value={ticket.accountId || 'Not provided'}
+                value={ticket.accountId || "Not provided"}
               />
               <Detail label="Source Channel" value={ticket.channel} />
             </div>
@@ -92,7 +95,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
               <Detail label="Issue Type" value={ticket.category} />
               <Detail
                 label="Sub-category"
-                value={ticket.subCategory || 'Not provided'}
+                value={ticket.subCategory || "Not provided"}
               />
               <Detail label="Status" value={ticket.status} />
               <Detail
@@ -101,9 +104,9 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
               />
               <Detail
                 label="Transaction ID"
-                value={ticket.transactionId || 'Not provided'}
+                value={ticket.transactionId || "Not provided"}
               />
-              <Detail label="Created" value={ticket.time || 'Not provided'} />
+              <Detail label="Created" value={ticket.time || "Not provided"} />
             </div>
           </section>
 
@@ -117,7 +120,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
                 <button
                   type="button"
                   disabled
-                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500"
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-100 h-10 px-4 text-sm font-medium text-slate-500"
                 >
                   <Lock size={16} />
                   Reassign Disabled
@@ -126,7 +129,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
                 <button
                   type="button"
                   onClick={() => setShowReassign(true)}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="w-full rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700"
                 >
                   Reassign Ticket
                 </button>
@@ -135,7 +138,7 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
               <button
                 type="button"
                 onClick={() => setShowAuditHistory(true)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="w-full rounded-xl border border-slate-200 h-10 px-4 text-sm text-slate-700 hover:bg-slate-50"
               >
                 View Audit History
               </button>
@@ -150,11 +153,11 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             <div className="space-y-3 border-l border-slate-200 pl-4 text-sm">
               <TimelineItem
                 title="Ticket created"
-                time={ticket.time || 'Unknown'}
+                time={ticket.time || "Unknown"}
               />
               <TimelineItem
                 title={`Assigned to ${localAssignedTo || ticket.assignedTo}`}
-                time={ticket.time || 'Unknown'}
+                time={ticket.time || "Unknown"}
               />
               {isTicketLocked && (
                 <TimelineItem
@@ -173,8 +176,8 @@ const TicketDetailsPanel = ({ ticket, onTicketUpdated }) => {
             <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
               Internal notes added in the chat window are saved in Supabase.
               {isTicketLocked
-                ? ' Since this ticket is closed/resolved, new notes cannot be added from the chat box.'
-                : ''}
+                ? " Since this ticket is closed/resolved, new notes cannot be added from the chat box."
+                : ""}
             </div>
           </section>
         </div>
@@ -208,10 +211,10 @@ const AuditHistoryModal = ({ open, onClose, ticket }) => {
         setLoading(true);
 
         const { data, error } = await supabase
-          .from('audit_logs')
-          .select('*')
-          .eq('ticket_id', ticket.dbId)
-          .order('created_at', { ascending: false });
+          .from("audit_logs")
+          .select("*")
+          .eq("ticket_id", ticket.dbId)
+          .order("created_at", { ascending: false });
 
         if (error) {
           throw error;
@@ -219,7 +222,7 @@ const AuditHistoryModal = ({ open, onClose, ticket }) => {
 
         setLogs(data || []);
       } catch (error) {
-        console.error('Failed to load ticket audit history:', error);
+        console.error("Failed to load ticket audit history:", error);
       } finally {
         setLoading(false);
       }
@@ -279,7 +282,7 @@ const AuditHistoryModal = ({ open, onClose, ticket }) => {
                         {log.action}
                       </div>
                       <div className="mt-1 text-sm text-slate-500">
-                        {log.user_name || 'System'} · {log.role || 'System'}
+                        {log.user_name || "System"} · {log.role || "System"}
                       </div>
                     </div>
 
@@ -289,7 +292,7 @@ const AuditHistoryModal = ({ open, onClose, ticket }) => {
                   </div>
 
                   <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                    {log.details || 'No details provided.'}
+                    {log.details || "No details provided."}
                   </p>
                 </div>
               ))}
@@ -301,7 +304,7 @@ const AuditHistoryModal = ({ open, onClose, ticket }) => {
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="w-full rounded-xl bg-slate-900 h-10 px-4 text-sm font-medium text-white hover:bg-slate-800"
           >
             Close
           </button>

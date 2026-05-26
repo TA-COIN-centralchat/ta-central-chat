@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
@@ -12,22 +12,22 @@ import {
   ShieldCheck,
   UserPlus,
   Users,
-} from 'lucide-react';
+} from "lucide-react";
 
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { createAgent, getAgents } from '../services/ticketService';
+import DashboardLayout from "../components/layout/DashboardLayout";
+import { createAgent, getAgents } from "../services/ticketService";
 
 const roleOptions = [
-  'Admin',
-  'Customer Service Agent',
-  'Customer Support Agent',
+  "Admin",
+  "Customer Service Agent",
+  "Customer Support Agent",
 ];
 
 const initialFormData = {
-  fullName: '',
-  email: '',
-  role: 'Customer Service Agent',
-  password: '',
+  fullName: "",
+  email: "",
+  role: "Customer Service Agent",
+  password: "",
 };
 
 const AgentsPage = () => {
@@ -39,21 +39,21 @@ const AgentsPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const loadAgents = async () => {
     try {
       setLoading(true);
-      setErrorMessage('');
+      setErrorMessage("");
 
       const data = await getAgents();
       setAgents(data || []);
     } catch (error) {
-      console.error('Failed to load agents:', error);
+      console.error("Failed to load agents:", error);
       setErrorMessage(
-        error?.message || 'Failed to load agents. Please check Supabase.'
+        error?.message || "Failed to load agents. Please check Supabase.",
       );
     } finally {
       setLoading(false);
@@ -82,15 +82,15 @@ const AgentsPage = () => {
 
   const stats = useMemo(() => {
     const available = agents.filter(
-      (agent) => agent.status?.toLowerCase() === 'available'
+      (agent) => agent.status?.toLowerCase() === "available",
     ).length;
 
     const busy = agents.filter(
-      (agent) => agent.status?.toLowerCase() === 'busy'
+      (agent) => agent.status?.toLowerCase() === "busy",
     ).length;
 
     const offline = agents.filter(
-      (agent) => agent.status?.toLowerCase() === 'offline'
+      (agent) => agent.status?.toLowerCase() === "offline",
     ).length;
 
     return {
@@ -107,35 +107,35 @@ const AgentsPage = () => {
       [field]: value,
     }));
 
-    if (successMessage) setSuccessMessage('');
-    if (errorMessage) setErrorMessage('');
+    if (successMessage) setSuccessMessage("");
+    if (errorMessage) setErrorMessage("");
   };
 
   const validateForm = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!formData.fullName.trim()) {
-      setErrorMessage('Please enter the agent full name.');
+      setErrorMessage("Please enter the agent full name.");
       return false;
     }
 
     if (!formData.email.trim()) {
-      setErrorMessage('Please enter the agent email.');
+      setErrorMessage("Please enter the agent email.");
       return false;
     }
 
     if (!emailRegex.test(formData.email.trim())) {
-      setErrorMessage('Please enter a valid email address.');
+      setErrorMessage("Please enter a valid email address.");
       return false;
     }
 
     if (!formData.role) {
-      setErrorMessage('Please select the agent role.');
+      setErrorMessage("Please select the agent role.");
       return false;
     }
 
     if (!formData.password || formData.password.length < 8) {
-      setErrorMessage('Temporary password must be at least 8 characters.');
+      setErrorMessage("Temporary password must be at least 8 characters.");
       return false;
     }
 
@@ -145,15 +145,15 @@ const AgentsPage = () => {
   const resetForm = () => {
     setFormData(initialFormData);
     setShowPassword(false);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
   };
 
   const handleCreateAgent = async (event) => {
     event.preventDefault();
 
-    setSuccessMessage('');
-    setErrorMessage('');
+    setSuccessMessage("");
+    setErrorMessage("");
 
     if (!validateForm()) return;
 
@@ -168,18 +168,18 @@ const AgentsPage = () => {
       });
 
       setSuccessMessage(
-        `Agent account created successfully. ${formData.fullName} can now log in with ${formData.email}.`
+        `Agent account created successfully. ${formData.fullName} can now log in with ${formData.email}.`,
       );
 
       setFormData(initialFormData);
       setShowForm(false);
       await loadAgents();
     } catch (error) {
-      console.error('Create agent error:', error);
+      console.error("Create agent error:", error);
 
       setErrorMessage(
         error?.message ||
-          'Failed to create agent. Please check the Edge Function logs in Supabase.'
+          "Failed to create agent. Please check the Edge Function logs in Supabase.",
       );
     } finally {
       setCreating(false);
@@ -220,7 +220,11 @@ const AgentsPage = () => {
         </section>
 
         {successMessage && (
-          <AlertBox type="success" icon={CheckCircle} message={successMessage} />
+          <AlertBox
+            type="success"
+            icon={CheckCircle}
+            message={successMessage}
+          />
         )}
 
         {errorMessage && (
@@ -240,7 +244,7 @@ const AgentsPage = () => {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 h-10 px-3.5">
                 <Search size={17} className="text-slate-400" />
 
                 <input
@@ -255,7 +259,7 @@ const AgentsPage = () => {
                 type="button"
                 onClick={loadAgents}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -269,10 +273,10 @@ const AgentsPage = () => {
                 type="button"
                 onClick={() => {
                   setShowForm((prev) => !prev);
-                  setErrorMessage('');
-                  setSuccessMessage('');
+                  setErrorMessage("");
+                  setSuccessMessage("");
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700"
               >
                 <Plus size={16} />
                 Create Agent
@@ -308,7 +312,7 @@ const AgentsPage = () => {
                   required
                   placeholder="Example: Agent Lina"
                   value={formData.fullName}
-                  onChange={(value) => handleChange('fullName', value)}
+                  onChange={(value) => handleChange("fullName", value)}
                 />
 
                 <Input
@@ -317,7 +321,7 @@ const AgentsPage = () => {
                   type="email"
                   placeholder="agent@tacoin.com"
                   value={formData.email}
-                  onChange={(value) => handleChange('email', value)}
+                  onChange={(value) => handleChange("email", value)}
                 />
 
                 <div>
@@ -328,9 +332,9 @@ const AgentsPage = () => {
                   <select
                     value={formData.role}
                     onChange={(event) =>
-                      handleChange('role', event.target.value)
+                      handleChange("role", event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white h-10 px-3.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                   >
                     {roleOptions.map((role) => (
                       <option key={role} value={role}>
@@ -342,16 +346,15 @@ const AgentsPage = () => {
 
                 <div>
                   <label className="text-sm font-medium text-slate-700">
-                    Temporary Password{' '}
-                    <span className="text-red-500">*</span>
+                    Temporary Password <span className="text-red-500">*</span>
                   </label>
 
-                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-white h-10 px-3.5 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(event) =>
-                        handleChange('password', event.target.value)
+                        handleChange("password", event.target.value)
                       }
                       placeholder="Minimum 8 characters"
                       className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
@@ -362,11 +365,7 @@ const AgentsPage = () => {
                       onClick={() => setShowPassword((prev) => !prev)}
                       className="text-slate-400 hover:text-slate-700"
                     >
-                      {showPassword ? (
-                        <EyeOff size={17} />
-                      ) : (
-                        <Eye size={17} />
-                      )}
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>
                   </div>
 
@@ -384,7 +383,7 @@ const AgentsPage = () => {
                     setShowForm(false);
                   }}
                   disabled={creating}
-                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-6 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -392,7 +391,7 @@ const AgentsPage = () => {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {creating ? (
                     <>
@@ -411,8 +410,30 @@ const AgentsPage = () => {
           )}
 
           {loading ? (
-            <div className="p-10 text-center text-sm text-slate-500">
-              Loading agents...
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Agent</th>
+                    <th className="px-5 py-3">Email</th>
+                    <th className="px-5 py-3">Role</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Active Tickets</th>
+                    <th className="px-5 py-3">Resolved Today</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      {[...Array(6)].map((_, j) => (
+                        <td key={j} className="px-5 py-4">
+                          <div className="h-4 w-full rounded bg-slate-100"></div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : filteredAgents.length === 0 ? (
             <EmptyState />
@@ -466,10 +487,10 @@ const AgentsPage = () => {
                       <td className="px-5 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ${getStatusClass(
-                            agent.status
+                            agent.status,
                           )}`}
                         >
-                          {agent.status || 'Offline'}
+                          {agent.status || "Offline"}
                         </span>
                       </td>
 
@@ -503,8 +524,8 @@ const MiniMetric = ({ label, value }) => {
 
 const AlertBox = ({ type, icon: Icon, message }) => {
   const classes = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    error: 'border-red-200 bg-red-50 text-red-700',
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    error: "border-red-200 bg-red-50 text-red-700",
   };
 
   return (
@@ -522,7 +543,7 @@ const Input = ({
   value,
   onChange,
   placeholder,
-  type = 'text',
+  type = "text",
   required = false,
 }) => {
   return (
@@ -536,7 +557,7 @@ const Input = ({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+        className="mt-2 w-full rounded-xl border border-slate-200 bg-white h-10 px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
       />
     </div>
   );
@@ -549,9 +570,7 @@ const EmptyState = () => {
         <Users size={22} />
       </div>
 
-      <h3 className="mt-4 font-semibold text-slate-900">
-        No agents found
-      </h3>
+      <h3 className="mt-4 font-semibold text-slate-900">No agents found</h3>
 
       <p className="mt-2 text-sm text-slate-500">
         Create your first support agent using the Create Agent button.
@@ -560,32 +579,32 @@ const EmptyState = () => {
   );
 };
 
-const getInitials = (name = '') => {
+const getInitials = (name = "") => {
   return name
-    .split(' ')
+    .split(" ")
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])
-    .join('')
+    .join("")
     .toUpperCase();
 };
 
 const getStatusClass = (status) => {
   const normalized = status?.toLowerCase().trim();
 
-  if (normalized === 'available') {
-    return 'bg-emerald-50 text-emerald-700 ring-emerald-100';
+  if (normalized === "available") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   }
 
-  if (normalized === 'busy') {
-    return 'bg-orange-50 text-orange-700 ring-orange-100';
+  if (normalized === "busy") {
+    return "bg-orange-50 text-orange-700 ring-orange-100";
   }
 
-  if (normalized === 'away') {
-    return 'bg-amber-50 text-amber-700 ring-amber-100';
+  if (normalized === "away") {
+    return "bg-amber-50 text-amber-700 ring-amber-100";
   }
 
-  return 'bg-slate-100 text-slate-600 ring-slate-200';
+  return "bg-slate-100 text-slate-600 ring-slate-200";
 };
 
 export default AgentsPage;

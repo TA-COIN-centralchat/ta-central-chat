@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Eye } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { getTickets } from '../services/ticketService';
+import { useEffect, useMemo, useState } from "react";
+import { Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../components/layout/DashboardLayout";
+import { getTickets } from "../services/ticketService";
 
 const ClosedTicketsPage = () => {
   const navigate = useNavigate();
 
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const loadClosedTickets = async () => {
@@ -19,12 +19,13 @@ const ClosedTicketsPage = () => {
         const data = await getTickets();
 
         const filteredTickets = data.filter(
-          (ticket) => ticket.status === 'Closed' || ticket.status === 'Resolved'
+          (ticket) =>
+            ticket.status === "Closed" || ticket.status === "Resolved",
         );
 
         setTickets(filteredTickets);
       } catch (error) {
-        console.error('Failed to load closed tickets:', error);
+        console.error("Failed to load closed tickets:", error);
       } finally {
         setLoading(false);
       }
@@ -59,8 +60,8 @@ const ClosedTicketsPage = () => {
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
-        from: '/closed-tickets',
-        fromLabel: 'Closed Tickets',
+        from: "/closed-tickets",
+        fromLabel: "Closed Tickets",
       },
     });
   };
@@ -77,7 +78,8 @@ const ClosedTicketsPage = () => {
               Closed Ticket Archive
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              {filteredTickets.length} of {tickets.length} closed/resolved tickets shown.
+              {filteredTickets.length} of {tickets.length} closed/resolved
+              tickets shown.
             </p>
           </div>
 
@@ -85,13 +87,37 @@ const ClosedTicketsPage = () => {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search closed tickets..."
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-80"
+            className="w-full rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500 md:w-80"
           />
         </div>
 
         {loading ? (
-          <div className="p-10 text-center text-sm text-slate-500">
-            Loading closed tickets...
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Ticket ID</th>
+                  <th className="px-5 py-3">Customer</th>
+                  <th className="px-5 py-3">Channel</th>
+                  <th className="px-5 py-3">Issue Type</th>
+                  <th className="px-5 py-3">Resolved By</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Resolution Summary</th>
+                  <th className="px-5 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {[...Array(8)].map((_, j) => (
+                      <td key={j} className="px-5 py-4">
+                        <div className="h-4 w-full rounded bg-slate-100"></div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : filteredTickets.length === 0 ? (
           <div className="p-10 text-center">
@@ -137,7 +163,7 @@ const ClosedTicketsPage = () => {
                         {ticket.phone ||
                           ticket.telegram ||
                           ticket.email ||
-                          'No contact'}
+                          "No contact"}
                       </div>
                     </td>
 
@@ -161,7 +187,7 @@ const ClosedTicketsPage = () => {
 
                     <td className="max-w-xs px-5 py-4 text-slate-600">
                       <div className="truncate">
-                        {ticket.lastMessage || 'No summary available.'}
+                        {ticket.lastMessage || "No summary available."}
                       </div>
                     </td>
 
@@ -172,7 +198,7 @@ const ClosedTicketsPage = () => {
                           event.stopPropagation();
                           openTicket(ticket);
                         }}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                       >
                         <Eye size={16} />
                         View

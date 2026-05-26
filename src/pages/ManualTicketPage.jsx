@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
@@ -8,51 +8,58 @@ import {
   RefreshCw,
   Send,
   User,
-} from 'lucide-react';
+} from "lucide-react";
 
-import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   createTicketWithAutoAssign,
   getCategories,
-} from '../services/ticketService';
+} from "../services/ticketService";
+import { useLayout } from "../context/LayoutContext";
 
 const transactionRequiredKeywords = [
-  'payment',
-  'withdrawal',
-  'deposit',
-  'p2p',
-  'transaction',
-  'transfer',
+  "payment",
+  "withdrawal",
+  "deposit",
+  "p2p",
+  "transaction",
+  "transfer",
 ];
 
 const initialFormData = {
-  customerName: '',
-  phone: '',
-  telegram: '',
-  email: '',
-  accountId: '',
-  channel: 'Telegram',
-  issueType: '',
-  subCategory: '',
-  transactionId: '',
-  issueDescription: '',
-  internalNote: '',
+  customerName: "",
+  phone: "",
+  telegram: "",
+  email: "",
+  accountId: "",
+  channel: "Telegram",
+  issueType: "",
+  subCategory: "",
+  transactionId: "",
+  issueDescription: "",
+  internalNote: "",
 };
 
 const ManualTicketPage = () => {
+  const { setTitle, setDescription } = useLayout();
+
+  useEffect(() => {
+    setTitle("Manual Ticket");
+    setDescription("Create support tickets manually from Telegram, website chatbot, walk-in, phone call, office visit, or other channels.");
+  }, [setTitle, setDescription]);
+
   const [formData, setFormData] = useState(initialFormData);
   const [categories, setCategories] = useState([]);
 
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [creatingTicket, setCreatingTicket] = useState(false);
 
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const loadCategories = async () => {
     try {
       setLoadingCategories(true);
-      setErrorMessage('');
+      setErrorMessage("");
 
       const activeCategories = await getCategories();
 
@@ -65,10 +72,10 @@ const ManualTicketPage = () => {
         }));
       }
     } catch (error) {
-      console.error('Failed to load categories:', error);
+      console.error("Failed to load categories:", error);
 
       setErrorMessage(
-        'Failed to load issue categories. Please check Supabase categories table or RLS policy.'
+        "Failed to load issue categories. Please check Supabase categories table or RLS policy.",
       );
     } finally {
       setLoadingCategories(false);
@@ -84,15 +91,13 @@ const ManualTicketPage = () => {
     const issueType = formData.issueType.toLowerCase();
 
     return transactionRequiredKeywords.some((keyword) =>
-      issueType.includes(keyword)
+      issueType.includes(keyword),
     );
   }, [formData.issueType]);
 
   const hasContact = useMemo(() => {
     return (
-      formData.phone.trim() ||
-      formData.telegram.trim() ||
-      formData.email.trim()
+      formData.phone.trim() || formData.telegram.trim() || formData.email.trim()
     );
   }, [formData.phone, formData.telegram, formData.email]);
 
@@ -104,42 +109,42 @@ const ManualTicketPage = () => {
       [field]: value,
     }));
 
-    if (successMessage) setSuccessMessage('');
-    if (errorMessage) setErrorMessage('');
+    if (successMessage) setSuccessMessage("");
+    if (errorMessage) setErrorMessage("");
   };
 
   const validateForm = () => {
     if (!formData.customerName.trim()) {
-      setErrorMessage('Please enter the customer name.');
+      setErrorMessage("Please enter the customer name.");
       return false;
     }
 
     if (!hasContact) {
       setErrorMessage(
-        'Please enter at least one contact method: phone, Telegram, or email.'
+        "Please enter at least one contact method: phone, Telegram, or email.",
       );
       return false;
     }
 
     if (!formData.channel) {
-      setErrorMessage('Please select the customer contact channel.');
+      setErrorMessage("Please select the customer contact channel.");
       return false;
     }
 
     if (!formData.issueType) {
-      setErrorMessage('Please select an issue type.');
+      setErrorMessage("Please select an issue type.");
       return false;
     }
 
     if (isTransactionRequired && !formData.transactionId.trim()) {
       setErrorMessage(
-        'Transaction ID is required for payment, withdrawal, deposit, transfer, transaction, or P2P issues.'
+        "Transaction ID is required for payment, withdrawal, deposit, transfer, transaction, or P2P issues.",
       );
       return false;
     }
 
     if (descriptionCount < 10) {
-      setErrorMessage('Issue description must be at least 10 characters.');
+      setErrorMessage("Issue description must be at least 10 characters.");
       return false;
     }
 
@@ -149,18 +154,18 @@ const ManualTicketPage = () => {
   const resetForm = () => {
     setFormData({
       ...initialFormData,
-      issueType: categories[0]?.name || '',
+      issueType: categories[0]?.name || "",
     });
 
-    setSuccessMessage('');
-    setErrorMessage('');
+    setSuccessMessage("");
+    setErrorMessage("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    setSuccessMessage('');
-    setErrorMessage('');
+    setSuccessMessage("");
+    setErrorMessage("");
 
     if (!validateForm()) return;
 
@@ -171,21 +176,21 @@ const ManualTicketPage = () => {
 
       if (result.assignedAgent) {
         setSuccessMessage(
-          `Ticket created successfully and auto-assigned to ${result.assignedAgent.full_name}.`
+          `Ticket created successfully and auto-assigned to ${result.assignedAgent.full_name}.`,
         );
       } else {
         setSuccessMessage(
-          'Ticket created successfully and placed in Waiting Queue because no agent is available.'
+          "Ticket created successfully and placed in Waiting Queue because no agent is available.",
         );
       }
 
       resetForm();
     } catch (error) {
-      console.error('Create ticket error:', error);
+      console.error("Create ticket error:", error);
 
       setErrorMessage(
         error?.message ||
-          'Failed to create ticket. Please check the browser console and Supabase table setup.'
+          "Failed to create ticket. Please check the browser console and Supabase table setup.",
       );
     } finally {
       setCreatingTicket(false);
@@ -193,10 +198,7 @@ const ManualTicketPage = () => {
   };
 
   return (
-    <DashboardLayout
-      title="Manual Ticket"
-      description="Create support tickets manually from Telegram, website chatbot, walk-in, phone call, office visit, or other channels."
-    >
+    <>
       <div className="mx-auto max-w-6xl space-y-6">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-linear-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-white shadow-sm">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -221,7 +223,7 @@ const ManualTicketPage = () => {
               <MiniInfo label="Channel" value={formData.channel} />
               <MiniInfo
                 label="Contact"
-                value={hasContact ? 'Ready' : 'Missing'}
+                value={hasContact ? "Ready" : "Missing"}
               />
             </div>
           </div>
@@ -248,7 +250,7 @@ const ManualTicketPage = () => {
                 type="button"
                 onClick={loadCategories}
                 disabled={loadingCategories}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loadingCategories ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -296,50 +298,50 @@ const ManualTicketPage = () => {
                       required
                       placeholder="Enter full name"
                       value={formData.customerName}
-                      onChange={(value) => handleChange('customerName', value)}
+                      onChange={(value) => handleChange("customerName", value)}
                     />
 
                     <Input
                       label="Phone Number"
                       placeholder="Enter phone number"
                       value={formData.phone}
-                      onChange={(value) => handleChange('phone', value)}
+                      onChange={(value) => handleChange("phone", value)}
                     />
 
                     <Input
                       label="Telegram Username"
                       placeholder="@username"
                       value={formData.telegram}
-                      onChange={(value) => handleChange('telegram', value)}
+                      onChange={(value) => handleChange("telegram", value)}
                     />
 
                     <Input
                       label="Email"
                       placeholder="customer@email.com"
                       value={formData.email}
-                      onChange={(value) => handleChange('email', value)}
+                      onChange={(value) => handleChange("email", value)}
                     />
 
                     <Input
                       label="T.A Coin User ID"
                       placeholder="TAU-00000"
                       value={formData.accountId}
-                      onChange={(value) => handleChange('accountId', value)}
+                      onChange={(value) => handleChange("accountId", value)}
                     />
 
                     <Select
                       label="Customer Contact Channel"
                       required
                       value={formData.channel}
-                      onChange={(value) => handleChange('channel', value)}
+                      onChange={(value) => handleChange("channel", value)}
                       helperText="Where the customer contacted us first."
                       options={[
-                        'Telegram',
-                        'Website Chatbot',
-                        'Walk-in',
-                        'Phone Call',
-                        'Office Visit',
-                        'Other',
+                        "Telegram",
+                        "Website Chatbot",
+                        "Walk-in",
+                        "Phone Call",
+                        "Office Visit",
+                        "Other",
                       ]}
                     />
                   </div>
@@ -359,12 +361,10 @@ const ManualTicketPage = () => {
                       <select
                         value={formData.issueType}
                         onChange={(event) =>
-                          handleChange('issueType', event.target.value)
+                          handleChange("issueType", event.target.value)
                         }
-                        disabled={
-                          loadingCategories || categories.length === 0
-                        }
-                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        disabled={loadingCategories || categories.length === 0}
+                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white h-10 px-3.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       >
                         {loadingCategories ? (
                           <option>Loading categories...</option>
@@ -391,7 +391,7 @@ const ManualTicketPage = () => {
                       label="Sub-category"
                       placeholder="Example: Seller did not release coin"
                       value={formData.subCategory}
-                      onChange={(value) => handleChange('subCategory', value)}
+                      onChange={(value) => handleChange("subCategory", value)}
                     />
 
                     <Input
@@ -399,13 +399,11 @@ const ManualTicketPage = () => {
                       required={isTransactionRequired}
                       placeholder={
                         isTransactionRequired
-                          ? 'Required for this issue type'
-                          : 'Optional'
+                          ? "Required for this issue type"
+                          : "Optional"
                       }
                       value={formData.transactionId}
-                      onChange={(value) =>
-                        handleChange('transactionId', value)
-                      }
+                      onChange={(value) => handleChange("transactionId", value)}
                     />
                   </div>
 
@@ -416,7 +414,7 @@ const ManualTicketPage = () => {
                       rows={5}
                       value={formData.issueDescription}
                       onChange={(value) =>
-                        handleChange('issueDescription', value)
+                        handleChange("issueDescription", value)
                       }
                       placeholder="Describe the customer's issue clearly. Minimum 10 characters."
                       helperText={`${descriptionCount}/10 minimum characters`}
@@ -428,7 +426,7 @@ const ManualTicketPage = () => {
                       label="Internal Note"
                       rows={3}
                       value={formData.internalNote}
-                      onChange={(value) => handleChange('internalNote', value)}
+                      onChange={(value) => handleChange("internalNote", value)}
                       placeholder="Private note for staff only..."
                       helperText="This note is only visible internally."
                     />
@@ -445,22 +443,22 @@ const ManualTicketPage = () => {
                   <div className="mt-4 space-y-3 text-sm">
                     <SummaryRow
                       label="Customer"
-                      value={formData.customerName || 'Not entered'}
+                      value={formData.customerName || "Not entered"}
                     />
 
                     <SummaryRow
                       label="Channel"
-                      value={formData.channel || 'Not selected'}
+                      value={formData.channel || "Not selected"}
                     />
 
                     <SummaryRow
                       label="Issue Type"
-                      value={formData.issueType || 'Not selected'}
+                      value={formData.issueType || "Not selected"}
                     />
 
                     <SummaryRow
                       label="Contact"
-                      value={hasContact ? 'Available' : 'Missing'}
+                      value={hasContact ? "Available" : "Missing"}
                       warning={!hasContact}
                     />
 
@@ -468,7 +466,7 @@ const ManualTicketPage = () => {
                       label="Transaction ID"
                       value={
                         formData.transactionId ||
-                        (isTransactionRequired ? 'Required' : 'Optional')
+                        (isTransactionRequired ? "Required" : "Optional")
                       }
                       warning={isTransactionRequired && !formData.transactionId}
                     />
@@ -492,7 +490,7 @@ const ManualTicketPage = () => {
               type="button"
               onClick={resetForm}
               disabled={creatingTicket}
-              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-6 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Clear Form
             </button>
@@ -502,7 +500,7 @@ const ManualTicketPage = () => {
               disabled={
                 creatingTicket || loadingCategories || categories.length === 0
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {creatingTicket ? (
                 <>
@@ -519,7 +517,7 @@ const ManualTicketPage = () => {
           </div>
         </form>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 
@@ -553,9 +551,9 @@ const SectionCard = ({ icon: Icon, title, description, children }) => {
 
 const AlertBox = ({ type, icon: Icon, message }) => {
   const classes = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    error: 'border-red-200 bg-red-50 text-red-700',
-    info: 'border-blue-200 bg-blue-50 text-blue-700',
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    error: "border-red-200 bg-red-50 text-red-700",
+    info: "border-blue-200 bg-blue-50 text-blue-700",
   };
 
   return (
@@ -579,7 +577,7 @@ const Input = ({ label, placeholder, value, onChange, required = false }) => {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+        className="mt-2 w-full rounded-xl border border-slate-200 bg-white h-10 px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
       />
     </div>
   );
@@ -602,7 +600,7 @@ const Select = ({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+        className="mt-2 w-full rounded-xl border border-slate-200 bg-white h-10 px-3.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -638,7 +636,7 @@ const Textarea = ({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+        className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
       />
 
       {helperText && (
@@ -655,7 +653,7 @@ const SummaryRow = ({ label, value, warning = false }) => {
 
       <span
         className={`max-w-45 text-right font-medium ${
-          warning ? 'text-red-600' : 'text-slate-900'
+          warning ? "text-red-600" : "text-slate-900"
         }`}
       >
         {value}

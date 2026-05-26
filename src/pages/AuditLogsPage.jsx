@@ -1,25 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { supabase } from '../services/supabaseClient';
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import DashboardLayout from "../components/layout/DashboardLayout";
+import { supabase } from "../services/supabaseClient";
 
 const actionFilters = [
-  'All',
-  'Ticket Auto Assigned',
-  'Ticket Created In Queue',
-  'Queue Ticket Auto Assigned',
-  'Ticket Reassigned',
-  'Agent Created',
-  'Category Created',
-  'Ticket Status Updated to Resolved',
-  'Ticket Status Updated to Pending Investigation',
+  "All",
+  "Ticket Auto Assigned",
+  "Ticket Created In Queue",
+  "Queue Ticket Auto Assigned",
+  "Ticket Reassigned",
+  "Agent Created",
+  "Category Created",
+  "Ticket Status Updated to Resolved",
+  "Ticket Status Updated to Pending Investigation",
 ];
 
 const AuditLogsPage = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [actionFilter, setActionFilter] = useState("All");
 
   useEffect(() => {
     const loadAuditLogs = async () => {
@@ -27,14 +28,16 @@ const AuditLogsPage = () => {
         setLoading(true);
 
         const { data, error } = await supabase
-          .from('audit_logs')
-          .select(`
+          .from("audit_logs")
+          .select(
+            `
             *,
             tickets (
               ticket_number
             )
-          `)
-          .order('created_at', { ascending: false });
+          `,
+          )
+          .order("created_at", { ascending: false });
 
         if (error) {
           throw error;
@@ -42,7 +45,7 @@ const AuditLogsPage = () => {
 
         setLogs(data || []);
       } catch (error) {
-        console.error('Failed to load audit logs:', error);
+        console.error("Failed to load audit logs:", error);
       } finally {
         setLoading(false);
       }
@@ -55,7 +58,7 @@ const AuditLogsPage = () => {
     const searchValue = searchTerm.toLowerCase().trim();
 
     return logs.filter((log) => {
-      const ticketNumber = log.tickets?.ticket_number || '';
+      const ticketNumber = log.tickets?.ticket_number || "";
 
       const matchesSearch =
         !searchValue ||
@@ -66,7 +69,7 @@ const AuditLogsPage = () => {
         ticketNumber.toLowerCase().includes(searchValue);
 
       const matchesAction =
-        actionFilter === 'All' || log.action === actionFilter;
+        actionFilter === "All" || log.action === actionFilter;
 
       return matchesSearch && matchesAction;
     });
@@ -88,18 +91,21 @@ const AuditLogsPage = () => {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_320px]">
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search user, role, action, ticket number, details..."
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-            />
+          <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 h-10 px-3 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
+              <Search size={16} className="text-slate-400" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search user, role, action, ticket number, details..."
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </div>
 
             <select
               value={actionFilter}
               onChange={(event) => setActionFilter(event.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500 md:w-80"
             >
               {actionFilters.map((action) => (
                 <option key={action}>{action}</option>
@@ -109,8 +115,30 @@ const AuditLogsPage = () => {
         </div>
 
         {loading ? (
-          <div className="p-10 text-center text-sm text-slate-500">
-            Loading audit logs...
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Time</th>
+                  <th className="px-5 py-3">User</th>
+                  <th className="px-5 py-3">Role</th>
+                  <th className="px-5 py-3">Action</th>
+                  <th className="px-5 py-3">Ticket</th>
+                  <th className="px-5 py-3">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {[...Array(6)].map((_, j) => (
+                      <td key={j} className="px-5 py-4">
+                        <div className="h-4 w-full rounded bg-slate-100"></div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="p-10 text-center">
@@ -141,15 +169,15 @@ const AuditLogsPage = () => {
                     <td className="whitespace-nowrap px-5 py-4 text-slate-600">
                       {log.created_at
                         ? new Date(log.created_at).toLocaleString()
-                        : 'N/A'}
+                        : "N/A"}
                     </td>
 
                     <td className="px-5 py-4 font-medium text-slate-900">
-                      {log.user_name || 'System'}
+                      {log.user_name || "System"}
                     </td>
 
                     <td className="px-5 py-4 text-slate-600">
-                      {log.role || 'System'}
+                      {log.role || "System"}
                     </td>
 
                     <td className="px-5 py-4">
@@ -159,11 +187,11 @@ const AuditLogsPage = () => {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-slate-600">
-                      {log.tickets?.ticket_number || 'N/A'}
+                      {log.tickets?.ticket_number || "N/A"}
                     </td>
 
                     <td className="max-w-xl px-5 py-4 text-slate-600">
-                      {log.details || 'No details provided.'}
+                      {log.details || "No details provided."}
                     </td>
                   </tr>
                 ))}

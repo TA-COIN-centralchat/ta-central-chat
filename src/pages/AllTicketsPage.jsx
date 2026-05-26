@@ -1,29 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download, Eye } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { getTickets } from '../services/ticketService';
+import { useEffect, useMemo, useState } from "react";
+import { Download, Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../components/layout/DashboardLayout";
+import { getTickets } from "../services/ticketService";
 
 const statusOptions = [
-  'All',
-  'New',
-  'Assigned',
-  'In Progress',
-  'Waiting for Customer',
-  'Pending Investigation',
-  'Ready to Contact Customer',
-  'Resolved',
-  'Closed',
+  "All",
+  "New",
+  "Assigned",
+  "In Progress",
+  "Waiting for Customer",
+  "Pending Investigation",
+  "Ready to Contact Customer",
+  "Resolved",
+  "Closed",
 ];
 
 const channelOptions = [
-  'All',
-  'Website Chatbot',
-  'Telegram',
-  'Walk-in',
-  'Phone Call',
-  'Office Visit',
-  'Other',
+  "All",
+  "Website Chatbot",
+  "Telegram",
+  "Walk-in",
+  "Phone Call",
+  "Office Visit",
+  "Other",
 ];
 
 const AllTicketsPage = () => {
@@ -32,9 +32,9 @@ const AllTicketsPage = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [channelFilter, setChannelFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [channelFilter, setChannelFilter] = useState("All");
 
   useEffect(() => {
     const loadTickets = async () => {
@@ -43,7 +43,7 @@ const AllTicketsPage = () => {
         const data = await getTickets();
         setTickets(data);
       } catch (error) {
-        console.error('Failed to load tickets:', error);
+        console.error("Failed to load tickets:", error);
       } finally {
         setLoading(false);
       }
@@ -72,49 +72,49 @@ const AllTicketsPage = () => {
         ticket.transactionId?.toLowerCase().includes(searchValue);
 
       const matchesStatus =
-        statusFilter === 'All' || ticket.status === statusFilter;
+        statusFilter === "All" || ticket.status === statusFilter;
 
       const matchesChannel =
-        channelFilter === 'All' || ticket.channel === channelFilter;
+        channelFilter === "All" || ticket.channel === channelFilter;
 
       return matchesSearch && matchesStatus && matchesChannel;
     });
   }, [tickets, searchTerm, statusFilter, channelFilter]);
 
   const getStatusClass = (status) => {
-    if (status === 'Resolved' || status === 'Closed') {
-      return 'bg-emerald-50 text-emerald-700';
+    if (status === "Resolved" || status === "Closed") {
+      return "bg-emerald-50 text-emerald-700";
     }
 
-    if (status === 'Pending Investigation') {
-      return 'bg-orange-50 text-orange-700';
+    if (status === "Pending Investigation") {
+      return "bg-orange-50 text-orange-700";
     }
 
-    if (status === 'New') {
-      return 'bg-blue-50 text-blue-700';
+    if (status === "New") {
+      return "bg-blue-50 text-blue-700";
     }
 
-    return 'bg-slate-100 text-slate-700';
+    return "bg-slate-100 text-slate-700";
   };
 
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
-        from: '/tickets',
-        fromLabel: 'All Tickets',
+        from: "/tickets",
+        fromLabel: "All Tickets",
       },
     });
   };
 
   const escapeCsvValue = (value) => {
-    if (value === null || value === undefined) return '';
+    if (value === null || value === undefined) return "";
 
     const stringValue = String(value).replaceAll('"', '""');
 
     if (
-      stringValue.includes(',') ||
+      stringValue.includes(",") ||
       stringValue.includes('"') ||
-      stringValue.includes('\n')
+      stringValue.includes("\n")
     ) {
       return `"${stringValue}"`;
     }
@@ -124,25 +124,25 @@ const AllTicketsPage = () => {
 
   const handleExportCsv = () => {
     if (filteredTickets.length === 0) {
-      alert('No tickets available to export.');
+      alert("No tickets available to export.");
       return;
     }
 
     const headers = [
-      'Ticket ID',
-      'Customer',
-      'Channel',
-      'Issue Type',
-      'Sub-category',
-      'Status',
-      'Assigned Agent',
-      'Phone',
-      'Telegram',
-      'Email',
-      'T.A Coin User ID',
-      'Transaction ID',
-      'Issue Description / Summary',
-      'Created Time',
+      "Ticket ID",
+      "Customer",
+      "Channel",
+      "Issue Type",
+      "Sub-category",
+      "Status",
+      "Assigned Agent",
+      "Phone",
+      "Telegram",
+      "Email",
+      "T.A Coin User ID",
+      "Transaction ID",
+      "Issue Description / Summary",
+      "Created Time",
     ];
 
     const rows = filteredTickets.map((ticket) => [
@@ -150,33 +150,33 @@ const AllTicketsPage = () => {
       ticket.customer,
       ticket.channel,
       ticket.category,
-      ticket.subCategory || '',
+      ticket.subCategory || "",
       ticket.status,
       ticket.assignedTo,
-      ticket.phone || '',
-      ticket.telegram || '',
-      ticket.email || '',
-      ticket.accountId || '',
-      ticket.transactionId || '',
-      ticket.lastMessage || '',
-      ticket.time || '',
+      ticket.phone || "",
+      ticket.telegram || "",
+      ticket.email || "",
+      ticket.accountId || "",
+      ticket.transactionId || "",
+      ticket.lastMessage || "",
+      ticket.time || "",
     ]);
 
     const csvContent = [
-      headers.map(escapeCsvValue).join(','),
-      ...rows.map((row) => row.map(escapeCsvValue).join(',')),
-    ].join('\n');
+      headers.map(escapeCsvValue).join(","),
+      ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+    ].join("\n");
 
     const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;',
+      type: "text/csv;charset=utf-8;",
     });
 
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
 
     const today = new Date().toISOString().slice(0, 10);
-    const statusName = statusFilter.replaceAll(' ', '-').toLowerCase();
-    const channelName = channelFilter.replaceAll(' ', '-').toLowerCase();
+    const statusName = statusFilter.replaceAll(" ", "-").toLowerCase();
+    const channelName = channelFilter.replaceAll(" ", "-").toLowerCase();
 
     link.href = url;
     link.download = `ta-coin-tickets-${statusName}-${channelName}-${today}.csv`;
@@ -204,7 +204,7 @@ const AllTicketsPage = () => {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Download size={16} />
                 Export CSV
@@ -212,8 +212,8 @@ const AllTicketsPage = () => {
 
               <button
                 type="button"
-                onClick={() => navigate('/manual-ticket')}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                onClick={() => navigate("/manual-ticket")}
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition-all hover:bg-blue-700"
               >
                 + New Ticket
               </button>
@@ -225,13 +225,13 @@ const AllTicketsPage = () => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search ticket, customer, phone, Telegram, issue..."
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
             />
 
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
             >
               {statusOptions.map((status) => (
                 <option key={status}>{status}</option>
@@ -241,7 +241,7 @@ const AllTicketsPage = () => {
             <select
               value={channelFilter}
               onChange={(event) => setChannelFilter(event.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
             >
               {channelOptions.map((channel) => (
                 <option key={channel}>{channel}</option>
@@ -251,8 +251,33 @@ const AllTicketsPage = () => {
         </div>
 
         {loading ? (
-          <div className="p-10 text-center text-sm text-slate-500">
-            Loading tickets...
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Ticket ID</th>
+                  <th className="px-5 py-3">Customer</th>
+                  <th className="px-5 py-3">Channel</th>
+                  <th className="px-5 py-3">Issue</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Assigned Agent</th>
+                  <th className="px-5 py-3">Transaction</th>
+                  <th className="px-5 py-3">Created</th>
+                  <th className="px-5 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {[...Array(9)].map((_, j) => (
+                      <td key={j} className="px-5 py-4">
+                        <div className="h-4 w-full rounded bg-slate-100"></div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : filteredTickets.length === 0 ? (
           <div className="p-10 text-center">
@@ -299,7 +324,7 @@ const AllTicketsPage = () => {
                         {ticket.phone ||
                           ticket.telegram ||
                           ticket.email ||
-                          'No contact'}
+                          "No contact"}
                       </div>
                     </td>
 
@@ -319,7 +344,7 @@ const AllTicketsPage = () => {
                     <td className="px-5 py-4">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClass(
-                          ticket.status
+                          ticket.status,
                         )}`}
                       >
                         {ticket.status}
@@ -331,7 +356,7 @@ const AllTicketsPage = () => {
                     </td>
 
                     <td className="px-5 py-4 text-slate-600">
-                      {ticket.transactionId || 'N/A'}
+                      {ticket.transactionId || "N/A"}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-slate-600">
@@ -345,7 +370,7 @@ const AllTicketsPage = () => {
                           event.stopPropagation();
                           openTicket(ticket);
                         }}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                       >
                         <Eye size={16} />
                         View

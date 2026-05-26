@@ -1,15 +1,15 @@
-import { supabase } from './supabaseClient';
+import { supabase } from "./supabaseClient";
 
 /* =========================
    Helpers
 ========================= */
 
 const formatTime = (dateValue) => {
-  if (!dateValue) return '-';
+  if (!dateValue) return "-";
 
   return new Date(dateValue).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
@@ -23,25 +23,25 @@ const logSupabaseError = (label, error) => {
 };
 
 const getCurrentUserRole = () => {
-  return localStorage.getItem('currentUserRole');
+  return localStorage.getItem("currentUserRole");
 };
 
 const getCurrentAgentId = () => {
-  return localStorage.getItem('currentAgentId');
+  return localStorage.getItem("currentAgentId");
 };
 
 const isAdmin = () => {
-  return getCurrentUserRole() === 'Admin';
+  return getCurrentUserRole() === "Admin";
 };
 
 const createAuditLog = async ({
-  userName = 'System',
-  role = 'System',
+  userName = "System",
+  role = "System",
   action,
   ticketId = null,
   details,
 }) => {
-  const { error } = await supabase.from('audit_logs').insert({
+  const { error } = await supabase.from("audit_logs").insert({
     user_name: userName,
     role,
     action,
@@ -50,7 +50,7 @@ const createAuditLog = async ({
   });
 
   if (error) {
-    logSupabaseError('Error creating audit log:', error);
+    logSupabaseError("Error creating audit log:", error);
   }
 };
 
@@ -59,28 +59,28 @@ const mapTicket = (ticket) => {
     id: ticket.ticket_number,
     dbId: ticket.id,
 
-    customer: ticket.customers?.full_name || 'Unknown Customer',
+    customer: ticket.customers?.full_name || "Unknown Customer",
     customerId: ticket.customer_id,
 
-    channel: ticket.channel || '-',
-    category: ticket.issue_type || '-',
-    subCategory: ticket.sub_category || '',
-    status: ticket.status || 'New',
+    channel: ticket.channel || "-",
+    category: ticket.issue_type || "-",
+    subCategory: ticket.sub_category || "",
+    status: ticket.status || "New",
 
-    assignedTo: ticket.agents?.full_name || 'Unassigned',
+    assignedTo: ticket.agents?.full_name || "Unassigned",
     assignedAgentId: ticket.assigned_agent_id,
 
-    lastMessage: ticket.issue_description || '',
+    lastMessage: ticket.issue_description || "",
     time: formatTime(ticket.created_at),
 
     infoComplete: Boolean(ticket.customer_info_complete),
 
-    phone: ticket.customers?.phone || '',
-    telegram: ticket.customers?.telegram_username || '',
-    email: ticket.customers?.email || '',
-    accountId: ticket.customers?.ta_coin_user_id || '',
+    phone: ticket.customers?.phone || "",
+    telegram: ticket.customers?.telegram_username || "",
+    email: ticket.customers?.email || "",
+    accountId: ticket.customers?.ta_coin_user_id || "",
 
-    transactionId: ticket.transaction_id || '',
+    transactionId: ticket.transaction_id || "",
     createdAt: ticket.created_at,
     updatedAt: ticket.updated_at,
     sessionId: ticket.session_id || null,
@@ -93,13 +93,13 @@ const mapTicket = (ticket) => {
 
 export const getCategories = async () => {
   const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .ilike('status', 'active')
-    .order('name', { ascending: true });
+    .from("categories")
+    .select("*")
+    .ilike("status", "active")
+    .order("name", { ascending: true });
 
   if (error) {
-    logSupabaseError('Error fetching categories:', error);
+    logSupabaseError("Error fetching categories:", error);
     throw error;
   }
 
@@ -108,24 +108,24 @@ export const getCategories = async () => {
 
 export const createCategory = async (formData) => {
   const { data, error } = await supabase
-    .from('categories')
+    .from("categories")
     .insert({
       name: formData.name,
       description: formData.description || null,
-      status: 'Active',
+      status: "Active",
     })
     .select()
     .single();
 
   if (error) {
-    logSupabaseError('Error creating category:', error);
+    logSupabaseError("Error creating category:", error);
     throw error;
   }
 
   await createAuditLog({
-    userName: localStorage.getItem('currentUserName') || 'Admin',
-    role: localStorage.getItem('currentUserRole') || 'Admin',
-    action: 'Category Created',
+    userName: localStorage.getItem("currentUserName") || "Admin",
+    role: localStorage.getItem("currentUserRole") || "Admin",
+    action: "Category Created",
     details: `New category created: ${formData.name}.`,
   });
 
@@ -136,12 +136,57 @@ export const createCategory = async (formData) => {
    Tickets
 ========================= */
 
+export const getSidebarCounts = async () => {
+  const currentAgentId = getCurrentAgentId();
+  const agentFilter = isAdmin() ? null : currentAgentId;
+
+  const buildQuery = (table) => {
+    let query = supabase.from(table).select("*", { count: "exact", head: true });
+    if (agentFilter && table === "tickets") {
+      query = query.eq("assigned_agent_id", agentFilter);
+    }
+    return query;
+  };
+
+  const [
+    allTickets,
+    waitingQueue,
+    pendingInvestigation,
+    readyToContact,
+    closedTickets,
+    websiteChatbot,
+    telegram,
+    liveChat,
+  ] = await Promise.all([
+    buildQuery("tickets"),
+    buildQuery("tickets").in("status", ["New", "Waiting Queue", "waiting"]),
+    buildQuery("tickets").in("status", ["Pending Investigation", "pending", "pending review", "investigation", "under investigation"]),
+    buildQuery("tickets").in("status", ["Ready to Contact", "ready-to-contact"]),
+    buildQuery("tickets").in("status", ["Closed", "Resolved", "completed"]),
+    buildQuery("tickets").in("channel", ["Website Chatbot", "chatbot", "website"]),
+    buildQuery("tickets").ilike("channel", "Telegram"),
+    supabase.from("chat_sessions").select("*", { count: "exact", head: true }).eq("status", "waiting")
+  ]);
+
+  return {
+    allTickets: allTickets.count || 0,
+    waitingQueue: waitingQueue.count || 0,
+    pendingInvestigation: pendingInvestigation.count || 0,
+    readyToContact: readyToContact.count || 0,
+    closedTickets: closedTickets.count || 0,
+    websiteChatbot: websiteChatbot.count || 0,
+    telegram: telegram.count || 0,
+    liveChat: liveChat.count || 0,
+  };
+};
+
 export const getTickets = async () => {
   const currentAgentId = getCurrentAgentId();
 
   let query = supabase
-    .from('tickets')
-    .select(`
+    .from("tickets")
+    .select(
+      `
       *,
       customers (
         id,
@@ -159,8 +204,9 @@ export const getTickets = async () => {
         role,
         status
       )
-    `)
-    .order('created_at', { ascending: false });
+    `,
+    )
+    .order("created_at", { ascending: false });
 
   // Admin can see all tickets.
   // Normal agents can only see tickets assigned to them.
@@ -169,13 +215,13 @@ export const getTickets = async () => {
       return [];
     }
 
-    query = query.eq('assigned_agent_id', currentAgentId);
+    query = query.eq("assigned_agent_id", currentAgentId);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    logSupabaseError('Error fetching tickets:', error);
+    logSupabaseError("Error fetching tickets:", error);
     throw error;
   }
 
@@ -186,8 +232,9 @@ export const getTicketById = async (ticketId) => {
   const currentAgentId = getCurrentAgentId();
 
   let query = supabase
-    .from('tickets')
-    .select(`
+    .from("tickets")
+    .select(
+      `
       *,
       customers (
         id,
@@ -205,19 +252,20 @@ export const getTicketById = async (ticketId) => {
         role,
         status
       )
-    `)
-    .eq('id', ticketId)
+    `,
+    )
+    .eq("id", ticketId)
     .single();
 
   const { data, error } = await query;
 
   if (error) {
-    logSupabaseError('Error fetching ticket by ID:', error);
+    logSupabaseError("Error fetching ticket by ID:", error);
     throw error;
   }
 
   if (!isAdmin() && data.assigned_agent_id !== currentAgentId) {
-    throw new Error('You do not have permission to view this ticket.');
+    throw new Error("You do not have permission to view this ticket.");
   }
 
   return mapTicket(data);
@@ -225,13 +273,13 @@ export const getTicketById = async (ticketId) => {
 
 export const createTicketWithAutoAssign = async (formData) => {
   const { data: availableAgents, error: agentError } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('status', 'Available')
-    .order('active_tickets', { ascending: true });
+    .from("agents")
+    .select("*")
+    .eq("status", "Available")
+    .order("active_tickets", { ascending: true });
 
   if (agentError) {
-    logSupabaseError('Error finding available agent:', agentError);
+    logSupabaseError("Error finding available agent:", agentError);
     throw agentError;
   }
 
@@ -239,18 +287,19 @@ export const createTicketWithAutoAssign = async (formData) => {
 
   if (availableAgents && availableAgents.length > 0) {
     const lowestWorkload = Math.min(
-      ...availableAgents.map((agent) => agent.active_tickets || 0)
+      ...availableAgents.map((agent) => agent.active_tickets || 0),
     );
 
     const lowestAgents = availableAgents.filter(
-      (agent) => (agent.active_tickets || 0) === lowestWorkload
+      (agent) => (agent.active_tickets || 0) === lowestWorkload,
     );
 
-    selectedAgent = lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
+    selectedAgent =
+      lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
   }
 
   const { data: customer, error: customerError } = await supabase
-    .from('customers')
+    .from("customers")
     .insert({
       full_name: formData.customerName,
       phone: formData.phone || null,
@@ -263,14 +312,14 @@ export const createTicketWithAutoAssign = async (formData) => {
     .single();
 
   if (customerError) {
-    logSupabaseError('Error creating customer:', customerError);
+    logSupabaseError("Error creating customer:", customerError);
     throw customerError;
   }
 
   const ticketNumber = `TAC-${Date.now()}`;
 
   const { data: ticket, error: ticketError } = await supabase
-    .from('tickets')
+    .from("tickets")
     .insert({
       ticket_number: ticketNumber,
       customer_id: customer.id,
@@ -278,61 +327,61 @@ export const createTicketWithAutoAssign = async (formData) => {
       channel: formData.channel,
       issue_type: formData.issueType,
       sub_category: formData.subCategory || null,
-      issue_description: formData.issueDescription || '',
+      issue_description: formData.issueDescription || "",
       transaction_id: formData.transactionId || null,
-      status: selectedAgent ? 'Assigned' : 'New',
+      status: selectedAgent ? "Assigned" : "New",
       customer_info_complete: true,
     })
     .select()
     .single();
 
   if (ticketError) {
-    logSupabaseError('Error creating ticket:', ticketError);
+    logSupabaseError("Error creating ticket:", ticketError);
     throw ticketError;
   }
 
-  const { error: messageError } = await supabase.from('messages').insert({
+  const { error: messageError } = await supabase.from("messages").insert({
     ticket_id: ticket.id,
-    sender_type: 'customer',
+    sender_type: "customer",
     sender_name: formData.customerName,
-    message_text: formData.issueDescription || 'New support ticket created.',
+    message_text: formData.issueDescription || "New support ticket created.",
     is_internal_note: false,
   });
 
   if (messageError) {
-    logSupabaseError('Error creating message:', messageError);
+    logSupabaseError("Error creating message:", messageError);
     throw messageError;
   }
 
   if (formData.internalNote) {
-    const { error: noteError } = await supabase.from('internal_notes').insert({
+    const { error: noteError } = await supabase.from("internal_notes").insert({
       ticket_id: ticket.id,
       agent_id: selectedAgent?.id || null,
       note_text: formData.internalNote,
     });
 
     if (noteError) {
-      logSupabaseError('Error creating internal note:', noteError);
+      logSupabaseError("Error creating internal note:", noteError);
     }
   }
 
   if (selectedAgent) {
     const { error: updateAgentError } = await supabase
-      .from('agents')
+      .from("agents")
       .update({
         active_tickets: (selectedAgent.active_tickets || 0) + 1,
       })
-      .eq('id', selectedAgent.id);
+      .eq("id", selectedAgent.id);
 
     if (updateAgentError) {
-      logSupabaseError('Error updating agent workload:', updateAgentError);
+      logSupabaseError("Error updating agent workload:", updateAgentError);
     }
   }
 
   await createAuditLog({
-    userName: 'System',
-    role: 'System',
-    action: selectedAgent ? 'Ticket Auto Assigned' : 'Ticket Created In Queue',
+    userName: "System",
+    role: "System",
+    action: selectedAgent ? "Ticket Auto Assigned" : "Ticket Created In Queue",
     ticketId: ticket.id,
     details: selectedAgent
       ? `Ticket ${ticketNumber} assigned to ${selectedAgent.full_name}.`
@@ -345,44 +394,48 @@ export const createTicketWithAutoAssign = async (formData) => {
   };
 };
 
-export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => {
+export const updateTicketStatus = async ({
+  ticketId,
+  status,
+  auditDetails,
+}) => {
   const currentAgentId = getCurrentAgentId();
 
   if (!isAdmin()) {
     const { data: existingTicket, error: checkError } = await supabase
-      .from('tickets')
-      .select('id, assigned_agent_id')
-      .eq('id', ticketId)
+      .from("tickets")
+      .select("id, assigned_agent_id")
+      .eq("id", ticketId)
       .single();
 
     if (checkError) {
-      logSupabaseError('Error checking ticket permission:', checkError);
+      logSupabaseError("Error checking ticket permission:", checkError);
       throw checkError;
     }
 
     if (existingTicket.assigned_agent_id !== currentAgentId) {
-      throw new Error('You do not have permission to update this ticket.');
+      throw new Error("You do not have permission to update this ticket.");
     }
   }
 
   const { data, error } = await supabase
-    .from('tickets')
+    .from("tickets")
     .update({
       status,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', ticketId)
+    .eq("id", ticketId)
     .select()
     .single();
 
   if (error) {
-    logSupabaseError('Error updating ticket status:', error);
+    logSupabaseError("Error updating ticket status:", error);
     throw error;
   }
 
   await createAuditLog({
-    userName: localStorage.getItem('currentUserName') || 'Agent',
-    role: localStorage.getItem('currentUserRole') || 'Customer Service Agent',
+    userName: localStorage.getItem("currentUserName") || "Agent",
+    role: localStorage.getItem("currentUserRole") || "Customer Service Agent",
     action: `Ticket Status Updated to ${status}`,
     ticketId,
     details: auditDetails || `Ticket status changed to ${status}.`,
@@ -400,29 +453,31 @@ export const getMessagesByTicketId = async (ticketId) => {
 
   if (!isAdmin()) {
     const { data: ticket, error: ticketError } = await supabase
-      .from('tickets')
-      .select('id, assigned_agent_id')
-      .eq('id', ticketId)
+      .from("tickets")
+      .select("id, assigned_agent_id")
+      .eq("id", ticketId)
       .single();
 
     if (ticketError) {
-      logSupabaseError('Error checking message permission:', ticketError);
+      logSupabaseError("Error checking message permission:", ticketError);
       throw ticketError;
     }
 
     if (ticket.assigned_agent_id !== currentAgentId) {
-      throw new Error('You do not have permission to view messages for this ticket.');
+      throw new Error(
+        "You do not have permission to view messages for this ticket.",
+      );
     }
   }
 
   const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('ticket_id', ticketId)
-    .order('created_at', { ascending: true });
+    .from("messages")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("created_at", { ascending: true });
 
   if (error) {
-    logSupabaseError('Error fetching messages:', error);
+    logSupabaseError("Error fetching messages:", error);
     throw error;
   }
 
@@ -448,23 +503,23 @@ export const sendTicketMessage = async ({
 
   if (!isAdmin()) {
     const { data: ticket, error: ticketError } = await supabase
-      .from('tickets')
-      .select('id, assigned_agent_id')
-      .eq('id', ticketId)
+      .from("tickets")
+      .select("id, assigned_agent_id")
+      .eq("id", ticketId)
       .single();
 
     if (ticketError) {
-      logSupabaseError('Error checking send message permission:', ticketError);
+      logSupabaseError("Error checking send message permission:", ticketError);
       throw ticketError;
     }
 
     if (ticket.assigned_agent_id !== currentAgentId) {
-      throw new Error('You do not have permission to reply to this ticket.');
+      throw new Error("You do not have permission to reply to this ticket.");
     }
   }
 
   const { data, error } = await supabase
-    .from('messages')
+    .from("messages")
     .insert({
       ticket_id: ticketId,
       sender_type: senderType,
@@ -476,7 +531,7 @@ export const sendTicketMessage = async ({
     .single();
 
   if (error) {
-    logSupabaseError('Error sending message:', error);
+    logSupabaseError("Error sending message:", error);
     throw error;
   }
 
@@ -498,21 +553,21 @@ export const getAgents = async () => {
   const currentAgentId = getCurrentAgentId();
 
   let query = supabase
-    .from('agents')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .from("agents")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   // Admin sees all agents.
   // Agent sees only their own profile.
   if (!isAdmin()) {
     if (!currentAgentId) return [];
-    query = query.eq('id', currentAgentId);
+    query = query.eq("id", currentAgentId);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    logSupabaseError('Error fetching agents:', error);
+    logSupabaseError("Error fetching agents:", error);
     throw error;
   }
 
@@ -522,7 +577,7 @@ export const getAgents = async () => {
     name: agent.full_name,
     role: agent.role,
     email: agent.email,
-    status: agent.status || 'Offline',
+    status: agent.status || "Offline",
     activeTickets: agent.active_tickets || 0,
     resolvedToday: agent.resolved_today || 0,
     createdAt: agent.created_at,
@@ -531,12 +586,12 @@ export const getAgents = async () => {
 
 export const getRawAgents = async () => {
   const { data, error } = await supabase
-    .from('agents')
-    .select('*')
-    .order('full_name', { ascending: true });
+    .from("agents")
+    .select("*")
+    .order("full_name", { ascending: true });
 
   if (error) {
-    logSupabaseError('Error fetching raw agents:', error);
+    logSupabaseError("Error fetching raw agents:", error);
     throw error;
   }
 
@@ -550,10 +605,10 @@ export const getRawAgents = async () => {
 
 export const createAgent = async (formData) => {
   if (!isAdmin()) {
-    throw new Error('Only Admin can create agent accounts.');
+    throw new Error("Only Admin can create agent accounts.");
   }
 
-  const { data, error } = await supabase.functions.invoke('create-agent', {
+  const { data, error } = await supabase.functions.invoke("create-agent", {
     body: {
       fullName: formData.fullName,
       email: formData.email,
@@ -563,7 +618,7 @@ export const createAgent = async (formData) => {
   });
 
   if (error) {
-    console.error('Error invoking create-agent function:', error);
+    console.error("Error invoking create-agent function:", error);
     throw error;
   }
 
@@ -580,42 +635,42 @@ export const createAgent = async (formData) => {
 
 export const autoAssignWaitingTickets = async () => {
   if (!isAdmin()) {
-    throw new Error('Only Admin can auto-assign waiting tickets.');
+    throw new Error("Only Admin can auto-assign waiting tickets.");
   }
 
   const { data: waitingTickets, error: ticketError } = await supabase
-    .from('tickets')
-    .select('*')
-    .or('status.eq.New,assigned_agent_id.is.null')
-    .order('created_at', { ascending: true });
+    .from("tickets")
+    .select("*")
+    .or("status.eq.New,assigned_agent_id.is.null")
+    .order("created_at", { ascending: true });
 
   if (ticketError) {
-    logSupabaseError('Error loading waiting tickets:', ticketError);
+    logSupabaseError("Error loading waiting tickets:", ticketError);
     throw ticketError;
   }
 
   if (!waitingTickets || waitingTickets.length === 0) {
     return {
       assignedCount: 0,
-      message: 'No waiting tickets found.',
+      message: "No waiting tickets found.",
     };
   }
 
   const { data: availableAgents, error: agentError } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('status', 'Available')
-    .order('active_tickets', { ascending: true });
+    .from("agents")
+    .select("*")
+    .eq("status", "Available")
+    .order("active_tickets", { ascending: true });
 
   if (agentError) {
-    logSupabaseError('Error loading available agents:', agentError);
+    logSupabaseError("Error loading available agents:", agentError);
     throw agentError;
   }
 
   if (!availableAgents || availableAgents.length === 0) {
     return {
       assignedCount: 0,
-      message: 'No available agents. Tickets remain in queue.',
+      message: "No available agents. Tickets remain in queue.",
     };
   }
 
@@ -628,47 +683,47 @@ export const autoAssignWaitingTickets = async () => {
 
   for (const ticket of waitingTickets) {
     const lowestWorkload = Math.min(
-      ...agentPool.map((agent) => agent.active_tickets || 0)
+      ...agentPool.map((agent) => agent.active_tickets || 0),
     );
 
     const lowestAgents = agentPool.filter(
-      (agent) => (agent.active_tickets || 0) === lowestWorkload
+      (agent) => (agent.active_tickets || 0) === lowestWorkload,
     );
 
     const selectedAgent =
       lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
 
     const { error: updateTicketError } = await supabase
-      .from('tickets')
+      .from("tickets")
       .update({
         assigned_agent_id: selectedAgent.id,
-        status: 'Assigned',
+        status: "Assigned",
         updated_at: new Date().toISOString(),
       })
-      .eq('id', ticket.id);
+      .eq("id", ticket.id);
 
     if (updateTicketError) {
-      logSupabaseError('Error assigning ticket:', updateTicketError);
+      logSupabaseError("Error assigning ticket:", updateTicketError);
       throw updateTicketError;
     }
 
     const newActiveTicketCount = (selectedAgent.active_tickets || 0) + 1;
 
     const { error: updateAgentError } = await supabase
-      .from('agents')
+      .from("agents")
       .update({
         active_tickets: newActiveTicketCount,
       })
-      .eq('id', selectedAgent.id);
+      .eq("id", selectedAgent.id);
 
     if (updateAgentError) {
-      logSupabaseError('Error updating agent workload:', updateAgentError);
+      logSupabaseError("Error updating agent workload:", updateAgentError);
     }
 
     selectedAgent.active_tickets = newActiveTicketCount;
 
     const poolIndex = agentPool.findIndex(
-      (agent) => agent.id === selectedAgent.id
+      (agent) => agent.id === selectedAgent.id,
     );
 
     if (poolIndex !== -1) {
@@ -676,9 +731,9 @@ export const autoAssignWaitingTickets = async () => {
     }
 
     await createAuditLog({
-      userName: 'System',
-      role: 'System',
-      action: 'Queue Ticket Auto Assigned',
+      userName: "System",
+      role: "System",
+      action: "Queue Ticket Auto Assigned",
       ticketId: ticket.id,
       details: `Ticket ${ticket.ticket_number} was auto-assigned to ${selectedAgent.full_name}.`,
     });
@@ -694,17 +749,17 @@ export const autoAssignWaitingTickets = async () => {
 
 export const reassignTicket = async ({ ticketId, newAgentId, reason }) => {
   if (!isAdmin()) {
-    throw new Error('Only Admin can reassign tickets.');
+    throw new Error("Only Admin can reassign tickets.");
   }
 
   const { data: currentTicket, error: ticketError } = await supabase
-    .from('tickets')
-    .select('id, ticket_number, assigned_agent_id')
-    .eq('id', ticketId)
+    .from("tickets")
+    .select("id, ticket_number, assigned_agent_id")
+    .eq("id", ticketId)
     .single();
 
   if (ticketError) {
-    logSupabaseError('Error fetching current ticket:', ticketError);
+    logSupabaseError("Error fetching current ticket:", ticketError);
     throw ticketError;
   }
 
@@ -713,9 +768,9 @@ export const reassignTicket = async ({ ticketId, newAgentId, reason }) => {
 
   if (oldAgentId) {
     const { data, error } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('id', oldAgentId)
+      .from("agents")
+      .select("*")
+      .eq("id", oldAgentId)
       .single();
 
     if (!error) {
@@ -724,56 +779,56 @@ export const reassignTicket = async ({ ticketId, newAgentId, reason }) => {
   }
 
   const { data: newAgent, error: newAgentError } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('id', newAgentId)
+    .from("agents")
+    .select("*")
+    .eq("id", newAgentId)
     .single();
 
   if (newAgentError) {
-    logSupabaseError('Error fetching new agent:', newAgentError);
+    logSupabaseError("Error fetching new agent:", newAgentError);
     throw newAgentError;
   }
 
   const { data: updatedTicket, error: updateTicketError } = await supabase
-    .from('tickets')
+    .from("tickets")
     .update({
       assigned_agent_id: newAgentId,
-      status: 'Assigned',
+      status: "Assigned",
       updated_at: new Date().toISOString(),
     })
-    .eq('id', ticketId)
+    .eq("id", ticketId)
     .select()
     .single();
 
   if (updateTicketError) {
-    logSupabaseError('Error reassigning ticket:', updateTicketError);
+    logSupabaseError("Error reassigning ticket:", updateTicketError);
     throw updateTicketError;
   }
 
   if (oldAgent) {
     await supabase
-      .from('agents')
+      .from("agents")
       .update({
         active_tickets: Math.max((oldAgent.active_tickets || 0) - 1, 0),
       })
-      .eq('id', oldAgent.id);
+      .eq("id", oldAgent.id);
   }
 
   await supabase
-    .from('agents')
+    .from("agents")
     .update({
       active_tickets: (newAgent.active_tickets || 0) + 1,
     })
-    .eq('id', newAgent.id);
+    .eq("id", newAgent.id);
 
   await createAuditLog({
-    userName: localStorage.getItem('currentUserName') || 'Admin',
-    role: localStorage.getItem('currentUserRole') || 'Admin',
-    action: 'Ticket Reassigned',
+    userName: localStorage.getItem("currentUserName") || "Admin",
+    role: localStorage.getItem("currentUserRole") || "Admin",
+    action: "Ticket Reassigned",
     ticketId,
     details: `Ticket ${currentTicket.ticket_number} reassigned from ${
-      oldAgent?.full_name || 'Unassigned'
-    } to ${newAgent.full_name}. Reason: ${reason || 'No reason provided.'}`,
+      oldAgent?.full_name || "Unassigned"
+    } to ${newAgent.full_name}. Reason: ${reason || "No reason provided."}`,
   });
 
   return {

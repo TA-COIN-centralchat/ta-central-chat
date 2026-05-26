@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Eye } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
+import { useEffect, useMemo, useState } from "react";
+import { Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../components/layout/DashboardLayout";
 import {
   autoAssignWaitingTickets,
   getTickets,
-} from '../services/ticketService';
+} from "../services/ticketService";
 
 const WaitingQueuePage = () => {
   const navigate = useNavigate();
@@ -13,8 +13,8 @@ const WaitingQueuePage = () => {
   const [waitingTickets, setWaitingTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
-  const [message, setMessage] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [message, setMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const loadWaitingTickets = async () => {
     try {
@@ -23,12 +23,13 @@ const WaitingQueuePage = () => {
       const data = await getTickets();
 
       const filteredTickets = data.filter(
-        (ticket) => ticket.status === 'New' || ticket.assignedTo === 'Unassigned'
+        (ticket) =>
+          ticket.status === "New" || ticket.assignedTo === "Unassigned",
       );
 
       setWaitingTickets(filteredTickets);
     } catch (error) {
-      console.error('Failed to load waiting queue:', error);
+      console.error("Failed to load waiting queue:", error);
     } finally {
       setLoading(false);
     }
@@ -37,7 +38,7 @@ const WaitingQueuePage = () => {
   const handleAutoAssign = async () => {
     try {
       setAssigning(true);
-      setMessage('');
+      setMessage("");
 
       const result = await autoAssignWaitingTickets();
 
@@ -45,8 +46,8 @@ const WaitingQueuePage = () => {
 
       await loadWaitingTickets();
     } catch (error) {
-      console.error('Failed to auto assign queue:', error);
-      alert('Failed to auto assign queue. Please check console.');
+      console.error("Failed to auto assign queue:", error);
+      alert("Failed to auto assign queue. Please check console.");
     } finally {
       setAssigning(false);
     }
@@ -88,8 +89,8 @@ const WaitingQueuePage = () => {
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
-        from: '/waiting-queue',
-        fromLabel: 'Waiting Queue',
+        from: "/waiting-queue",
+        fromLabel: "Waiting Queue",
       },
     });
   };
@@ -107,12 +108,13 @@ const WaitingQueuePage = () => {
                 Unassigned Tickets
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                {filteredWaitingTickets.length} of {waitingTickets.length} waiting tickets shown.
+                {filteredWaitingTickets.length} of {waitingTickets.length}{" "}
+                waiting tickets shown.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
+              <span className="inline-flex items-center rounded-full bg-orange-50 h-10 px-4 text-sm font-medium text-orange-700">
                 {waitingTickets.length} Waiting
               </span>
 
@@ -120,9 +122,9 @@ const WaitingQueuePage = () => {
                 type="button"
                 onClick={handleAutoAssign}
                 disabled={assigning}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {assigning ? 'Assigning...' : 'Auto Assign Queue'}
+                {assigning ? "Assigning..." : "Auto Assign Queue"}
               </button>
             </div>
           </div>
@@ -132,7 +134,7 @@ const WaitingQueuePage = () => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search queue tickets..."
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-96"
+              className="w-full rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500 md:w-96"
             />
           </div>
         </div>
@@ -144,8 +146,31 @@ const WaitingQueuePage = () => {
         )}
 
         {loading ? (
-          <div className="p-10 text-center text-sm text-slate-500">
-            Loading waiting queue...
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Queue</th>
+                  <th className="px-5 py-3">Ticket</th>
+                  <th className="px-5 py-3">Customer</th>
+                  <th className="px-5 py-3">Channel</th>
+                  <th className="px-5 py-3">Issue Type</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {[...Array(7)].map((_, j) => (
+                      <td key={j} className="px-5 py-4">
+                        <div className="h-4 w-full rounded bg-slate-100"></div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : filteredWaitingTickets.length === 0 ? (
           <div className="p-10 text-center">
@@ -153,7 +178,8 @@ const WaitingQueuePage = () => {
               Waiting queue is empty
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              New unassigned tickets will appear here only when no agent is available.
+              New unassigned tickets will appear here only when no agent is
+              available.
             </p>
           </div>
         ) : (
@@ -202,7 +228,7 @@ const WaitingQueuePage = () => {
                         {ticket.phone ||
                           ticket.telegram ||
                           ticket.email ||
-                          'No contact'}
+                          "No contact"}
                       </div>
                     </td>
 
@@ -221,14 +247,14 @@ const WaitingQueuePage = () => {
                     </td>
 
                     <td className="px-5 py-4">
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             openTicket(ticket);
                           }}
-                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                         >
                           <Eye size={16} />
                           View
@@ -241,7 +267,7 @@ const WaitingQueuePage = () => {
                             handleAutoAssign();
                           }}
                           disabled={assigning}
-                          className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Assign
                         </button>

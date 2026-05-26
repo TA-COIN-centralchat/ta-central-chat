@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { updateTicketStatus } from '../../services/ticketService';
+import { useState } from "react";
+import { updateTicketStatus } from "../../services/ticketService";
 
 const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
   const [loading, setLoading] = useState(false);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState("");
 
   if (!open) return null;
 
   const handleEscalate = async () => {
     if (!reason.trim()) {
-      alert('Please enter a reason for escalation.');
+      alert("Please enter a reason for escalation.");
       return;
     }
 
@@ -18,19 +18,19 @@ const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
 
       await updateTicketStatus({
         ticketId: ticket.dbId,
-        status: 'Pending Investigation',
+        status: "Pending Investigation",
         auditDetails: `Ticket escalated to Pending Investigation. Reason: ${reason}`,
       });
 
       if (onUpdated) {
-        onUpdated('Pending Investigation');
+        onUpdated("Pending Investigation");
       }
 
-      setReason('');
+      setReason("");
       onClose();
     } catch (error) {
-      console.error('Escalate ticket error:', error);
-      alert('Failed to escalate ticket.');
+      console.error("Escalate ticket error:", error);
+      alert("Failed to escalate ticket.");
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,8 @@ const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
         </p>
 
         <div className="mt-4 rounded-xl bg-orange-50 p-4 text-sm text-orange-800">
-          Customer session may end, but the ticket investigation will continue internally.
+          Customer session may end, but the ticket investigation will continue
+          internally.
         </div>
 
         <textarea
@@ -62,7 +63,7 @@ const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
+            className="rounded-xl border border-slate-200 h-10 px-4 text-sm"
           >
             Cancel
           </button>
@@ -70,9 +71,9 @@ const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
           <button
             onClick={handleEscalate}
             disabled={loading}
-            className="rounded-xl bg-orange-600 px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="rounded-xl bg-orange-600 h-10 px-4 text-sm text-white disabled:opacity-60"
           >
-            {loading ? 'Submitting...' : 'Submit Investigation'}
+            {loading ? "Submitting..." : "Submit Investigation"}
           </button>
         </div>
       </div>

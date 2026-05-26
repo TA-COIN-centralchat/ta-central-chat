@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { updateTicketStatus } from '../../services/ticketService';
+import { useState } from "react";
+import { updateTicketStatus } from "../../services/ticketService";
 
 const ResolveTicketModal = ({ open, onClose, ticket, onUpdated }) => {
   const [loading, setLoading] = useState(false);
-  const [resolutionNote, setResolutionNote] = useState('');
+  const [resolutionNote, setResolutionNote] = useState("");
 
   if (!open) return null;
 
   const handleResolve = async () => {
     if (!resolutionNote.trim()) {
-      alert('Please enter a resolution note.');
+      alert("Please enter a resolution note.");
       return;
     }
 
@@ -18,19 +18,19 @@ const ResolveTicketModal = ({ open, onClose, ticket, onUpdated }) => {
 
       await updateTicketStatus({
         ticketId: ticket.dbId,
-        status: 'Resolved',
+        status: "Resolved",
         auditDetails: `Ticket resolved. Resolution note: ${resolutionNote}`,
       });
 
       if (onUpdated) {
-        onUpdated('Resolved');
+        onUpdated("Resolved");
       }
 
-      setResolutionNote('');
+      setResolutionNote("");
       onClose();
     } catch (error) {
-      console.error('Resolve ticket error:', error);
-      alert('Failed to resolve ticket.');
+      console.error("Resolve ticket error:", error);
+      alert("Failed to resolve ticket.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ const ResolveTicketModal = ({ open, onClose, ticket, onUpdated }) => {
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
+            className="rounded-xl border border-slate-200 h-10 px-4 text-sm"
           >
             Cancel
           </button>
@@ -69,9 +69,9 @@ const ResolveTicketModal = ({ open, onClose, ticket, onUpdated }) => {
           <button
             onClick={handleResolve}
             disabled={loading}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="rounded-xl bg-emerald-600 h-10 px-4 text-sm text-white disabled:opacity-60"
           >
-            {loading ? 'Resolving...' : 'Resolve Ticket'}
+            {loading ? "Resolving..." : "Resolve Ticket"}
           </button>
         </div>
       </div>

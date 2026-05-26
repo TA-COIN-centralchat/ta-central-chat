@@ -1,35 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { getAgents, getTickets } from '../services/ticketService';
+import { useEffect, useMemo, useState } from "react";
+import { getAgents, getTickets } from "../services/ticketService";
+import { useLayout } from "../context/LayoutContext";
 
 const statusOptions = [
-  'All',
-  'New',
-  'Assigned',
-  'In Progress',
-  'Waiting for Customer',
-  'Pending Investigation',
-  'Resolved',
-  'Closed',
+  "All",
+  "New",
+  "Assigned",
+  "In Progress",
+  "Waiting for Customer",
+  "Pending Investigation",
+  "Resolved",
+  "Closed",
 ];
 
 const channelOptions = [
-  'All',
-  'Website Chatbot',
-  'Telegram',
-  'Walk-in',
-  'Phone Call',
-  'Office Visit',
-  'Other',
+  "All",
+  "Website Chatbot",
+  "Telegram",
+  "Walk-in",
+  "Phone Call",
+  "Office Visit",
+  "Other",
 ];
 
 const ReportsPage = () => {
+  const { setTitle, setDescription } = useLayout();
+
+  useEffect(() => {
+    setTitle("Reports");
+    setDescription("Monitor ticket volume, channel usage, issue types, and agent performance.");
+  }, [setTitle, setDescription]);
+
   const [tickets, setTickets] = useState([]);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [channelFilter, setChannelFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [channelFilter, setChannelFilter] = useState("All");
 
   useEffect(() => {
     const loadReports = async () => {
@@ -44,7 +51,7 @@ const ReportsPage = () => {
         setTickets(ticketData);
         setAgents(agentData);
       } catch (error) {
-        console.error('Failed to load reports:', error);
+        console.error("Failed to load reports:", error);
       } finally {
         setLoading(false);
       }
@@ -56,10 +63,10 @@ const ReportsPage = () => {
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
       const matchesStatus =
-        statusFilter === 'All' || ticket.status === statusFilter;
+        statusFilter === "All" || ticket.status === statusFilter;
 
       const matchesChannel =
-        channelFilter === 'All' || ticket.channel === channelFilter;
+        channelFilter === "All" || ticket.channel === channelFilter;
 
       return matchesStatus && matchesChannel;
     });
@@ -70,7 +77,7 @@ const ReportsPage = () => {
 
   const channelStats = Object.values(
     filteredTickets.reduce((acc, ticket) => {
-      const key = ticket.channel || 'Unknown';
+      const key = ticket.channel || "Unknown";
 
       if (!acc[key]) {
         acc[key] = {
@@ -81,12 +88,12 @@ const ReportsPage = () => {
 
       acc[key].tickets += 1;
       return acc;
-    }, {})
+    }, {}),
   );
 
   const issueStats = Object.values(
     filteredTickets.reduce((acc, ticket) => {
-      const key = ticket.category || 'Other';
+      const key = ticket.category || "Other";
 
       if (!acc[key]) {
         acc[key] = {
@@ -97,35 +104,35 @@ const ReportsPage = () => {
 
       acc[key].tickets += 1;
       return acc;
-    }, {})
+    }, {}),
   );
 
   const reportCards = [
-    { label: 'Filtered Tickets', value: filteredTickets.length },
-    { label: 'New Tickets', value: countByStatus('New') },
-    { label: 'Assigned', value: countByStatus('Assigned') },
-    { label: 'In Progress', value: countByStatus('In Progress') },
+    { label: "Filtered Tickets", value: filteredTickets.length },
+    { label: "New Tickets", value: countByStatus("New") },
+    { label: "Assigned", value: countByStatus("Assigned") },
+    { label: "In Progress", value: countByStatus("In Progress") },
     {
-      label: 'Pending Investigation',
-      value: countByStatus('Pending Investigation'),
+      label: "Pending Investigation",
+      value: countByStatus("Pending Investigation"),
     },
     {
-      label: 'Resolved / Closed',
+      label: "Resolved / Closed",
       value: filteredTickets.filter(
-        (ticket) => ticket.status === 'Resolved' || ticket.status === 'Closed'
+        (ticket) => ticket.status === "Resolved" || ticket.status === "Closed",
       ).length,
     },
   ];
 
   const escapeCsvValue = (value) => {
-    if (value === null || value === undefined) return '';
+    if (value === null || value === undefined) return "";
 
     const stringValue = String(value).replaceAll('"', '""');
 
     if (
-      stringValue.includes(',') ||
+      stringValue.includes(",") ||
       stringValue.includes('"') ||
-      stringValue.includes('\n')
+      stringValue.includes("\n")
     ) {
       return `"${stringValue}"`;
     }
@@ -135,25 +142,25 @@ const ReportsPage = () => {
 
   const handleExportReport = () => {
     if (filteredTickets.length === 0) {
-      alert('No ticket data available to export.');
+      alert("No ticket data available to export.");
       return;
     }
 
     const headers = [
-      'Ticket ID',
-      'Customer',
-      'Channel',
-      'Issue Type',
-      'Sub-category',
-      'Status',
-      'Assigned Agent',
-      'Phone',
-      'Telegram',
-      'Email',
-      'T.A Coin User ID',
-      'Transaction ID',
-      'Last Message / Summary',
-      'Created Time',
+      "Ticket ID",
+      "Customer",
+      "Channel",
+      "Issue Type",
+      "Sub-category",
+      "Status",
+      "Assigned Agent",
+      "Phone",
+      "Telegram",
+      "Email",
+      "T.A Coin User ID",
+      "Transaction ID",
+      "Last Message / Summary",
+      "Created Time",
     ];
 
     const rows = filteredTickets.map((ticket) => [
@@ -161,33 +168,33 @@ const ReportsPage = () => {
       ticket.customer,
       ticket.channel,
       ticket.category,
-      ticket.subCategory || '',
+      ticket.subCategory || "",
       ticket.status,
       ticket.assignedTo,
-      ticket.phone || '',
-      ticket.telegram || '',
-      ticket.email || '',
-      ticket.accountId || '',
-      ticket.transactionId || '',
-      ticket.lastMessage || '',
-      ticket.time || '',
+      ticket.phone || "",
+      ticket.telegram || "",
+      ticket.email || "",
+      ticket.accountId || "",
+      ticket.transactionId || "",
+      ticket.lastMessage || "",
+      ticket.time || "",
     ]);
 
     const csvContent = [
-      headers.map(escapeCsvValue).join(','),
-      ...rows.map((row) => row.map(escapeCsvValue).join(',')),
-    ].join('\n');
+      headers.map(escapeCsvValue).join(","),
+      ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+    ].join("\n");
 
     const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;',
+      type: "text/csv;charset=utf-8;",
     });
 
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
 
     const today = new Date().toISOString().slice(0, 10);
-    const statusName = statusFilter.replaceAll(' ', '-').toLowerCase();
-    const channelName = channelFilter.replaceAll(' ', '-').toLowerCase();
+    const statusName = statusFilter.replaceAll(" ", "-").toLowerCase();
+    const channelName = channelFilter.replaceAll(" ", "-").toLowerCase();
 
     link.href = url;
     link.download = `ta-coin-report-${statusName}-${channelName}-${today}.csv`;
@@ -197,10 +204,7 @@ const ReportsPage = () => {
   };
 
   return (
-    <DashboardLayout
-      title="Reports"
-      description="Monitor ticket volume, channel usage, issue types, and agent performance."
-    >
+    <>
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
           Loading reports...
@@ -210,9 +214,7 @@ const ReportsPage = () => {
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h2 className="font-semibold text-slate-950">
-                  Report Filters
-                </h2>
+                <h2 className="font-semibold text-slate-950">Report Filters</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Showing {filteredTickets.length} of {tickets.length} tickets.
                 </p>
@@ -222,7 +224,7 @@ const ReportsPage = () => {
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-56"
+                  className="rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500 md:w-56"
                 >
                   {statusOptions.map((status) => (
                     <option key={status}>{status}</option>
@@ -232,7 +234,7 @@ const ReportsPage = () => {
                 <select
                   value={channelFilter}
                   onChange={(event) => setChannelFilter(event.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 md:w-56"
+                  className="rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500 md:w-56"
                 >
                   {channelOptions.map((channel) => (
                     <option key={channel}>{channel}</option>
@@ -242,7 +244,7 @@ const ReportsPage = () => {
                 <button
                   type="button"
                   onClick={handleExportReport}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white transition-all hover:bg-blue-700"
                 >
                   Export CSV
                 </button>
@@ -338,7 +340,7 @@ const ReportsPage = () => {
               <button
                 type="button"
                 onClick={handleExportReport}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
               >
                 Export Report
               </button>
@@ -360,7 +362,7 @@ const ReportsPage = () => {
                 <tbody className="divide-y divide-slate-100">
                   {agents.map((agent) => {
                     const assignedTickets = filteredTickets.filter(
-                      (ticket) => ticket.assignedTo === agent.name
+                      (ticket) => ticket.assignedTo === agent.name,
                     ).length;
 
                     return (
@@ -376,7 +378,7 @@ const ReportsPage = () => {
                         <td className="px-5 py-4">
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-medium ${getAgentStatusClass(
-                              agent.status
+                              agent.status,
                             )}`}
                           >
                             {agent.status}
@@ -414,7 +416,7 @@ const ReportsPage = () => {
           </section>
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 
@@ -441,19 +443,19 @@ const Empty = ({ text }) => (
 );
 
 const getAgentStatusClass = (status) => {
-  if (status === 'Available') {
-    return 'bg-emerald-50 text-emerald-700';
+  if (status === "Available") {
+    return "bg-emerald-50 text-emerald-700";
   }
 
-  if (status === 'Busy') {
-    return 'bg-orange-50 text-orange-700';
+  if (status === "Busy") {
+    return "bg-orange-50 text-orange-700";
   }
 
-  if (status === 'Away') {
-    return 'bg-amber-50 text-amber-700';
+  if (status === "Away") {
+    return "bg-amber-50 text-amber-700";
   }
 
-  return 'bg-slate-100 text-slate-600';
+  return "bg-slate-100 text-slate-600";
 };
 
 export default ReportsPage;

@@ -1,47 +1,49 @@
-import { useEffect, useState, useRef } from 'react';
-import { Lock, Paperclip, SendHorizontal } from 'lucide-react';
-import ResolveTicketModal from './ResolveTicketModal';
-import EscalateTicketModal from './EscalateTicketModal';
+import { useEffect, useState, useRef } from "react";
+import { Lock, Paperclip, SendHorizontal } from "lucide-react";
+import ResolveTicketModal from "./ResolveTicketModal";
+import EscalateTicketModal from "./EscalateTicketModal";
 import {
   getMessagesByTicketId,
   sendTicketMessage,
   updateTicketStatus,
-} from '../../services/ticketService';
-import { subscribeToTicketMessages } from '../../services/realtimeChat';
+} from "../../services/ticketService";
+import { subscribeToTicketMessages } from "../../services/realtimeChat";
+import { useNotifications } from "../../context/NotificationContext";
 
 const ChatWindow = ({ ticket, onTicketUpdated }) => {
+  const { addNotification } = useNotifications();
   const [showResolve, setShowResolve] = useState(false);
   const [showEscalate, setShowEscalate] = useState(false);
 
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  const [replyText, setReplyText] = useState('');
-  const [activeMode, setActiveMode] = useState('reply');
+  const [replyText, setReplyText] = useState("");
+  const [activeMode, setActiveMode] = useState("reply");
   const [sending, setSending] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const [localTicketStatus, setLocalTicketStatus] = useState(
-    ticket?.status || ''
+    ticket?.status || "",
   );
 
   const realtimeSubRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const isTicketLocked =
-    localTicketStatus === 'Resolved' || localTicketStatus === 'Closed';
+    localTicketStatus === "Resolved" || localTicketStatus === "Closed";
 
   const canMarkReadyToContact =
-    localTicketStatus === 'Pending Investigation' && !isTicketLocked;
+    localTicketStatus === "Pending Investigation" && !isTicketLocked;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLocalTicketStatus(ticket?.status || '');
+    setLocalTicketStatus(ticket?.status || "");
   }, [ticket?.status]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
         const data = await getMessagesByTicketId(ticket.dbId);
         setMessages(data);
       } catch (error) {
-        console.error('Failed to load messages:', error);
+        console.error("Failed to load messages:", error);
       } finally {
         setLoadingMessages(false);
       }
@@ -66,26 +68,29 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
       realtimeSubRef.current.unsubscribe();
     }
 
-    realtimeSubRef.current = subscribeToTicketMessages(ticket.dbId, (rawMsg) => {
-      // Transform the raw DB row to match the format from getMessagesByTicketId
-      const newMessage = {
-        id: rawMsg.id,
-        sender: rawMsg.sender_type,
-        name: rawMsg.sender_name,
-        text: rawMsg.message_text,
-        isInternalNote: rawMsg.is_internal_note,
-        time: new Date(rawMsg.created_at).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      };
+    realtimeSubRef.current = subscribeToTicketMessages(
+      ticket.dbId,
+      (rawMsg) => {
+        // Transform the raw DB row to match the format from getMessagesByTicketId
+        const newMessage = {
+          id: rawMsg.id,
+          sender: rawMsg.sender_type,
+          name: rawMsg.sender_name,
+          text: rawMsg.message_text,
+          isInternalNote: rawMsg.is_internal_note,
+          time: new Date(rawMsg.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
 
-      setMessages((prev) => {
-        // Prevent duplicates (the optimistic insert from handleSendMessage)
-        if (prev.some((m) => m.id === newMessage.id)) return prev;
-        return [...prev, newMessage];
-      });
-    });
+        setMessages((prev) => {
+          // Prevent duplicates (the optimistic insert from handleSendMessage)
+          if (prev.some((m) => m.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
+      },
+    );
 
     return () => {
       if (realtimeSubRef.current) {
@@ -97,7 +102,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
   const handleSendMessage = async () => {
     if (isTicketLocked) {
-      alert('This ticket is closed/resolved. You cannot send new messages.');
+      addNotification({ title: "Action Blocked", body: "This ticket is closed/resolved. You cannot send new messages.", severity: "warning" });
       return;
     }
 
@@ -108,17 +113,17 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
       const newMessage = await sendTicketMessage({
         ticketId: ticket.dbId,
-        senderType: 'agent',
-        senderName: 'Agent Dara',
+        senderType: "agent",
+        senderName: "Agent Dara",
         messageText: replyText.trim(),
-        isInternalNote: activeMode === 'internal',
+        isInternalNote: activeMode === "internal",
       });
 
       setMessages((prev) => [...prev, newMessage]);
-      setReplyText('');
+      setReplyText("");
     } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('Failed to send message. Please check console.');
+      console.error("Failed to send message:", error);
+      addNotification({ title: "Error", body: "Failed to send message. Please try again.", severity: "error" });
     } finally {
       setSending(false);
     }
@@ -128,7 +133,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
     if (!ticket?.dbId) return;
 
     const confirmed = window.confirm(
-      'Mark this ticket as Ready to Contact Customer?'
+      "Mark this ticket as Ready to Contact Customer?",
     );
 
     if (!confirmed) return;
@@ -138,19 +143,19 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
       await updateTicketStatus({
         ticketId: ticket.dbId,
-        status: 'Ready to Contact Customer',
+        status: "Ready to Contact Customer",
         auditDetails:
-          'Internal investigation completed. Ticket is ready for agent to contact the customer.',
+          "Internal investigation completed. Ticket is ready for agent to contact the customer.",
       });
 
-      setLocalTicketStatus('Ready to Contact Customer');
+      setLocalTicketStatus("Ready to Contact Customer");
 
       if (onTicketUpdated) {
         await onTicketUpdated();
       }
     } catch (error) {
-      console.error('Failed to update ticket status:', error);
-      alert('Failed to update ticket status. Please check console.');
+      console.error("Failed to update ticket status:", error);
+      addNotification({ title: "Error", body: "Failed to update ticket status. Please try again.", severity: "error" });
     } finally {
       setUpdatingStatus(false);
     }
@@ -188,7 +193,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
             <div className="flex flex-wrap gap-2">
               {isTicketLocked ? (
-                <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
+                <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 h-10 px-3 text-sm font-medium text-slate-600">
                   <Lock size={16} />
                   Ticket Locked
                 </div>
@@ -199,18 +204,16 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                       type="button"
                       onClick={handleMarkReadyToContact}
                       disabled={updatingStatus}
-                      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-xl border border-blue-200 bg-blue-50 h-10 px-3 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {updatingStatus
-                        ? 'Updating...'
-                        : 'Mark Ready to Contact'}
+                      {updatingStatus ? "Updating..." : "Mark Ready to Contact"}
                     </button>
                   )}
 
                   <button
                     type="button"
                     onClick={() => setShowResolve(true)}
-                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+                    className="rounded-xl border border-emerald-200 bg-emerald-50 h-10 px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
                   >
                     Resolve
                   </button>
@@ -218,7 +221,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                   <button
                     type="button"
                     onClick={() => setShowEscalate(true)}
-                    className="rounded-xl bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-700"
+                    className="rounded-xl bg-orange-600 h-10 px-3 text-sm font-medium text-white hover:bg-orange-700"
                   >
                     Escalate
                   </button>
@@ -242,11 +245,11 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
             </div>
           ) : (
             messages.map((message) => {
-              if (message.sender === 'system') {
+              if (message.sender === "system") {
                 return (
                   <div
                     key={message.id}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-center text-xs text-slate-500"
+                    className="mx-auto w-max rounded-full bg-slate-100 px-4 py-2 text-center text-xs text-slate-500"
                   >
                     {message.text} · {message.time}
                   </div>
@@ -268,20 +271,20 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 );
               }
 
-              const isAgent = message.sender === 'agent';
+              const isAgent = message.sender === "agent";
 
               return (
                 <div
                   key={message.id}
                   className={`flex ${
-                    isAgent ? 'justify-end' : 'justify-start'
+                    isAgent ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div
                     className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                       isAgent
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-900'
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-900"
                     }`}
                   >
                     <div className="text-sm leading-relaxed">
@@ -290,7 +293,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
                     <div
                       className={`mt-2 text-xs ${
-                        isAgent ? 'text-blue-100' : 'text-slate-400'
+                        isAgent ? "text-blue-100" : "text-slate-400"
                       }`}
                     >
                       {message.name} · {message.time}
@@ -317,7 +320,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
             </div>
           ) : (
             <>
-              {localTicketStatus === 'Ready to Contact Customer' && (
+              {localTicketStatus === "Ready to Contact Customer" && (
                 <div className="mb-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-700">
                   Internal investigation is completed. Contact the customer,
                   then move the ticket to Waiting for Customer or Resolve it
@@ -328,11 +331,11 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
               <div className="mb-3 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setActiveMode('reply')}
+                  onClick={() => setActiveMode("reply")}
                   className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
-                    activeMode === 'reply'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-slate-500 hover:bg-slate-100'
+                    activeMode === "reply"
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-slate-500 hover:bg-slate-100"
                   }`}
                 >
                   Reply
@@ -340,11 +343,11 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
                 <button
                   type="button"
-                  onClick={() => setActiveMode('internal')}
+                  onClick={() => setActiveMode("internal")}
                   className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
-                    activeMode === 'internal'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'text-slate-500 hover:bg-slate-100'
+                    activeMode === "internal"
+                      ? "bg-amber-50 text-amber-700"
+                      : "text-slate-500 hover:bg-slate-100"
                   }`}
                 >
                   Internal Note
@@ -364,9 +367,9 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                   value={replyText}
                   onChange={(event) => setReplyText(event.target.value)}
                   placeholder={
-                    activeMode === 'reply'
-                      ? 'Type your reply to customer...'
-                      : 'Type internal note for staff only...'
+                    activeMode === "reply"
+                      ? "Type your reply to customer..."
+                      : "Type internal note for staff only..."
                   }
                   className="flex-1 resize-none bg-transparent text-sm outline-none"
                 />

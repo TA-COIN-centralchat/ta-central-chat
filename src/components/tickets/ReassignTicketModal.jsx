@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { getRawAgents, reassignTicket } from '../../services/ticketService';
+import { useEffect, useState } from "react";
+import { getRawAgents, reassignTicket } from "../../services/ticketService";
 
 const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
   const [agents, setAgents] = useState([]);
-  const [selectedAgentId, setSelectedAgentId] = useState('');
-  const [reason, setReason] = useState('');
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingAgents, setLoadingAgents] = useState(false);
 
@@ -16,9 +16,9 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
         setLoadingAgents(true);
         const data = await getRawAgents();
         setAgents(data);
-        setSelectedAgentId(data[0]?.id || '');
+        setSelectedAgentId(data[0]?.id || "");
       } catch (error) {
-        console.error('Failed to load agents:', error);
+        console.error("Failed to load agents:", error);
       } finally {
         setLoadingAgents(false);
       }
@@ -31,7 +31,7 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
 
   const handleReassign = async () => {
     if (!selectedAgentId) {
-      alert('Please select an agent.');
+      alert("Please select an agent.");
       return;
     }
 
@@ -48,11 +48,11 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
         onUpdated(result.newAgent.full_name);
       }
 
-      setReason('');
+      setReason("");
       onClose();
     } catch (error) {
-      console.error('Reassign ticket error:', error);
-      alert('Failed to reassign ticket. Please check console.');
+      console.error("Reassign ticket error:", error);
+      alert("Failed to reassign ticket. Please check console.");
     } finally {
       setLoading(false);
     }
@@ -84,7 +84,7 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
           <select
             value={selectedAgentId}
             onChange={(event) => setSelectedAgentId(event.target.value)}
-            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="mt-2 w-full rounded-xl border border-slate-200 h-10 px-3 text-sm outline-none focus:border-blue-500"
           >
             {loadingAgents ? (
               <option>Loading agents...</option>
@@ -115,7 +115,7 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 h-10 px-4 text-sm hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -123,9 +123,9 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
           <button
             onClick={handleReassign}
             disabled={loading || loadingAgents}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Reassigning...' : 'Confirm Reassign'}
+            {loading ? "Reassigning..." : "Confirm Reassign"}
           </button>
         </div>
       </div>

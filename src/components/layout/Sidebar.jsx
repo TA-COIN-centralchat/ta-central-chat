@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   CheckCircle,
@@ -16,145 +16,145 @@ import {
   Tags,
   Users,
   X,
-} from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+} from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
 
-import { getTickets } from '../../services/ticketService';
-import { getActiveSessions } from '../../services/realtimeChat';
-import { supabase } from '../../services/supabaseClient';
+import { getTickets, getSidebarCounts } from "../../services/ticketService";
+import { getActiveSessions } from "../../services/realtimeChat";
+import { supabase } from "../../services/supabaseClient";
 import {
   clearCurrentUser,
   getCurrentAgentId,
   getCurrentUserName,
   getCurrentUserRole,
-} from '../../utils/authUtils';
+} from "../../utils/authUtils";
 
 const buildMenuGroups = (counts) => [
   {
-    title: 'Overview',
+    title: "Overview",
     defaultOpen: true,
     items: [
       {
-        label: 'Dashboard',
-        path: '/dashboard',
+        label: "Dashboard",
+        path: "/dashboard",
         icon: LayoutDashboard,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Reports',
-        path: '/reports',
+        label: "Reports",
+        path: "/reports",
         icon: BarChart3,
-        roles: ['Admin'],
+        roles: ["Admin"],
       },
       {
-        label: 'Audit Logs',
-        path: '/audit-logs',
+        label: "Audit Logs",
+        path: "/audit-logs",
         icon: ShieldCheck,
-        roles: ['Admin'],
+        roles: ["Admin"],
       },
     ],
   },
   {
-    title: 'Tickets',
+    title: "Tickets",
     defaultOpen: true,
     items: [
       {
-        label: 'All Tickets',
-        path: '/tickets',
+        label: "All Tickets",
+        path: "/tickets",
         icon: Inbox,
         count: counts.allTickets,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Waiting Queue',
-        path: '/waiting-queue',
+        label: "Waiting Queue",
+        path: "/waiting-queue",
         icon: Clock,
         count: counts.waitingQueue,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Pending Investigation',
-        path: '/investigation',
+        label: "Pending Investigation",
+        path: "/investigation",
         icon: ShieldCheck,
         count: counts.pendingInvestigation,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Ready to Contact',
-        path: '/ready-to-contact',
+        label: "Ready to Contact",
+        path: "/ready-to-contact",
         icon: Send,
         count: counts.readyToContact,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Closed Tickets',
-        path: '/closed',
+        label: "Closed Tickets",
+        path: "/closed",
         icon: CheckCircle,
         count: counts.closedTickets,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Walk-in / Manual',
-        path: '/manual-ticket',
+        label: "Walk-in / Manual",
+        path: "/manual-ticket",
         icon: ClipboardList,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
     ],
   },
   {
-    title: 'Channels',
+    title: "Channels",
     defaultOpen: false,
     items: [
       {
-        label: 'Live Chat',
-        path: '/live-chat',
+        label: "Live Chat",
+        path: "/live-chat",
         icon: Headphones,
         count: counts.liveChat,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ["Admin", "Customer Service Agent"],
       },
       {
-        label: 'Chatbot (Website)',
-        path: '/chatbot',
+        label: "Chatbot (Website)",
+        path: "/chatbot",
         icon: MessageCircle,
         count: counts.websiteChatbot,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ["Admin", "Customer Service Agent"],
       },
       {
-        label: 'Telegram Sessions',
-        path: '/telegram',
+        label: "Telegram Sessions",
+        path: "/telegram",
         icon: Send,
         count: counts.telegram,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ["Admin", "Customer Service Agent"],
       },
     ],
   },
   {
-    title: 'Management',
+    title: "Management",
     defaultOpen: false,
     items: [
       {
-        label: 'Customers',
-        path: '/customers',
+        label: "Customers",
+        path: "/customers",
         icon: Users,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
       },
       {
-        label: 'Agents',
-        path: '/agents',
+        label: "Agents",
+        path: "/agents",
         icon: Users,
-        roles: ['Admin'],
+        roles: ["Admin"],
       },
       {
-        label: 'Categories',
-        path: '/categories',
+        label: "Categories",
+        path: "/categories",
         icon: Tags,
-        roles: ['Admin'],
+        roles: ["Admin"],
       },
       {
-        label: 'Settings',
-        path: '/settings',
+        label: "Settings",
+        path: "/settings",
         icon: Settings,
-        roles: ['Admin'],
+        roles: ["Admin"],
       },
     ],
   },
@@ -188,74 +188,10 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const [tickets, chatSessions] = await Promise.all([
-          getTickets(),
-          getActiveSessions().catch(() => []),
-        ]);
-
-        setCounts({
-          allTickets: tickets.length,
-
-          waitingQueue: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
-
-            return (
-              status === 'new' ||
-              status === 'waiting queue' ||
-              ticket.assignedTo === 'Unassigned'
-            );
-          }).length,
-
-          pendingInvestigation: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
-
-            return (
-              status === 'pending investigation' ||
-              status === 'pending' ||
-              status === 'pending review' ||
-              status === 'investigation' ||
-              status === 'under investigation'
-            );
-          }).length,
-
-          readyToContact: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
-
-            return status === 'ready to contact' || status === 'ready-to-contact';
-          }).length,
-
-          closedTickets: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
-
-            return (
-              status === 'closed' ||
-              status === 'resolved' ||
-              status === 'completed'
-            );
-          }).length,
-
-          liveChat: chatSessions.filter((session) => {
-            return session.status === 'waiting';
-          }).length,
-
-          websiteChatbot: tickets.filter((ticket) => {
-            const channel = ticket.channel?.toLowerCase().trim();
-
-            return (
-              channel === 'website chatbot' ||
-              channel === 'chatbot' ||
-              channel === 'website'
-            );
-          }).length,
-
-          telegram: tickets.filter((ticket) => {
-            const channel = ticket.channel?.toLowerCase().trim();
-
-            return channel === 'telegram';
-          }).length,
-        });
+        const newCounts = await getSidebarCounts();
+        setCounts(newCounts);
       } catch (error) {
-        console.error('Failed to load sidebar counts:', error);
+        console.error("Failed to load sidebar counts:", error);
       }
     };
 
@@ -290,20 +226,20 @@ const Sidebar = ({ open = false, onClose }) => {
     try {
       if (currentAgentId) {
         await supabase
-          .from('agents')
-          .update({ status: 'Offline' })
-          .eq('id', currentAgentId);
+          .from("agents")
+          .update({ status: "Offline" })
+          .eq("id", currentAgentId);
       }
 
       await supabase.auth.signOut();
       clearCurrentUser();
 
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
 
       clearCurrentUser();
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
     }
   };
 
@@ -320,7 +256,7 @@ const Sidebar = ({ open = false, onClose }) => {
 
       <aside
         className={`fixed left-0 top-0 z-50 h-screen w-72 bg-slate-950 text-white transition-transform duration-300 lg:translate-x-0 ${
-          open ? 'translate-x-0' : '-translate-x-full'
+          open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex h-full flex-col">
@@ -354,7 +290,7 @@ const Sidebar = ({ open = false, onClose }) => {
               </div>
 
               <div className="mt-1 text-sm font-semibold text-white">
-                {currentUserRole || 'No role'}
+                {currentUserRole || "No role"}
               </div>
             </div>
 
@@ -364,14 +300,14 @@ const Sidebar = ({ open = false, onClose }) => {
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.title)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                    className="flex w-full items-center justify-between rounded-xl h-10 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-white/5 hover:text-slate-200"
                   >
                     <span>{group.title}</span>
 
                     <ChevronDown
                       size={16}
                       className={`transition-transform ${
-                        openGroups[group.title] ? 'rotate-180' : ''
+                        openGroups[group.title] ? "rotate-180" : ""
                       }`}
                     />
                   </button>
@@ -389,8 +325,8 @@ const Sidebar = ({ open = false, onClose }) => {
                             className={({ isActive }) =>
                               `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition ${
                                 isActive
-                                  ? 'bg-blue-600 text-white shadow-sm'
-                                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                                  ? "bg-blue-600 text-white shadow-sm"
+                                  : "text-slate-300 hover:bg-white/10 hover:text-white"
                               }`
                             }
                           >
@@ -399,7 +335,8 @@ const Sidebar = ({ open = false, onClose }) => {
                               {item.label}
                             </span>
 
-                            {typeof item.count === 'number' && item.count > 0 ? (
+                            {typeof item.count === "number" &&
+                            item.count > 0 ? (
                               <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
                                 {item.count}
                               </span>
@@ -417,11 +354,11 @@ const Sidebar = ({ open = false, onClose }) => {
           <div className="border-t border-white/10 p-4">
             <div className="mb-3 rounded-2xl bg-white/5 p-3">
               <div className="text-sm font-semibold">
-                {currentUserName || 'Unknown User'}
+                {currentUserName || "Unknown User"}
               </div>
 
               <div className="text-xs text-slate-400">
-                {currentUserRole || 'No role'}
+                {currentUserRole || "No role"}
               </div>
 
               <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
@@ -433,7 +370,7 @@ const Sidebar = ({ open = false, onClose }) => {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+              className="flex w-full items-center gap-3 rounded-xl h-10 px-3 text-sm text-red-300 hover:bg-red-500/10"
             >
               <LogOut size={18} />
               Logout

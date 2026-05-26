@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from "react";
 import {
   AlertTriangle,
   CheckCircle,
@@ -7,63 +7,59 @@ import {
   MessageCircle,
   Send,
   Users,
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import { getAgents, getTickets } from '../services/ticketService';
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getAgents, getTickets } from "../services/ticketService";
+import { useLayout } from "../context/LayoutContext";
 
 const DashboardPage = () => {
-  const navigate = useNavigate();
-
-  const [tickets, setTickets] = useState([]);
-  const [agents, setAgents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { setTitle, setDescription } = useLayout();
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
+    setTitle("Dashboard");
+    setDescription("Overview of Central Chat ticket operations.");
+  }, [setTitle, setDescription]);
 
-        const [ticketData, agentData] = await Promise.all([
-          getTickets(),
-          getAgents(),
-        ]);
+  const navigate = useNavigate();
 
-        setTickets(ticketData);
-        setAgents(agentData);
-      } catch (error) {
-        console.error('Failed to load dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
+    queryKey: ["tickets"],
+    queryFn: getTickets,
+    staleTime: 60000,
+  });
 
-    loadDashboard();
-  }, []);
+  const { data: agents = [], isLoading: loadingAgents } = useQuery({
+    queryKey: ["agents"],
+    queryFn: getAgents,
+    staleTime: 60000,
+  });
+
+  const loading = loadingTickets || loadingAgents;
 
   const stats = useMemo(() => {
     const waitingQueue = tickets.filter(
-      (ticket) => ticket.status === 'New' || ticket.assignedTo === 'Unassigned'
+      (ticket) => ticket.status === "New" || ticket.assignedTo === "Unassigned",
     ).length;
 
     const pendingInvestigation = tickets.filter(
-      (ticket) => ticket.status === 'Pending Investigation'
+      (ticket) => ticket.status === "Pending Investigation",
     ).length;
 
     const closedTickets = tickets.filter(
-      (ticket) => ticket.status === 'Resolved' || ticket.status === 'Closed'
+      (ticket) => ticket.status === "Resolved" || ticket.status === "Closed",
     ).length;
 
     const telegramTickets = tickets.filter(
-      (ticket) => ticket.channel === 'Telegram'
+      (ticket) => ticket.channel === "Telegram",
     ).length;
 
     const chatbotTickets = tickets.filter(
-      (ticket) => ticket.channel === 'Website Chatbot'
+      (ticket) => ticket.channel === "Website Chatbot",
     ).length;
 
     const availableAgents = agents.filter(
-      (agent) => agent.status === 'Available'
+      (agent) => agent.status === "Available",
     ).length;
 
     return {
@@ -80,70 +76,67 @@ const DashboardPage = () => {
 
   const dashboardCards = [
     {
-      title: 'All Tickets',
+      title: "All Tickets",
       value: stats.totalTickets,
-      description: 'View all support tickets',
+      description: "View all support tickets",
       icon: Inbox,
-      path: '/tickets',
-      color: 'bg-blue-50 text-blue-700',
+      path: "/tickets",
+      color: "bg-blue-50 text-blue-700",
     },
     {
-      title: 'Waiting Queue',
+      title: "Waiting Queue",
       value: stats.waitingQueue,
-      description: 'Tickets waiting for assignment',
+      description: "Tickets waiting for assignment",
       icon: Clock,
-      path: '/waiting-queue',
-      color: 'bg-orange-50 text-orange-700',
+      path: "/waiting-queue",
+      color: "bg-orange-50 text-orange-700",
     },
     {
-      title: 'Pending Investigation',
+      title: "Pending Investigation",
       value: stats.pendingInvestigation,
-      description: 'Tickets requiring internal follow-up',
+      description: "Tickets requiring internal follow-up",
       icon: AlertTriangle,
-      path: '/pending-investigation',
-      color: 'bg-amber-50 text-amber-700',
+      path: "/pending-investigation",
+      color: "bg-amber-50 text-amber-700",
     },
     {
-      title: 'Closed / Resolved',
+      title: "Closed / Resolved",
       value: stats.closedTickets,
-      description: 'View completed support records',
+      description: "View completed support records",
       icon: CheckCircle,
-      path: '/closed-tickets',
-      color: 'bg-emerald-50 text-emerald-700',
+      path: "/closed-tickets",
+      color: "bg-emerald-50 text-emerald-700",
     },
     {
-      title: 'Telegram Tickets',
+      title: "Telegram Tickets",
       value: stats.telegramTickets,
-      description: 'Tickets from Telegram channel',
+      description: "Tickets from Telegram channel",
       icon: Send,
-      path: '/telegram',
-      color: 'bg-sky-50 text-sky-700',
+      path: "/telegram",
+      color: "bg-sky-50 text-sky-700",
     },
     {
-      title: 'Website Chatbot',
+      title: "Website Chatbot",
       value: stats.chatbotTickets,
-      description: 'Tickets from website chatbot',
+      description: "Tickets from website chatbot",
       icon: MessageCircle,
-      path: '/chatbot',
-      color: 'bg-violet-50 text-violet-700',
+      path: "/chatbot",
+      color: "bg-violet-50 text-violet-700",
     },
     {
-      title: 'Agents',
+      title: "Agents",
       value: stats.totalAgents,
       description: `${stats.availableAgents} available agents`,
       icon: Users,
-      path: '/agents',
-      color: 'bg-slate-100 text-slate-700',
+      path: "/agents",
+      color: "bg-slate-100 text-slate-700",
     },
   ];
 
   const recentTickets = tickets.slice(0, 5);
 
   return (
-    <DashboardLayout
-      title="Dashboard"
-      description="Overview of Central Chat ticket operations."
-    >
+    <>
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
           Loading dashboard...
@@ -197,8 +190,8 @@ const DashboardPage = () => {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/tickets')}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                  onClick={() => navigate("/tickets")}
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                 >
                   View All
                 </button>
@@ -229,12 +222,25 @@ const DashboardPage = () => {
                           onClick={() =>
                             navigate(`/tickets/${ticket.dbId}`, {
                               state: {
-                                from: '/dashboard',
-                                fromLabel: 'Dashboard',
+                                from: "/dashboard",
+                                fromLabel: "Dashboard",
                               },
                             })
                           }
-                          className="cursor-pointer hover:bg-slate-50"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              navigate(`/tickets/${ticket.dbId}`, {
+                                state: {
+                                  from: "/dashboard",
+                                  fromLabel: "Dashboard",
+                                },
+                              });
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          className="cursor-pointer hover:bg-slate-50 focus-visible:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
                         >
                           <td className="whitespace-nowrap px-5 py-4 font-semibold text-slate-900">
                             {ticket.id}
@@ -297,7 +303,7 @@ const DashboardPage = () => {
 
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-medium ${getAgentStatusClass(
-                          agent.status
+                          agent.status,
                         )}`}
                       >
                         {agent.status}
@@ -310,8 +316,8 @@ const DashboardPage = () => {
               <div className="border-t border-slate-200 p-4">
                 <button
                   type="button"
-                  onClick={() => navigate('/agents')}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                  onClick={() => navigate("/agents")}
+                  className="w-full rounded-xl border border-slate-200 h-10 px-4 text-sm font-medium text-blue-600 hover:bg-blue-50"
                 >
                   Manage Agents
                 </button>
@@ -320,19 +326,19 @@ const DashboardPage = () => {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 
 const StatusBadge = ({ status }) => {
   const className =
-    status === 'Resolved' || status === 'Closed'
-      ? 'bg-emerald-50 text-emerald-700'
-      : status === 'Pending Investigation'
-      ? 'bg-orange-50 text-orange-700'
-      : status === 'New'
-      ? 'bg-blue-50 text-blue-700'
-      : 'bg-slate-100 text-slate-700';
+    status === "Resolved" || status === "Closed"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "Pending Investigation"
+        ? "bg-orange-50 text-orange-700"
+        : status === "New"
+          ? "bg-blue-50 text-blue-700"
+          : "bg-slate-100 text-slate-700";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-medium ${className}`}>
@@ -342,19 +348,19 @@ const StatusBadge = ({ status }) => {
 };
 
 const getAgentStatusClass = (status) => {
-  if (status === 'Available') {
-    return 'bg-emerald-50 text-emerald-700';
+  if (status === "Available") {
+    return "bg-emerald-50 text-emerald-700";
   }
 
-  if (status === 'Busy') {
-    return 'bg-orange-50 text-orange-700';
+  if (status === "Busy") {
+    return "bg-orange-50 text-orange-700";
   }
 
-  if (status === 'Away') {
-    return 'bg-amber-50 text-amber-700';
+  if (status === "Away") {
+    return "bg-amber-50 text-amber-700";
   }
 
-  return 'bg-slate-100 text-slate-600';
+  return "bg-slate-100 text-slate-600";
 };
 
 export default DashboardPage;

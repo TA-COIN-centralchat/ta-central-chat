@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   MessageCircle,
@@ -6,29 +6,37 @@ import {
   ShieldCheck,
   Star,
   Ticket,
-} from 'lucide-react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
+} from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLayout } from "../context/LayoutContext";
 import {
+  assignSessionToCurrentAgent,
   endSession,
   getSessionById,
   sendSessionReply,
-} from '../services/sessionService';
+} from "../services/sessionService";
 
 const SessionWorkspacePage = () => {
+  const { setTitle, setDescription } = useLayout();
+
+  useEffect(() => {
+    setTitle("Session Workspace");
+    setDescription("Chat with the customer, then raise a ticket only when a real issue needs tracking.");
+  }, [setTitle, setDescription]);
+
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const chatEndRef = useRef(null);
 
-  const fromPath = location.state?.from || '/telegram';
-  const fromLabel = location.state?.fromLabel || 'Channel Sessions';
+  const fromPath = location.state?.from || "/telegram";
+  const fromLabel = location.state?.fromLabel || "Channel Sessions";
 
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
 
-  const [replyText, setReplyText] = useState('');
+  const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   const [localReplies, setLocalReplies] = useState([]);
 
@@ -41,7 +49,7 @@ const SessionWorkspacePage = () => {
       const data = await getSessionById(sessionId);
       setSession(data);
     } catch (error) {
-      console.error('Failed to load session workspace:', error);
+      console.error("Failed to load session workspace:", error);
     } finally {
       if (showLoading) {
         setLoading(false);
@@ -56,14 +64,14 @@ const SessionWorkspacePage = () => {
   }, [sessionId]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [localReplies, session?.lastMessage]);
 
   const handleEndSession = async () => {
     if (!session?.dbId) return;
 
     const confirmed = window.confirm(
-      'End this customer conversation session? The linked ticket can still continue internally.'
+      "End this customer conversation session? The linked ticket can still continue internally.",
     );
 
     if (!confirmed) return;
@@ -73,15 +81,15 @@ const SessionWorkspacePage = () => {
       await endSession(session.dbId);
       await loadSession({ showLoading: false });
     } catch (error) {
-      console.error('Failed to end session:', error);
-      alert('Failed to end session. Please check console.');
+      console.error("Failed to end session:", error);
+      alert("Failed to end session. Please check console.");
     } finally {
       setEnding(false);
     }
   };
 
   const handleRaiseTicket = () => {
-    navigate('/manual-ticket', {
+    navigate("/manual-ticket", {
       state: {
         fromSessionId: session.dbId,
         fromSessionNumber: session.id,
@@ -99,7 +107,7 @@ const SessionWorkspacePage = () => {
     if (!session?.dbId) return;
 
     if (!replyText.trim()) {
-      alert('Please enter a reply.');
+      alert("Please enter a reply.");
       return;
     }
 
@@ -119,34 +127,31 @@ const SessionWorkspacePage = () => {
           id: Date.now(),
           text: messageText,
           time: new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
+            hour: "2-digit",
+            minute: "2-digit",
           }),
         },
       ]);
 
-      setReplyText('');
+      setReplyText("");
       await loadSession({ showLoading: false });
     } catch (error) {
-      console.error('Failed to send session reply:', error);
-      alert('Failed to send reply. Please check console.');
+      console.error("Failed to send session reply:", error);
+      alert("Failed to send reply. Please check console.");
     } finally {
       setSendingReply(false);
     }
   };
 
   const handleReplyKeyDown = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSendReply();
     }
   };
 
   return (
-    <DashboardLayout
-      title="Session Workspace"
-      description="Chat with the customer, then raise a ticket only when a real issue needs tracking."
-    >
+    <>
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
           Loading session workspace...
@@ -164,7 +169,7 @@ const SessionWorkspacePage = () => {
           <button
             type="button"
             onClick={() => navigate(fromPath)}
-            className="mt-5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-5 rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700"
           >
             Back to {fromLabel}
           </button>
@@ -201,12 +206,12 @@ const SessionWorkspacePage = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <SessionBadge status={session.status} />
 
-                {session.status !== 'Ended' && (
+                {session.status !== "Ended" && (
                   <>
                     <button
                       type="button"
                       onClick={handleRaiseTicket}
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition-all hover:bg-blue-700"
                     >
                       <Ticket size={16} />
                       Raise Ticket
@@ -216,9 +221,9 @@ const SessionWorkspacePage = () => {
                       type="button"
                       onClick={handleEndSession}
                       disabled={ending}
-                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {ending ? 'Ending...' : 'End Session'}
+                      {ending ? "Ending..." : "End Session"}
                     </button>
                   </>
                 )}
@@ -251,7 +256,7 @@ const SessionWorkspacePage = () => {
                   <div className="flex justify-start">
                     <div className="max-w-[76%] rounded-2xl rounded-tl-md bg-white px-4 py-3 text-slate-900 shadow-sm ring-1 ring-slate-200">
                       <div className="text-sm leading-relaxed">
-                        {session.lastMessage || 'No message yet.'}
+                        {session.lastMessage || "No message yet."}
                       </div>
 
                       <div className="mt-2 text-xs text-slate-400">
@@ -274,14 +279,14 @@ const SessionWorkspacePage = () => {
                     </div>
                   ))}
 
-                  {session.status === 'Idle Warning' && (
+                  {session.status === "Idle Warning" && (
                     <div className="mx-auto max-w-lg rounded-2xl border border-orange-200 bg-orange-50 p-4 text-center text-sm text-orange-700">
                       Customer has been inactive. The system should warn the
                       customer before ending the session automatically.
                     </div>
                   )}
 
-                  {session.status === 'Ended' && (
+                  {session.status === "Ended" && (
                     <div className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
                       <div className="font-semibold text-slate-800">
                         Session Ended
@@ -298,7 +303,7 @@ const SessionWorkspacePage = () => {
                 </div>
               </div>
 
-              {session.status !== 'Ended' ? (
+              {session.status !== "Ended" ? (
                 <div className="border-t border-slate-200 bg-white p-4">
                   <div className="mx-auto max-w-4xl">
                     <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -355,7 +360,7 @@ const SessionWorkspacePage = () => {
                     value={
                       session.endedAt
                         ? new Date(session.endedAt).toLocaleString()
-                        : 'Not ended'
+                        : "Not ended"
                     }
                   />
                 </div>
@@ -370,15 +375,21 @@ const SessionWorkspacePage = () => {
 
                 <div className="space-y-3 p-4 text-sm">
                   <Detail label="Full Name" value={session.customer} />
-                  <Detail label="Phone" value={session.phone || 'Not provided'} />
+                  <Detail
+                    label="Phone"
+                    value={session.phone || "Not provided"}
+                  />
                   <Detail
                     label="Telegram"
-                    value={session.telegram || 'Not provided'}
+                    value={session.telegram || "Not provided"}
                   />
-                  <Detail label="Email" value={session.email || 'Not provided'} />
+                  <Detail
+                    label="Email"
+                    value={session.email || "Not provided"}
+                  />
                   <Detail
                     label="T.A Coin User ID"
-                    value={session.accountId || 'Not provided'}
+                    value={session.accountId || "Not provided"}
                   />
                 </div>
               </section>
@@ -415,7 +426,7 @@ const SessionWorkspacePage = () => {
                 </div>
               </section>
 
-              {session.status === 'Ended' && (
+              {session.status === "Ended" && (
                 <section className="rounded-2xl border border-slate-200 bg-white">
                   <div className="border-b border-slate-200 p-4">
                     <h3 className="font-semibold text-slate-950">
@@ -432,7 +443,7 @@ const SessionWorkspacePage = () => {
                         </div>
 
                         <p className="mt-2">
-                          {session.ratingComment || 'No comment provided.'}
+                          {session.ratingComment || "No comment provided."}
                         </p>
                       </div>
                     ) : (
@@ -457,17 +468,17 @@ const SessionWorkspacePage = () => {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 
 const SessionBadge = ({ status }) => {
   const className =
-    status === 'Active'
-      ? 'bg-emerald-50 text-emerald-700'
-      : status === 'Idle Warning'
-      ? 'bg-orange-50 text-orange-700'
-      : 'bg-slate-100 text-slate-600';
+    status === "Active"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "Idle Warning"
+        ? "bg-orange-50 text-orange-700"
+        : "bg-slate-100 text-slate-600";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-medium ${className}`}>

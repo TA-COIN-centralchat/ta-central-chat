@@ -1,91 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { Navigate, useLocation } from "react-router-dom";
+import { Loader2, ShieldAlert } from "lucide-react";
 
-import { supabase } from '../services/supabaseClient';
-import { clearCurrentUser } from '../utils/authUtils';
+import { useAuth } from "../context/AuthContext";
 
 const ProtectedRoute = ({ allowedRoles, children }) => {
   const location = useLocation();
-
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState(null);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        setCheckingAuth(true);
-
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        if (!session?.user) {
-          clearCurrentUser();
-          setIsAuthenticated(false);
-          setCurrentUserRole(null);
-          return;
-        }
-
-        const userEmail = session.user.email;
-
-        const { data: agent, error: agentError } = await supabase
-          .from('agents')
-          .select('id, full_name, email, role, status')
-          .eq('email', userEmail)
-          .single();
-
-        if (agentError || !agent) {
-          console.error('Agent profile not found for logged-in user:', {
-            userEmail,
-            agentError,
-          });
-
-          clearCurrentUser();
-          setIsAuthenticated(false);
-          setCurrentUserRole(null);
-          return;
-        }
-
-        localStorage.setItem('currentAgentId', agent.id);
-        localStorage.setItem('currentUserName', agent.full_name);
-        localStorage.setItem('currentUserEmail', agent.email);
-        localStorage.setItem('currentUserRole', agent.role);
-
-        setIsAuthenticated(true);
-        setCurrentUserRole(agent.role);
-      } catch (error) {
-        console.error('Protected route auth check failed:', error);
-
-        clearCurrentUser();
-        setIsAuthenticated(false);
-        setCurrentUserRole(null);
-      } finally {
-        setCheckingAuth(false);
-      }
-    };
-
-    checkAccess();
-  }, []);
+  const { checkingAuth, isAuthenticated, currentUserRole } = useAuth();
 
   if (checkingAuth) {
     return <AuthLoading />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location.pathname }}
-      />
-    );
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   const hasAccess = allowedRoles.includes(currentUserRole);
@@ -140,13 +67,13 @@ const AccessDenied = ({ allowedRoles, currentUserRole }) => {
 
         <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-left text-sm text-slate-600">
           <div>
-            <span className="font-medium text-slate-900">Current role:</span>{' '}
-            {currentUserRole || 'No role found'}
+            <span className="font-medium text-slate-900">Current role:</span>{" "}
+            {currentUserRole || "No role found"}
           </div>
 
           <div className="mt-2">
-            <span className="font-medium text-slate-900">Allowed roles:</span>{' '}
-            {allowedRoles.join(', ')}
+            <span className="font-medium text-slate-900">Allowed roles:</span>{" "}
+            {allowedRoles.join(", ")}
           </div>
         </div>
 

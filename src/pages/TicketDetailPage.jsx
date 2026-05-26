@@ -1,18 +1,25 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import ChatWindow from '../components/tickets/ChatWindow';
-import TicketDetailsPanel from '../components/tickets/TicketDetailsPanel';
-import { getTickets } from '../services/ticketService';
+import { useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import ChatWindow from "../components/tickets/ChatWindow";
+import TicketDetailsPanel from "../components/tickets/TicketDetailsPanel";
+import { getTickets } from "../services/ticketService";
+import { useLayout } from "../context/LayoutContext";
 
 const TicketDetailPage = () => {
+  const { setTitle, setDescription } = useLayout();
+
+  useEffect(() => {
+    setTitle("Ticket Workspace");
+    setDescription("View customer conversation, ticket information, and support actions.");
+  }, [setTitle, setDescription]);
+
   const { ticketId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const fromPath = location.state?.from || '/tickets';
-  const fromLabel = location.state?.fromLabel || 'All Tickets';
+  const fromPath = location.state?.from || "/tickets";
+  const fromLabel = location.state?.fromLabel || "All Tickets";
 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +33,7 @@ const TicketDetailPage = () => {
 
       setTicket(foundTicket || null);
     } catch (error) {
-      console.error('Failed to load ticket detail:', error);
+      console.error("Failed to load ticket detail:", error);
     } finally {
       setLoading(false);
     }
@@ -39,10 +46,7 @@ const TicketDetailPage = () => {
   }, [ticketId]);
 
   return (
-    <DashboardLayout
-      title="Ticket Workspace"
-      description="View customer conversation, ticket information, and support actions."
-    >
+    <>
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
           Loading ticket workspace...
@@ -59,7 +63,7 @@ const TicketDetailPage = () => {
           <button
             type="button"
             onClick={() => navigate(fromPath)}
-            className="mt-5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-5 rounded-xl bg-blue-600 h-10 px-4 text-sm font-medium text-white hover:bg-blue-700"
           >
             Back to {fromLabel}
           </button>
@@ -72,7 +76,7 @@ const TicketDetailPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate(fromPath)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50"
                   title={`Back to ${fromLabel}`}
                 >
                   <ArrowLeft size={18} />
@@ -103,14 +107,14 @@ const TicketDetailPage = () => {
             </div>
           </div>
 
-          <div className="grid h-[calc(100vh-230px)] grid-cols-[1fr_360px] gap-4">
+          <div className="grid min-h-[calc(100vh-230px)] gap-4 lg:grid-cols-[1fr_360px]">
             <ChatWindow ticket={ticket} onTicketUpdated={loadTicket} />
 
             <TicketDetailsPanel ticket={ticket} onTicketUpdated={loadTicket} />
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 

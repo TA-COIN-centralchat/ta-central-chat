@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   createChatSession,
   sendMessage,
@@ -6,7 +6,7 @@ import {
   subscribeToSessionMessages,
   subscribeToSessionStatus,
   getOrCreateUserId,
-} from '../services/realtimeChat';
+} from "../services/realtimeChat";
 
 export const useAgentConnection = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -22,7 +22,7 @@ export const useAgentConnection = () => {
   /**
    * Start a new agent chat session
    */
-  const connectToAgent = useCallback(async (description = '') => {
+  const connectToAgent = useCallback(async (description = "") => {
     try {
       setIsWaiting(true);
       setMessages([]);
@@ -39,31 +39,37 @@ export const useAgentConnection = () => {
 
       // Send the initial description as first message
       if (description) {
-        await sendMessage(newSession.id, 'user', userId.current, description);
+        await sendMessage(newSession.id, "user", userId.current, description);
       }
 
       // Subscribe to new messages in this session
-      messageSubRef.current = subscribeToSessionMessages(newSession.id, (msg) => {
-        setMessages((prev) => {
-          // Prevent duplicates
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      });
+      messageSubRef.current = subscribeToSessionMessages(
+        newSession.id,
+        (msg) => {
+          setMessages((prev) => {
+            // Prevent duplicates
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        },
+      );
 
       // Subscribe to session status changes (agent joining, session closing)
-      statusSubRef.current = subscribeToSessionStatus(newSession.id, (updatedSession) => {
-        setSession(updatedSession);
-        if (updatedSession.status === 'active' && updatedSession.agent_id) {
-          setAgentJoined(true);
-          setIsWaiting(false);
-          setIsConnected(true);
-        }
-        if (updatedSession.status === 'closed') {
-          setIsConnected(false);
-          setIsWaiting(false);
-        }
-      });
+      statusSubRef.current = subscribeToSessionStatus(
+        newSession.id,
+        (updatedSession) => {
+          setSession(updatedSession);
+          if (updatedSession.status === "active" && updatedSession.agent_id) {
+            setAgentJoined(true);
+            setIsWaiting(false);
+            setIsConnected(true);
+          }
+          if (updatedSession.status === "closed") {
+            setIsConnected(false);
+            setIsWaiting(false);
+          }
+        },
+      );
 
       // Load any existing messages (in case of reconnection)
       const existingMessages = await getSessionMessages(newSession.id);
@@ -73,7 +79,7 @@ export const useAgentConnection = () => {
 
       return newSession;
     } catch (err) {
-      console.error('Failed to create agent session:', err);
+      console.error("Failed to create agent session:", err);
       setIsWaiting(false);
       throw err;
     }
@@ -82,18 +88,21 @@ export const useAgentConnection = () => {
   /**
    * Send a message from the user side
    */
-  const sendUserMessage = useCallback(async (text) => {
-    if (!session) {
-      console.error('No active session');
-      return;
-    }
-    try {
-      await sendMessage(session.id, 'user', userId.current, text);
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      throw err;
-    }
-  }, [session]);
+  const sendUserMessage = useCallback(
+    async (text) => {
+      if (!session) {
+        console.error("No active session");
+        return;
+      }
+      try {
+        await sendMessage(session.id, "user", userId.current, text);
+      } catch (err) {
+        console.error("Failed to send message:", err);
+        throw err;
+      }
+    },
+    [session],
+  );
 
   /**
    * Disconnect and clean up subscriptions
@@ -129,6 +138,6 @@ export const useAgentConnection = () => {
     agentJoined,
     messages,
     session,
-    userId: userId.current,
+    getUserId: () => userId.current,
   };
 };
