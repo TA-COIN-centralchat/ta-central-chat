@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Clock,
   Eye,
+  Loader2,
   MessageCircle,
   Plus,
   Search,
-  Star,
   UserRound,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -264,111 +263,63 @@ const ChannelTicketsPage = ({
     });
   };
 
-  const waitingCount = sessions.filter(
-    (session) => session.status === 'Waiting'
-  ).length;
-
-  const activeCount = sessions.filter(
-    (session) => session.status === 'Active'
-  ).length;
-
-  // eslint-disable-next-line no-unused-vars
-  const idleCount = sessions.filter(
-    (session) => session.status === 'Idle Warning'
-  ).length;
-
-  const endedCount = sessions.filter(
-    (session) => session.status === 'Ended'
-  ).length;
-
-  const ratedCount = sessions.filter((session) => session.rating).length;
-
   return (
     <DashboardLayout title={title} description={description}>
-      <div className="space-y-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {isTelegramChannel(channelName) ? (
-            <SummaryCard
-              label="Waiting"
-              value={waitingCount}
-              icon={Clock}
-              tone="orange"
-            />
-          ) : (
-            <SummaryCard
-              label="Active"
-              value={activeCount}
-              icon={MessageCircle}
-              tone="emerald"
-            />
-          )}
+      <div className="mx-auto max-w-7xl">
+        <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
+          <div className="flex flex-col justify-between gap-4 border-b border-black/6 px-5 py-4 lg:flex-row lg:items-center">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
+                <MessageCircle size={19} />
+              </div>
 
-          <SummaryCard
-            label="Active"
-            value={activeCount}
-            icon={MessageCircle}
-            tone="emerald"
-          />
-
-          <SummaryCard
-            label="Ended"
-            value={endedCount}
-            icon={Eye}
-            tone="slate"
-          />
-
-          <SummaryCard
-            label="Rated"
-            value={ratedCount}
-            icon={Star}
-            tone="blue"
-          />
-        </div>
-
-        <section className="rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="font-semibold text-slate-950">
+                <h2 className="text-base font-semibold text-[#1d1d1f]">
                   {channelName} Session Inbox
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-[#6e6e73]">
                   {isTelegramChannel(channelName)
                     ? 'Customer conversations from Telegram bot. Open a session to reply to the Telegram customer.'
                     : 'Customer conversations from this channel. Open a session first, then raise a ticket inside the session only if the customer has a real issue.'}
                 </p>
               </div>
-
-              {!isTelegramChannel(channelName) && (
-                <button
-                  type="button"
-                  onClick={handleCreateTestSession}
-                  disabled={creatingTest}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Plus size={16} />
-                  {creatingTest ? 'Creating...' : 'Create Test Session'}
-                </button>
-              )}
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-[1fr_220px]">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
-                <Search size={16} className="text-slate-400" />
+            {!isTelegramChannel(channelName) && (
+              <button
+                type="button"
+                onClick={handleCreateTestSession}
+                disabled={creatingTest}
+                className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-black/[0.07] bg-[#f5f5f7] px-4 py-3 text-sm font-medium text-[#6e6e73] transition hover:bg-white hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {creatingTest ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Plus size={16} />
+                )}
+                {creatingTest ? 'Creating...' : 'Create Test Session'}
+              </button>
+            )}
+          </div>
+
+          <div className="border-b border-black/6 px-5 py-4">
+            <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+              <div className="system-input flex h-11 items-center gap-3 rounded-2xl px-4">
+                <Search size={16} className="shrink-0 text-[#8e8e93]" />
 
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search customer, session, message..."
-                  className="w-full bg-transparent text-sm outline-none"
+                  className="w-full bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
                 />
               </div>
 
               <select
                 value={sessionFilter}
                 onChange={(event) => setSessionFilter(event.target.value)}
-                className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="system-input h-11 rounded-2xl px-4 text-sm text-[#1d1d1f] outline-none"
               >
                 {sessionStatusOptions.map((status) => (
                   <option key={status}>{status}</option>
@@ -378,15 +329,21 @@ const ChannelTicketsPage = ({
           </div>
 
           {loading ? (
-            <div className="p-10 text-center text-sm text-slate-500">
-              Loading sessions...
+            <div className="flex min-h-44 items-center justify-center p-8 text-sm text-[#6e6e73]">
+              <div className="text-center">
+                <Loader2
+                  size={24}
+                  className="mx-auto mb-3 animate-spin text-[#43acd6]"
+                />
+                Loading sessions...
+              </div>
             </div>
           ) : filteredSessions.length === 0 ? (
             <EmptyState channelName={channelName} />
           ) : (
-            <div className="grid gap-4 p-5 xl:grid-cols-2">
+            <div className="divide-y divide-black/5">
               {filteredSessions.map((session) => (
-                <SessionCard
+                <SessionRow
                   key={session.dbId}
                   session={session}
                   onOpen={() => openSession(session)}
@@ -400,94 +357,70 @@ const ChannelTicketsPage = ({
   );
 };
 
-const SummaryCard = ({ label, value, icon: Icon, tone }) => {
-  const toneClass = {
-    blue: 'bg-blue-50 text-blue-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-    orange: 'bg-orange-50 text-orange-700',
-    slate: 'bg-slate-100 text-slate-700',
-  };
+const SessionRow = ({ session, onOpen }) => {
+  const contact =
+    session.phone ||
+    session.telegram ||
+    session.email ||
+    'No contact provided';
+
+  const message = session.lastMessage || 'No message yet.';
+  const issueType = session.issueType || 'General Conversation';
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-sm text-slate-500">{label} Sessions</div>
-          <div className="mt-2 text-3xl font-semibold text-slate-950">
-            {value}
-          </div>
+    <article className="grid gap-4 px-5 py-4 transition hover:bg-[#f8fafc] lg:grid-cols-[minmax(260px,1fr)_minmax(280px,1.15fr)_170px_150px] lg:items-center">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
+          <UserRound size={18} />
         </div>
 
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl ${toneClass[tone]}`}
-        >
-          <Icon size={20} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SessionCard = ({ session, onOpen }) => {
-  return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 hover:shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-            <UserRound size={18} />
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="truncate font-semibold text-slate-950">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h3
+              title={session.customer}
+              className="truncate font-semibold text-[#1d1d1f]"
+            >
               {session.customer}
             </h3>
 
-            <p className="mt-1 text-xs text-slate-500">
-              {session.phone ||
-                session.telegram ||
-                session.email ||
-                'No contact provided'}
-            </p>
+            <SessionBadge status={session.status} />
           </div>
-        </div>
 
-        <SessionBadge status={session.status} />
+          <p title={contact} className="mt-1 truncate text-xs text-[#8e8e93]">
+            {contact}
+          </p>
+        </div>
       </div>
 
-      {session.issueType && (
-        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
-          <span className="font-semibold">Issue Type:</span>{' '}
-          {session.issueType}
-        </div>
-      )}
-
-      <div className="mt-4 rounded-xl bg-slate-50 p-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Last Message
+      <div className="min-w-0">
+        <div
+          title={issueType}
+          className="mb-2 inline-flex max-w-full rounded-full border border-[#43acd6]/15 bg-[#eef9fd] px-3 py-1 text-xs font-medium text-[#2389b8]"
+        >
+          <span className="truncate">Issue Type: {issueType}</span>
         </div>
 
-        <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">
-          {session.lastMessage || 'No message yet.'}
+        <p
+          title={message}
+          className="line-clamp-2 text-sm leading-6 text-[#6e6e73]"
+        >
+          {message}
         </p>
       </div>
 
-      <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-1">
         <Info label="Session" value={shortId(session.id)} />
         <Info label="Created" value={session.time} />
-        <Info
-          label="Rating"
-          value={session.rating ? `${session.rating}/5` : 'N/A'}
-        />
       </div>
 
-      <div className="mt-5 flex justify-end">
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={onOpen}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="inline-flex items-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8]"
         >
+          Open
           <Eye size={16} />
-          Open Session
         </button>
       </div>
     </article>
@@ -497,40 +430,54 @@ const SessionCard = ({ session, onOpen }) => {
 const SessionBadge = ({ status }) => {
   const className =
     status === 'Active'
-      ? 'bg-emerald-50 text-emerald-700'
+      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
       : status === 'Waiting'
-      ? 'bg-orange-50 text-orange-700'
+      ? 'bg-orange-50 text-orange-700 ring-orange-100'
       : status === 'Idle Warning'
-      ? 'bg-orange-50 text-orange-700'
-      : 'bg-slate-100 text-slate-600';
+      ? 'bg-orange-50 text-orange-700 ring-orange-100'
+      : 'bg-slate-100 text-slate-600 ring-slate-200';
+
+  const dotClass =
+    status === 'Active'
+      ? 'bg-emerald-500'
+      : status === 'Waiting'
+      ? 'bg-orange-500'
+      : status === 'Idle Warning'
+      ? 'bg-orange-500'
+      : 'bg-slate-400';
 
   return (
     <span
-      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${className}`}
+      title={status}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${className}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
       {status}
     </span>
   );
 };
 
 const Info = ({ label, value }) => (
-  <div>
-    <div className="text-xs text-slate-400">{label}</div>
-    <div className="mt-1 truncate font-medium text-slate-800">{value}</div>
+  <div className="min-w-0">
+    <div className="text-[11px] font-medium text-[#8e8e93]">{label}</div>
+    <div
+      title={value}
+      className="mt-1 truncate text-sm font-medium text-[#1d1d1f]"
+    >
+      {value}
+    </div>
   </div>
 );
 
 const EmptyState = ({ channelName }) => (
-  <div className="p-12 text-center">
-    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-      <MessageCircle size={24} />
+  <div className="p-10 text-center">
+    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
+      <MessageCircle size={22} />
     </div>
 
-    <h3 className="mt-4 text-lg font-semibold text-slate-900">
-      No sessions found
-    </h3>
+    <h3 className="mt-4 font-semibold text-[#1d1d1f]">No sessions found</h3>
 
-    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#6e6e73]">
       Customer sessions from {channelName} will appear here when customers
       contact this channel.
     </p>

@@ -174,28 +174,35 @@ const DashboardLayout = ({ title, description, children }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#fbfbfd]">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="min-h-screen lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-[#edf1f5] bg-white/85 backdrop-blur-xl">
           <div className="flex min-h-20 items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:hidden"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8] lg:hidden"
+                aria-label="Open sidebar"
               >
                 <Menu size={20} />
               </button>
 
               <div className="min-w-0">
-                <h1 className="truncate text-xl font-semibold text-slate-950 sm:text-2xl">
+                <h1
+                  title={title}
+                  className="truncate text-xl font-semibold tracking-[-0.03em] text-[#1d1d1f] sm:text-2xl"
+                >
                   {title}
                 </h1>
 
                 {description && (
-                  <p className="mt-1 hidden truncate text-sm text-slate-500 sm:block">
+                  <p
+                    title={description}
+                    className="mt-1 hidden max-w-3xl truncate text-sm leading-6 text-[#6e6e73] sm:block"
+                  >
                     {description}
                   </p>
                 )}
@@ -203,25 +210,29 @@ const DashboardLayout = ({ title, description, children }) => {
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 xl:flex">
-                <Search size={16} className="text-slate-400" />
+              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-[#e8edf2] bg-[#f8fafc] px-4 transition focus-within:border-[#43acd6] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#43acd6]/10 xl:flex">
+                <Search size={16} className="shrink-0 text-[#8e8e93]" />
+
                 <input
                   placeholder="Search ticket, customer..."
-                  className="w-56 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  className="w-56 bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
                 />
               </div>
 
-              <div className="hidden items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 sm:inline-flex">
-                <Wifi size={16} />
+              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 sm:inline-flex">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <Wifi size={15} />
                 Connected
               </div>
 
               <button
                 type="button"
-                className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8]"
+                aria-label="Notifications"
               >
                 <Bell size={18} />
-                <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">
+
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white ring-2 ring-white">
                   3
                 </span>
               </button>
@@ -229,7 +240,7 @@ const DashboardLayout = ({ title, description, children }) => {
               <button
                 type="button"
                 onClick={() => navigate('/manual-ticket')}
-                className="hidden items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:inline-flex"
+                className="hidden h-11 items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:-translate-y-0.5 hover:bg-[#2389b8] hover:shadow-[0_18px_36px_rgba(67,172,214,0.24)] sm:inline-flex"
               >
                 <Plus size={16} />
                 New Ticket
@@ -238,7 +249,7 @@ const DashboardLayout = ({ title, description, children }) => {
           </div>
 
           {description && (
-            <div className="border-t border-slate-100 px-4 pb-4 text-sm text-slate-500 sm:hidden">
+            <div className="border-t border-[#edf1f5] px-4 pb-4 text-sm leading-6 text-[#6e6e73] sm:hidden">
               {description}
             </div>
           )}

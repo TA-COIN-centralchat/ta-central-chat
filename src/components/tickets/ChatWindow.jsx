@@ -1,5 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
-import { Lock, Paperclip, SendHorizontal } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Lock,
+  MessageSquare,
+  Paperclip,
+  SendHorizontal,
+} from 'lucide-react';
+
 import ResolveTicketModal from './ResolveTicketModal';
 import EscalateTicketModal from './EscalateTicketModal';
 import {
@@ -39,7 +47,6 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
     setLocalTicketStatus(ticket?.status || '');
   }, [ticket?.status]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -61,13 +68,11 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
     loadMessages();
 
-    // Subscribe to realtime message inserts for this ticket
     if (realtimeSubRef.current) {
       realtimeSubRef.current.unsubscribe();
     }
 
     realtimeSubRef.current = subscribeToTicketMessages(ticket.dbId, (rawMsg) => {
-      // Transform the raw DB row to match the format from getMessagesByTicketId
       const newMessage = {
         id: rawMsg.id,
         sender: rawMsg.sender_type,
@@ -81,7 +86,6 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
       };
 
       setMessages((prev) => {
-        // Prevent duplicates (the optimistic insert from handleSendMessage)
         if (prev.some((m) => m.id === newMessage.id)) return prev;
         return [...prev, newMessage];
       });
@@ -158,12 +162,17 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
   if (!ticket) {
     return (
-      <section className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white">
+      <section className="flex h-full items-center justify-center rounded-[28px] border border-[#e8edf2] bg-white">
         <div className="text-center">
-          <h2 className="text-lg font-semibold text-slate-900">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7fbfd] text-[#2389b8] ring-1 ring-[#d8eef7]">
+            <MessageSquare size={22} />
+          </div>
+
+          <h2 className="mt-4 text-lg font-semibold text-[#1d1d1f]">
             No ticket selected
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
+
+          <p className="mt-2 text-sm text-[#6e6e73]">
             Select a ticket to view the conversation.
           </p>
         </div>
@@ -173,22 +182,31 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
 
   return (
     <>
-      <section className="flex h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
+      <section className="flex h-full min-w-0 flex-col bg-white">
+        <div className="border-b border-[#edf1f5] px-5 py-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div>
-              <div className="text-lg font-semibold text-slate-950">
+            <div className="min-w-0">
+              <div
+                title={ticket.customer}
+                className="truncate text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f]"
+              >
                 {ticket.customer}
               </div>
 
-              <div className="mt-1 text-sm text-slate-500">
-                {ticket.id} · {ticket.channel} · {localTicketStatus}
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[#6e6e73]">
+                <span title={ticket.id} className="truncate">
+                  {ticket.id}
+                </span>
+                <span>·</span>
+                <span>{ticket.channel}</span>
+                <span>·</span>
+                <StatusText status={localTicketStatus} />
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               {isTicketLocked ? (
-                <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
+                <div className="inline-flex items-center gap-2 rounded-2xl bg-[#f5f5f7] px-3 py-2 text-sm font-medium text-[#6e6e73] ring-1 ring-[#e5e7eb]">
                   <Lock size={16} />
                   Ticket Locked
                 </div>
@@ -199,7 +217,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                       type="button"
                       onClick={handleMarkReadyToContact}
                       disabled={updatingStatus}
-                      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-2xl border border-[#d8eef7] bg-[#f7fbfd] px-3.5 py-2 text-sm font-medium text-[#2389b8] transition hover:bg-[#eef9fd] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {updatingStatus
                         ? 'Updating...'
@@ -210,16 +228,18 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                   <button
                     type="button"
                     onClick={() => setShowResolve(true)}
-                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3.5 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100"
                   >
+                    <CheckCircle size={15} />
                     Resolve
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowEscalate(true)}
-                    className="rounded-xl bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-700"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-3.5 py-2 text-sm font-medium text-orange-700 transition hover:bg-orange-100"
                   >
+                    <AlertTriangle size={15} />
                     Escalate
                   </button>
                 </>
@@ -228,15 +248,22 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
           </div>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#fbfbfd] p-5">
           {loadingMessages ? (
-            <div className="text-center text-sm text-slate-500">
+            <div className="py-10 text-center text-sm text-[#6e6e73]">
               Loading messages...
             </div>
           ) : messages.length === 0 ? (
-            <div className="rounded-2xl bg-slate-50 p-6 text-center">
-              <h3 className="font-semibold text-slate-900">No messages yet</h3>
-              <p className="mt-1 text-sm text-slate-500">
+            <div className="rounded-3xl border border-[#edf1f5] bg-white p-6 text-center shadow-sm">
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7fbfd] text-[#2389b8] ring-1 ring-[#d8eef7]">
+                <MessageSquare size={20} />
+              </div>
+
+              <h3 className="mt-4 font-semibold text-[#1d1d1f]">
+                No messages yet
+              </h3>
+
+              <p className="mt-1 text-sm text-[#6e6e73]">
                 Messages for this ticket will appear here.
               </p>
             </div>
@@ -246,7 +273,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 return (
                   <div
                     key={message.id}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-center text-xs text-slate-500"
+                    className="mx-auto max-w-fit rounded-full bg-white px-4 py-2 text-center text-xs text-[#6e6e73] ring-1 ring-[#edf1f5]"
                   >
                     {message.text} · {message.time}
                   </div>
@@ -257,11 +284,15 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 return (
                   <div
                     key={message.id}
-                    className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+                    className="rounded-[22px] border border-[#ffe88a] bg-[#fffbea] p-4 text-sm text-[#7a5d00]"
                   >
                     <div className="font-semibold">Internal Note</div>
-                    <div className="mt-1">{message.text}</div>
-                    <div className="mt-2 text-xs text-amber-600">
+
+                    <div className="mt-1 whitespace-pre-wrap leading-6">
+                      {message.text}
+                    </div>
+
+                    <div className="mt-2 text-xs text-[#8a6d00]">
                       {message.name} · {message.time}
                     </div>
                   </div>
@@ -278,19 +309,19 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                   }`}
                 >
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[75%] rounded-[22px] px-4 py-3 shadow-sm ${
                       isAgent
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-900'
+                        ? 'bg-[#43acd6] text-white'
+                        : 'bg-white text-[#1d1d1f] ring-1 ring-[#edf1f5]'
                     }`}
                   >
-                    <div className="text-sm leading-relaxed">
+                    <div className="whitespace-pre-wrap text-sm leading-6">
                       {message.text}
                     </div>
 
                     <div
                       className={`mt-2 text-xs ${
-                        isAgent ? 'text-blue-100' : 'text-slate-400'
+                        isAgent ? 'text-blue-50' : 'text-[#8e8e93]'
                       }`}
                     >
                       {message.name} · {message.time}
@@ -300,17 +331,19 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
               );
             })
           )}
+
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-slate-200 p-4">
+        <div className="border-t border-[#edf1f5] bg-white p-4">
           {isTicketLocked ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <div className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-slate-700">
+            <div className="rounded-3xl border border-[#e5e7eb] bg-[#f8fafc] p-4 text-center">
+              <div className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-[#1d1d1f]">
                 <Lock size={16} />
                 This ticket is {localTicketStatus}
               </div>
-              <p className="mt-1 text-sm text-slate-500">
+
+              <p className="mt-1 text-sm text-[#6e6e73]">
                 Conversation is locked. Agents can view history but cannot send
                 new replies or internal notes.
               </p>
@@ -318,7 +351,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
           ) : (
             <>
               {localTicketStatus === 'Ready to Contact Customer' && (
-                <div className="mb-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-700">
+                <div className="mb-3 rounded-[18px] border border-[#d8eef7] bg-[#f7fbfd] p-3 text-sm leading-6 text-[#2389b8]">
                   Internal investigation is completed. Contact the customer,
                   then move the ticket to Waiting for Customer or Resolve it
                   after confirmation.
@@ -329,10 +362,10 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 <button
                   type="button"
                   onClick={() => setActiveMode('reply')}
-                  className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
+                  className={`rounded-2xl px-3.5 py-1.5 text-sm font-medium transition ${
                     activeMode === 'reply'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-slate-500 hover:bg-slate-100'
+                      ? 'bg-[#f7fbfd] text-[#2389b8] ring-1 ring-[#d8eef7]'
+                      : 'text-[#6e6e73] hover:bg-[#f5f5f7]'
                   }`}
                 >
                   Reply
@@ -341,20 +374,20 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                 <button
                   type="button"
                   onClick={() => setActiveMode('internal')}
-                  className={`rounded-xl px-3 py-1.5 text-sm font-medium ${
+                  className={`rounded-2xl px-3.5 py-1.5 text-sm font-medium transition ${
                     activeMode === 'internal'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'text-slate-500 hover:bg-slate-100'
+                      ? 'bg-[#fffbea] text-[#8a6d00] ring-1 ring-[#ffe88a]'
+                      : 'text-[#6e6e73] hover:bg-[#f5f5f7]'
                   }`}
                 >
                   Internal Note
                 </button>
               </div>
 
-              <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-end gap-3 rounded-3xl border border-[#e8edf2] bg-[#f8fafc] p-3">
                 <button
                   type="button"
-                  className="rounded-xl p-2 text-slate-500 hover:bg-white"
+                  className="rounded-2xl p-2 text-[#8e8e93] transition hover:bg-white hover:text-[#2389b8]"
                 >
                   <Paperclip size={18} />
                 </button>
@@ -368,14 +401,14 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
                       ? 'Type your reply to customer...'
                       : 'Type internal note for staff only...'
                   }
-                  className="flex-1 resize-none bg-transparent text-sm outline-none"
+                  className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-1 py-1 text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
                 />
 
                 <button
                   type="button"
                   onClick={handleSendMessage}
                   disabled={sending || !replyText.trim()}
-                  className="rounded-xl bg-blue-600 p-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#43acd6] text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <SendHorizontal size={18} />
                 </button>
@@ -412,6 +445,26 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
       />
     </>
   );
+};
+
+const StatusText = ({ status }) => {
+  const normalized = status?.toLowerCase().trim();
+
+  const className =
+    normalized === 'resolved' || normalized === 'closed'
+      ? 'text-emerald-700'
+      : normalized === 'pending investigation' ||
+        normalized === 'pending' ||
+        normalized === 'pending review'
+      ? 'text-orange-700'
+      : normalized === 'ready to contact customer' ||
+        normalized === 'ready to contact'
+      ? 'text-[#2389b8]'
+      : normalized === 'new'
+      ? 'text-[#8a6d00]'
+      : 'text-[#6e6e73]';
+
+  return <span className={`font-medium ${className}`}>{status}</span>;
 };
 
 export default ChatWindow;

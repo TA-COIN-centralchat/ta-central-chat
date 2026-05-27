@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -139,7 +140,6 @@ const SessionWorkspacePage = () => {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSession();
 
     if (!isTelegramMode) return undefined;
@@ -390,57 +390,64 @@ const SessionWorkspacePage = () => {
       }
     >
       {loading ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-sm">
+        <div className="flex min-h-72 items-center justify-center rounded-[28px] border border-black/6 bg-white/90 p-10 text-center text-sm text-[#6e6e73] shadow-[0_14px_40px_rgba(0,0,0,0.035)]">
           Loading session workspace...
         </div>
       ) : !session ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <div className="rounded-[28px] border border-black/6 bg-white/90 p-10 text-center shadow-[0_14px_40px_rgba(0,0,0,0.035)]">
+          <h2 className="text-lg font-semibold text-[#1d1d1f]">
             Session not found
           </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-[#6e6e73]">
             This session may have been deleted or the link is invalid.
           </p>
 
           <button
             type="button"
             onClick={() => navigate(fromPath)}
-            className="mt-5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-5 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2389b8]"
           >
             Back to {fromLabel}
           </button>
         </div>
       ) : (
-        <div className="space-y-5">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="mx-auto max-w-7xl space-y-5">
+          <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
+            <div className="flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex min-w-0 items-start gap-4">
                 <button
                   type="button"
                   onClick={() => navigate(fromPath)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-black/[0.07] bg-[#f5f5f7] text-[#6e6e73] transition hover:bg-white hover:text-[#1d1d1f]"
                   title={`Back to ${fromLabel}`}
                 >
                   <ArrowLeft size={18} />
                 </button>
 
-                <div className="flex min-w-0 gap-4">
-                  <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 sm:flex">
-                    {isTelegramMode ? <Bot size={24} /> : <MessageCircle size={24} />}
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
+                    {isTelegramMode ? (
+                      <Bot size={21} />
+                    ) : (
+                      <MessageCircle size={21} />
+                    )}
                   </div>
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate text-xl font-semibold text-slate-950">
+                      <h2
+                        title={session.customer}
+                        className="max-w-105 truncate text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f]"
+                      >
                         {session.customer}
                       </h2>
 
                       <SessionBadge status={session.status} />
                     </div>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                      <span>{shortId(session.id)}</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#8e8e93]">
+                      <span title={session.id}>{shortId(session.id)}</span>
                       <span>•</span>
                       <span>{session.channel}</span>
                       <span>•</span>
@@ -448,45 +455,43 @@ const SessionWorkspacePage = () => {
                     </div>
 
                     {session.issueType && (
-                      <div className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                        {session.issueType}
+                      <div className="mt-2 inline-flex max-w-full rounded-full bg-[#eef9fd] px-3 py-1 text-xs font-medium text-[#2389b8] ring-1 ring-[#43acd6]/15">
+                        <span className="truncate">{session.issueType}</span>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {session.status !== 'Ended' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleRaiseTicket}
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    >
-                      <Ticket size={16} />
-                      Raise Ticket
-                    </button>
+              {session.status !== 'Ended' && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRaiseTicket}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8]"
+                  >
+                    <Ticket size={16} />
+                    Raise Ticket
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={handleEndSession}
-                      disabled={ending}
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <XCircle size={16} />
-                      {ending ? 'Ending...' : 'End Session'}
-                    </button>
-                  </>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleEndSession}
+                    disabled={ending}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <XCircle size={16} />
+                    {ending ? 'Ending...' : 'End Session'}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 
           {isTelegramMode && session.status === 'Active' && (
-            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
+            <section className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">
               <div className="flex items-start gap-3">
-                <CheckCircle size={18} className="mt-0.5 shrink-0" />
+                <CheckCircle size={17} className="mt-0.5 shrink-0" />
                 <p>
                   This Telegram session is active. Replies sent here will be
                   saved in the dashboard and delivered to the customer in
@@ -497,9 +502,9 @@ const SessionWorkspacePage = () => {
           )}
 
           {session.status === 'Waiting' && (
-            <section className="rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4 text-sm text-orange-700">
+            <section className="rounded-[22px] border border-orange-100 bg-orange-50 px-5 py-3 text-sm text-orange-700">
               <div className="flex items-start gap-3">
-                <Clock size={18} className="mt-0.5 shrink-0" />
+                <Clock size={17} className="mt-0.5 shrink-0" />
                 <p>
                   This session is waiting for an available agent. You can still
                   review the customer details and issue context.
@@ -508,20 +513,20 @@ const SessionWorkspacePage = () => {
             </section>
           )}
 
-          <div className="grid gap-5 xl:h-[calc(100vh-280px)] xl:grid-cols-[minmax(0,1fr)_380px]">
-            <section className="flex min-h-155 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm xl:min-h-0">
-              <div className="border-b border-slate-200 px-5 py-4">
+          <div className="grid gap-5 xl:h-[calc(100vh-280px)] xl:min-h-150 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="flex min-h-155 flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] xl:min-h-0">
+              <div className="border-b border-black/6 px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-                    <MessageCircle size={19} />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
+                    <MessageCircle size={18} />
                   </div>
 
                   <div>
-                    <h3 className="font-semibold text-slate-950">
+                    <h3 className="text-base font-semibold text-[#1d1d1f]">
                       Customer Conversation
                     </h3>
 
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-[#6e6e73]">
                       {isTelegramMode
                         ? 'Reply directly to the Telegram customer from here.'
                         : 'Replies update the session latest message only.'}
@@ -530,7 +535,7 @@ const SessionWorkspacePage = () => {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto bg-slate-50/70 px-5 py-5">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[#fbfbfd] px-5 py-5">
                 <div className="mx-auto max-w-4xl space-y-4">
                   {conversationMessages.map((message) => {
                     const isAgent = message.sender_role === 'agent';
@@ -542,7 +547,7 @@ const SessionWorkspacePage = () => {
                       return (
                         <div
                           key={message.id}
-                          className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-500 shadow-sm"
+                          className="mx-auto max-w-fit rounded-full bg-white px-4 py-2 text-center text-xs text-[#6e6e73] ring-1 ring-black/6"
                         >
                           {message.content}
                         </div>
@@ -557,19 +562,19 @@ const SessionWorkspacePage = () => {
                         }`}
                       >
                         <div
-                          className={`max-w-[78%] rounded-3xl px-4 py-3 shadow-sm ${
+                          className={`max-w-[78%] rounded-[22px] px-4 py-3 shadow-sm ${
                             isAgent
-                              ? 'rounded-tr-md bg-blue-600 text-white'
-                              : 'rounded-tl-md bg-white text-slate-900 ring-1 ring-slate-200'
+                              ? 'bg-[#43acd6] text-white'
+                              : 'bg-white text-[#1d1d1f] ring-1 ring-black/6'
                           }`}
                         >
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                          <div className="whitespace-pre-wrap text-sm leading-6">
                             {message.content || 'No message.'}
                           </div>
 
                           <div
                             className={`mt-2 text-xs ${
-                              isAgent ? 'text-blue-100' : 'text-slate-400'
+                              isAgent ? 'text-blue-50' : 'text-[#8e8e93]'
                             }`}
                           >
                             {isAgent
@@ -585,12 +590,10 @@ const SessionWorkspacePage = () => {
                   {!isTelegramMode &&
                     localReplies.map((reply) => (
                       <div key={reply.id} className="flex justify-end">
-                        <div className="max-w-[78%] rounded-3xl rounded-tr-md bg-blue-600 px-4 py-3 text-white shadow-sm">
-                          <div className="text-sm leading-relaxed">
-                            {reply.text}
-                          </div>
+                        <div className="max-w-[78%] rounded-[22px] bg-[#43acd6] px-4 py-3 text-white shadow-sm">
+                          <div className="text-sm leading-6">{reply.text}</div>
 
-                          <div className="mt-2 text-xs text-blue-100">
+                          <div className="mt-2 text-xs text-blue-50">
                             Agent · {reply.time}
                           </div>
                         </div>
@@ -598,12 +601,12 @@ const SessionWorkspacePage = () => {
                     ))}
 
                   {session.status === 'Ended' && (
-                    <div className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                      <div className="font-semibold text-slate-800">
+                    <div className="mx-auto max-w-lg rounded-[22px] border border-black/6 bg-white p-4 text-center shadow-sm">
+                      <div className="font-semibold text-[#1d1d1f]">
                         Session Ended
                       </div>
 
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-[#6e6e73]">
                         This conversation session is closed. Any raised ticket
                         can continue internally.
                       </p>
@@ -615,9 +618,9 @@ const SessionWorkspacePage = () => {
               </div>
 
               {session.status !== 'Ended' ? (
-                <div className="border-t border-slate-200 bg-white p-4">
+                <div className="border-t border-black/6 bg-white px-4 py-4">
                   <div className="mx-auto max-w-4xl">
-                    <div className="flex items-end gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-end gap-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
                       <textarea
                         rows="2"
                         value={replyText}
@@ -628,21 +631,21 @@ const SessionWorkspacePage = () => {
                             ? 'Type your Telegram reply to the customer...'
                             : 'Type your reply to the customer...'
                         }
-                        className="max-h-32 min-h-11 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
                       />
 
                       <button
                         type="button"
                         onClick={handleSendReply}
                         disabled={sendingReply || !replyText.trim()}
-                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#43acd6] text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
                         title="Send reply"
                       >
                         <SendHorizontal size={18} />
                       </button>
                     </div>
 
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-xs text-[#8e8e93]">
                       {isTelegramMode
                         ? 'Message will be saved in the dashboard and sent to the customer on Telegram.'
                         : 'Press Enter to send. Shift + Enter for a new line.'}
@@ -650,44 +653,40 @@ const SessionWorkspacePage = () => {
                   </div>
                 </div>
               ) : (
-                <div className="border-t border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                <div className="border-t border-black/6 bg-[#f5f5f7] p-4 text-center text-sm text-[#6e6e73]">
                   Reply disabled because this session has ended.
                 </div>
               )}
             </section>
 
             <aside className="max-h-[calc(100vh-280px)] space-y-4 overflow-y-auto pr-1">
-              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 p-4">
-                  <h3 className="font-semibold text-slate-950">
-                    Customer Information
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Contact details collected from Telegram bot.
-                  </p>
-                </div>
-
-                <div className="space-y-4 p-4 text-sm">
+              <SideCard
+                title="Customer Information"
+                description="Contact details collected from the session."
+              >
+                <div className="space-y-4 text-sm">
                   <SideInfo
                     icon={UserRound}
                     label="Full Name"
                     value={session.customer}
                   />
+
                   <SideInfo
                     icon={Phone}
                     label="Phone"
                     value={session.phone || 'Not provided'}
                   />
+
                   <SideInfo
                     icon={Bot}
                     label="Telegram"
                     value={session.telegram || 'Not provided'}
                   />
                 </div>
-              </section>
+              </SideCard>
 
               {session.issueType && (
-                <section className="rounded-3xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700 shadow-sm">
+                <section className="rounded-3xl border border-[#43acd6]/15 bg-[#eef9fd] p-4 text-sm text-[#2389b8] shadow-sm">
                   <div className="font-semibold">Issue Context</div>
 
                   <p className="mt-3">
@@ -702,22 +701,18 @@ const SessionWorkspacePage = () => {
                 </section>
               )}
 
-              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 p-4">
-                  <h3 className="font-semibold text-slate-950">
-                    Session Details
-                  </h3>
-                </div>
-
-                <div className="space-y-3 p-4 text-sm">
+              <SideCard title="Session Details">
+                <div className="space-y-3 text-sm">
                   <Detail label="Session ID" value={shortId(session.id)} />
                   <Detail label="Channel" value={session.channel} />
                   <Detail label="Status" value={session.status} />
                   <Detail label="Created" value={session.time} />
+
                   <Detail
                     label="Assigned Agent"
                     value={session.assignedAgentName || 'Unassigned'}
                   />
+
                   <Detail
                     label="Ended At"
                     value={
@@ -727,72 +722,33 @@ const SessionWorkspacePage = () => {
                     }
                   />
                 </div>
-              </section>
-
-              <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 p-4">
-                  <h3 className="font-semibold text-slate-950">
-                    Linked Tickets
-                  </h3>
-                </div>
-
-                <div className="p-4">
-                  {session.linkedTickets.length === 0 ? (
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-                      No ticket has been linked to this session yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {session.linkedTickets.map((ticket) => (
-                        <div
-                          key={ticket.id}
-                          className="rounded-2xl border border-slate-200 p-3 text-sm"
-                        >
-                          <div className="font-semibold text-slate-900">
-                            {ticket.ticket_number}
-                          </div>
-                          <div className="mt-1 text-slate-500">
-                            {ticket.status}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
+              </SideCard>
 
               {session.status === 'Ended' && (
-                <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-200 p-4">
-                    <h3 className="font-semibold text-slate-950">
-                      Customer Rating
-                    </h3>
-                  </div>
-
-                  <div className="p-4">
-                    {session.rating ? (
-                      <div className="rounded-2xl bg-blue-50 p-4 text-sm text-blue-700">
-                        <div className="flex items-center gap-2 font-semibold">
-                          <Star size={16} />
-                          {session.rating}/5 rating
-                        </div>
-
-                        <p className="mt-2">
-                          {session.ratingComment || 'No comment provided.'}
-                        </p>
+                <SideCard title="Customer Rating">
+                  {session.rating ? (
+                    <div className="rounded-2xl bg-[#eef9fd] p-4 text-sm text-[#2389b8]">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Star size={16} />
+                        {session.rating}/5 rating
                       </div>
-                    ) : (
-                      <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-                        No customer rating submitted yet.
-                      </div>
-                    )}
-                  </div>
-                </section>
+
+                      <p className="mt-2">
+                        {session.ratingComment || 'No comment provided.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-[#f5f5f7] p-4 text-sm text-[#6e6e73]">
+                      No customer rating submitted yet.
+                    </div>
+                  )}
+                </SideCard>
               )}
 
-              <section className="rounded-3xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700 shadow-sm">
+              <section className="rounded-3xl border border-[#43acd6]/15 bg-[#eef9fd] p-4 text-sm text-[#2389b8] shadow-sm">
                 <div className="flex items-start gap-3">
                   <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+
                   <p>
                     If the issue needs tracking, raise a ticket from this
                     session. The session can end while the ticket continues
@@ -824,33 +780,60 @@ const SessionBadge = ({ status }) => {
       ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
       : status === 'Waiting' || status === 'Idle Warning'
       ? 'bg-orange-50 text-orange-700 ring-orange-100'
-      : 'bg-slate-100 text-slate-600 ring-slate-200';
+      : 'bg-red-50 text-red-700 ring-red-100';
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ${className}`}
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ${className}`}
     >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          status === 'Active'
+            ? 'bg-emerald-500'
+            : status === 'Ended'
+            ? 'bg-red-500'
+            : 'bg-orange-500'
+        }`}
+      />
       {status}
     </span>
   );
 };
 
+const SideCard = ({ title, description, children }) => {
+  return (
+    <section className="rounded-3xl border border-black/6 bg-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.025)]">
+      <div className="border-b border-black/6 p-4">
+        <h3 className="text-sm font-semibold text-[#1d1d1f]">{title}</h3>
+
+        {description && (
+          <p className="mt-1 text-xs leading-5 text-[#6e6e73]">
+            {description}
+          </p>
+        )}
+      </div>
+
+      <div className="p-4">{children}</div>
+    </section>
+  );
+};
+
 const Detail = ({ label, value }) => (
   <div>
-    <div className="text-xs text-slate-400">{label}</div>
-    <div className="wrap-break-word font-medium text-slate-800">{value}</div>
+    <div className="text-xs text-[#8e8e93]">{label}</div>
+    <div className="wrap-break-word font-medium text-[#1d1d1f]">{value}</div>
   </div>
 );
 
 const SideInfo = ({ icon: Icon, label, value }) => (
   <div className="flex items-start gap-3">
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[#6e6e73]">
       <Icon size={17} />
     </div>
 
     <div className="min-w-0">
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="wrap-break-word font-medium text-slate-800">{value}</div>
+      <div className="text-xs text-[#8e8e93]">{label}</div>
+      <div className="wrap-break-word font-medium text-[#1d1d1f]">{value}</div>
     </div>
   </div>
 );

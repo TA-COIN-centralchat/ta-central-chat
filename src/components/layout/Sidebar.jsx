@@ -9,7 +9,6 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
-  MessageCircle,
   Send,
   Settings,
   ShieldCheck,
@@ -18,6 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
+
+import logo from '../../assets/logo.png';
 
 import { getTickets } from '../../services/ticketService';
 import { getActiveSessions } from '../../services/realtimeChat';
@@ -70,7 +71,7 @@ const buildMenuGroups = (counts) => [
         path: '/waiting-queue',
         icon: Clock,
         count: counts.waitingQueue,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: ['Admin'],
       },
       {
         label: 'Pending Investigation',
@@ -110,13 +111,6 @@ const buildMenuGroups = (counts) => [
         path: '/live-chat',
         icon: Headphones,
         count: counts.liveChat,
-        roles: ['Admin', 'Customer Service Agent'],
-      },
-      {
-        label: 'Chatbot (Website)',
-        path: '/chatbot',
-        icon: MessageCircle,
-        count: counts.websiteChatbot,
         roles: ['Admin', 'Customer Service Agent'],
       },
       {
@@ -174,7 +168,6 @@ const Sidebar = ({ open = false, onClose }) => {
     readyToContact: 0,
     closedTickets: 0,
     liveChat: 0,
-    websiteChatbot: 0,
     telegram: 0,
   });
 
@@ -236,16 +229,6 @@ const Sidebar = ({ open = false, onClose }) => {
 
           liveChat: chatSessions.filter((session) => {
             return session.status === 'waiting';
-          }).length,
-
-          websiteChatbot: tickets.filter((ticket) => {
-            const channel = ticket.channel?.toLowerCase().trim();
-
-            return (
-              channel === 'website chatbot' ||
-              channel === 'chatbot' ||
-              channel === 'website'
-            );
           }).length,
 
           telegram: tickets.filter((ticket) => {
@@ -314,62 +297,71 @@ const Sidebar = ({ open = false, onClose }) => {
           type="button"
           aria-label="Close sidebar overlay"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-50 h-screen w-72 bg-slate-950 text-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 h-screen w-72 border-r border-black/6 bg-white/88 text-[#1d1d1f] shadow-[18px_0_60px_rgba(0,0,0,0.06)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
-          <div className="border-b border-white/10 p-6">
+          <div className="border-b border-black/6 px-5 py-5">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-lg font-bold text-slate-950">
-                  $
-                </div>
+              <div className="flex min-w-0 items-center gap-3">
+                <img
+                  src={logo}
+                  alt="T.A Coin Logo"
+                  className="h-12 w-12 shrink-0 object-contain"
+                />
 
-                <div>
-                  <div className="text-lg font-bold">T.A Coin</div>
-                  <div className="text-sm text-slate-400">Central Chat</div>
+                <div className="min-w-0">
+                  <div className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#1d1d1f]">
+                    T.A Coin
+                  </div>
+
+                  <div className="text-xs font-normal text-[#6e6e73]">
+                    Central Chat
+                  </div>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
+                className="flex h-9 w-9 items-center justify-center rounded-2xl text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] lg:hidden"
+                aria-label="Close sidebar"
               >
-                <X size={18} />
+                <X size={18} strokeWidth={1.8} />
               </button>
             </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
-            <div className="mb-4 rounded-2xl bg-white/5 p-3">
-              <div className="text-xs uppercase tracking-wide text-slate-400">
+            <div className="mb-5 rounded-[22px] border border-black/6 bg-[#f5f5f7] px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#8e8e93]">
                 Current Role
               </div>
 
-              <div className="mt-1 text-sm font-semibold text-white">
+              <div className="mt-1 truncate text-sm font-semibold text-[#1d1d1f]">
                 {currentUserRole || 'No role'}
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {menuGroups.map((group) => (
                 <div key={group.title}>
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.title)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                    className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
                   >
                     <span>{group.title}</span>
 
                     <ChevronDown
-                      size={16}
+                      size={15}
+                      strokeWidth={1.8}
                       className={`transition-transform ${
                         openGroups[group.title] ? 'rotate-180' : ''
                       }`}
@@ -387,23 +379,43 @@ const Sidebar = ({ open = false, onClose }) => {
                             to={item.path}
                             onClick={handleNavClick}
                             className={({ isActive }) =>
-                              `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition ${
+                              `group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
                                 isActive
-                                  ? 'bg-blue-600 text-white shadow-sm'
-                                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                                  ? 'bg-[#43acd6] text-white shadow-[0_12px_28px_rgba(67,172,214,0.24)]'
+                                  : 'text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
                               }`
                             }
                           >
-                            <span className="flex items-center gap-3">
-                              <Icon size={18} />
-                              {item.label}
-                            </span>
+                            {({ isActive }) => (
+                              <>
+                                <span className="flex min-w-0 items-center gap-3">
+                                  <span
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
+                                      isActive
+                                        ? 'bg-white/18 text-white'
+                                        : 'bg-white text-[#8e8e93] ring-1 ring-black/6 group-hover:text-[#1d1d1f]'
+                                    }`}
+                                  >
+                                    <Icon size={17} strokeWidth={1.8} />
+                                  </span>
 
-                            {typeof item.count === 'number' && item.count > 0 ? (
-                              <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
-                                {item.count}
-                              </span>
-                            ) : null}
+                                  <span className="truncate">{item.label}</span>
+                                </span>
+
+                                {typeof item.count === 'number' &&
+                                item.count > 0 ? (
+                                  <span
+                                    className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                      isActive
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-[#eef9fd] text-[#2389b8]'
+                                    }`}
+                                  >
+                                    {item.count}
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
                           </NavLink>
                         );
                       })}
@@ -414,18 +426,26 @@ const Sidebar = ({ open = false, onClose }) => {
             </div>
           </nav>
 
-          <div className="border-t border-white/10 p-4">
-            <div className="mb-3 rounded-2xl bg-white/5 p-3">
-              <div className="text-sm font-semibold">
-                {currentUserName || 'Unknown User'}
+          <div className="border-t border-black/6 p-4">
+            <div className="mb-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#43acd6] text-sm font-semibold text-white">
+                  {currentUserName?.charAt(0)?.toUpperCase() || 'A'}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+                    {currentUserName || 'Unknown User'}
+                  </div>
+
+                  <div className="truncate text-xs text-[#6e6e73]">
+                    {currentUserRole || 'No role'}
+                  </div>
+                </div>
               </div>
 
-              <div className="text-xs text-slate-400">
-                {currentUserRole || 'No role'}
-              </div>
-
-              <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Available
               </div>
             </div>
@@ -433,9 +453,9 @@ const Sidebar = ({ open = false, onClose }) => {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-50"
             >
-              <LogOut size={18} />
+              <LogOut size={18} strokeWidth={1.8} />
               Logout
             </button>
           </div>

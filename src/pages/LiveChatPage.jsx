@@ -1,17 +1,15 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
   Headphones,
+  Loader2,
   MessageSquare,
-  Clock,
-  CheckCircle,
   Send,
-  User,
-  XCircle,
-  Radio,
   Ticket,
   Timer,
-  AlertTriangle,
+  User,
+  XCircle,
 } from 'lucide-react';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -29,16 +27,16 @@ import {
 const LiveChatPage = () => {
   const navigate = useNavigate();
 
-const [sessions, setSessions] = useState([]);
-const [selectedSession, setSelectedSession] = useState(null);
-const [messages, setMessages] = useState([]);
-const [input, setInput] = useState('');
-const [loading, setLoading] = useState(true);
-const [sending, setSending] = useState(false);
-const [claiming, setClaiming] = useState(false);
-const [closing, setClosing] = useState(false);
-const [lightboxUrl, setLightboxUrl] = useState(null);
-const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   const msgSubRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -352,8 +350,8 @@ const [currentTime, setCurrentTime] = useState(() => Date.now());
   const getStatusBadge = (status) => {
     if (status === 'waiting') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-          <Clock size={12} />
+        <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
           Waiting
         </span>
       );
@@ -361,8 +359,8 @@ const [currentTime, setCurrentTime] = useState(() => Date.now());
 
     if (status === 'active') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-          <CheckCircle size={12} />
+        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-100">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Active
         </span>
       );
@@ -370,15 +368,15 @@ const [currentTime, setCurrentTime] = useState(() => Date.now());
 
     if (status === 'closed') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
-          <Timer size={12} />
+        <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700 ring-1 ring-red-100">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
           Ended
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+      <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
         {status || 'Unknown'}
       </span>
     );
@@ -408,444 +406,475 @@ const [currentTime, setCurrentTime] = useState(() => Date.now());
     };
   };
 
-  const waitingCount = sessions.filter(
-    (session) => session.status === 'waiting'
+  const endedCount = sessions.filter(
+    (session) => session.status === 'closed'
   ).length;
 
   const activeCount = sessions.filter(
     (session) => session.status === 'active'
   ).length;
 
+  const sortedSessions = [...sessions].sort((a, b) => {
+    return (
+      new Date(b.created_at || 0).getTime() -
+      new Date(a.created_at || 0).getTime()
+    );
+  });
+
   const selectedTimer = getSessionTimerLabel(selectedSession);
 
   return (
     <DashboardLayout
       title="Live Chat"
-      description="Real-time chat sessions from the website chatbot. Sessions are auto-assigned when agents are available. Create tickets only when the customer has a real issue."
+      description="Real-time chat sessions from the website chatbot. Create tickets only when the customer has a real issue."
     >
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
-          <Radio size={16} className="animate-pulse" />
-          {waitingCount} Waiting
-        </div>
-
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-          <Headphones size={16} />
-          {activeCount} Active
-        </div>
-
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600">
-          <MessageSquare size={16} />
-          {sessions.length} Total Sessions
-        </div>
-      </div>
-
-      <div className="grid h-[calc(100vh-230px)] grid-cols-1 gap-4 xl:grid-cols-[340px_1fr]">
-        <div className="flex min-h-105 flex-col rounded-2xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Chat Sessions
-            </h3>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Active sessions are auto-assigned. Waiting sessions appear only
-              when all agents are busy or unavailable.
-            </p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="p-6 text-center text-sm text-slate-500">
-                Loading sessions...
-              </div>
-            ) : sessions.length === 0 ? (
-              <div className="p-6 text-center">
-                <MessageSquare
-                  size={32}
-                  className="mx-auto mb-2 text-slate-300"
-                />
-
-                <p className="text-sm font-medium text-slate-600">
-                  No active sessions
-                </p>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  New chat sessions from the website will appear here in real
-                  time.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {sessions.map((session) => {
-                  const isSelected = selectedSession?.id === session.id;
-                  const description =
-                    session.metadata?.description || 'No description';
-                  const sessionUserId = session.user_id || 'Unknown user';
-                  const timer = getSessionTimerLabel(session);
-
-                  return (
-                    <button
-                      key={session.id}
-                      type="button"
-                      onClick={() => selectSession(session)}
-                      className={`w-full p-4 text-left transition hover:bg-slate-50 ${
-                        isSelected
-                          ? 'border-l-4 border-l-blue-600 bg-blue-50'
-                          : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <User
-                              size={14}
-                              className="shrink-0 text-slate-400"
-                            />
-
-                            <span className="truncate text-sm font-medium text-slate-900">
-                              {sessionUserId.length > 20
-                                ? `${sessionUserId.slice(0, 20)}...`
-                                : sessionUserId}
-                            </span>
-                          </div>
-
-                          <p className="mt-1 truncate text-xs text-slate-500">
-                            {description.length > 60
-                              ? `${description.slice(0, 60)}...`
-                              : description}
-                          </p>
-                        </div>
-
-                        <div className="shrink-0">
-                          {getStatusBadge(session.status)}
-                        </div>
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="text-xs text-slate-400">
-                          {formatTime(session.created_at)}
-                        </span>
-
-                        {timer && (
-                          <span
-                            className={`text-xs font-medium ${
-                              timer.warning
-                                ? 'text-amber-600'
-                                : 'text-slate-400'
-                            }`}
-                          >
-                            {timer.text}
-                          </span>
-                        )}
-
-                        {session.status === 'waiting' && (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleClaim(session);
-                            }}
-                            disabled={claiming}
-                            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {claiming ? 'Claiming...' : 'Claim'}
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="mt-2 text-xs text-slate-400">
-                        Agent:{' '}
-                        <span className="font-medium text-slate-500">
-                          {session.metadata?.assignedAgentName ||
-                            session.agent_id ||
-                            'Unassigned'}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex min-h-105 flex-col rounded-2xl border border-slate-200 bg-white">
-          {!selectedSession ? (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="text-center">
-                <Headphones
-                  size={40}
-                  className="mx-auto mb-3 text-slate-300"
-                />
-
-                <h3 className="text-lg font-semibold text-slate-900">
-                  Select a chat session
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Choose a session from the left panel to start chatting.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col justify-between gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center">
+      <div className="mx-auto max-w-7xl">
+        <section className="grid h-[calc(100vh-150px)] min-h-155 grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
+            <div className="border-b border-black/6 px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <User size={16} className="text-slate-500" />
+                  <h3 className="text-base font-semibold text-[#1d1d1f]">
+                    Chat Sessions
+                  </h3>
 
-                    <span className="text-sm font-semibold text-slate-900">
-                      {(selectedSession.user_id || 'Unknown user').length > 24
-                        ? `${(selectedSession.user_id || 'Unknown user').slice(
-                            0,
-                            24
-                          )}...`
-                        : selectedSession.user_id || 'Unknown user'}
-                    </span>
-
-                    {getStatusBadge(selectedSession.status)}
-
-                    {selectedTimer?.warning && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                        <AlertTriangle size={12} />
-                        Ending soon
-                      </span>
-                    )}
-                  </div>
-
-                  {selectedSession.metadata?.description && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      {selectedSession.metadata.description}
-                    </p>
-                  )}
-
-                  <p className="mt-1 text-xs text-slate-400">
-                    Agent:{' '}
-                    {selectedSession.metadata?.assignedAgentName ||
-                      selectedSession.agent_id ||
-                      'Unassigned'}
+                  <p className="mt-1 text-xs leading-5 text-[#6e6e73]">
+                    Live website conversations appear here in real time.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {selectedTimer && selectedSession.status === 'active' && (
-                    <div
-                      className={`inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-sm font-medium ${
-                        selectedTimer.warning
-                          ? 'border-amber-200 bg-amber-50 text-amber-700'
-                          : 'border-slate-200 bg-slate-50 text-slate-600'
-                      }`}
-                    >
-                      <Timer size={16} />
-                      {selectedTimer.text}
-                    </div>
-                  )}
-
-                  {selectedSession.status === 'waiting' && (
-                    <button
-                      type="button"
-                      onClick={() => handleClaim(selectedSession)}
-                      disabled={claiming}
-                      className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {claiming ? 'Claiming...' : 'Claim Session'}
-                    </button>
-                  )}
-
-                  {(selectedSession.status === 'active' ||
-                    selectedSession.status === 'closed') && (
-                    <button
-                      type="button"
-                      onClick={handleCreateTicket}
-                      className="flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                      title="Create a support ticket from this chat session"
-                    >
-                      <Ticket size={16} />
-                      Create Ticket
-                    </button>
-                  )}
-
-                  {selectedSession.status === 'active' && (
-                    <button
-                      type="button"
-                      onClick={handleClose}
-                      disabled={closing}
-                      className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
-                    >
-                      <XCircle size={16} />
-                      {closing ? 'Ending...' : 'End Session'}
-                    </button>
-                  )}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
+                  <Headphones size={19} />
                 </div>
               </div>
 
-              {selectedTimer?.warning && selectedSession.status === 'active' && (
-                <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-700">
-                  This chat will end soon if there is no response. A warning
-                  message will also be sent to the customer.
+              <div className="mt-4 flex flex-wrap gap-2">
+                <StatusPill label="Ended" value={endedCount} tone="red" />
+                <StatusPill label="Active" value={activeCount} tone="green" />
+                <StatusPill label="Total" value={sessions.length} tone="blue" />
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex h-full items-center justify-center p-8 text-sm text-[#6e6e73]">
+                  <div className="text-center">
+                    <Loader2
+                      size={24}
+                      className="mx-auto mb-3 animate-spin text-[#43acd6]"
+                    />
+                    Loading sessions...
+                  </div>
                 </div>
-              )}
+              ) : sortedSessions.length === 0 ? (
+                <div className="flex h-full items-center justify-center p-8 text-center">
+                  <div>
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
+                      <MessageSquare size={22} />
+                    </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto p-5">
-                {messages.length === 0 ? (
-                  <div className="rounded-2xl bg-slate-50 p-6 text-center">
-                    <h3 className="font-semibold text-slate-900">
-                      No messages yet
-                    </h3>
+                    <p className="mt-4 text-sm font-semibold text-[#1d1d1f]">
+                      No active sessions
+                    </p>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      Messages will appear here in real time.
+                    <p className="mx-auto mt-1 max-w-56 text-xs leading-5 text-[#6e6e73]">
+                      New website chat sessions will appear here automatically.
                     </p>
                   </div>
-                ) : (
-                  messages.map((msg) => {
-                    const isAgent = msg.sender_role === 'agent';
-                    const isSystem =
-                      msg.sender_role === 'system' || msg.sender_role === 'bot';
-                    const isUser = msg.sender_role === 'user';
+                </div>
+              ) : (
+                <div className="divide-y divide-black/5">
+                  {sortedSessions.map((session) => {
+                    const isSelected = selectedSession?.id === session.id;
+                    const description =
+                      session.metadata?.description || 'No description';
+                    const sessionUserId = session.user_id || 'Unknown user';
+                    const timer = getSessionTimerLabel(session);
 
-                    if (isSystem) {
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => selectSession(session)}
+                        className={`w-full px-4 py-4 text-left transition ${
+                          isSelected
+                            ? 'bg-[#eef9fd]'
+                            : 'hover:bg-[#f8fafc]'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-1 ${
+                              isSelected
+                                ? 'bg-[#43acd6] text-white ring-[#43acd6]/20'
+                                : 'bg-[#f5f5f7] text-[#8e8e93] ring-black/6'
+                            }`}
+                          >
+                            <User size={17} />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div
+                                  title={sessionUserId}
+                                  className="truncate text-sm font-semibold text-[#1d1d1f]"
+                                >
+                                  {sessionUserId}
+                                </div>
+
+                                <p
+                                  title={description}
+                                  className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]"
+                                >
+                                  {description}
+                                </p>
+                              </div>
+
+                              <div className="shrink-0">
+                                {getStatusBadge(session.status)}
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <span className="text-xs text-[#8e8e93]">
+                                {formatTime(session.created_at)}
+                              </span>
+
+                              {timer && (
+                                <span
+                                  className={`text-xs font-medium ${
+                                    timer.warning
+                                      ? 'text-amber-600'
+                                      : 'text-[#8e8e93]'
+                                  }`}
+                                >
+                                  {timer.text}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-2 truncate text-xs text-[#8e8e93]">
+                              Agent:{' '}
+                              <span className="font-medium text-[#6e6e73]">
+                                {session.metadata?.assignedAgentName ||
+                                  session.agent_id ||
+                                  'Unassigned'}
+                              </span>
+                            </div>
+
+                            {session.status === 'waiting' && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleClaim(session);
+                                }}
+                                disabled={claiming}
+                                className="mt-3 rounded-2xl bg-[#43acd6] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {claiming ? 'Claiming...' : 'Claim'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <main className="flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
+            {!selectedSession ? (
+              <div className="flex flex-1 items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-[#eef9fd] text-[#2389b8]">
+                    <Headphones size={26} />
+                  </div>
+
+                  <h3 className="mt-4 text-lg font-semibold text-[#1d1d1f]">
+                    Select a chat session
+                  </h3>
+
+                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#6e6e73]">
+                    Choose a session from the left panel to view messages and
+                    respond to the customer.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="border-b border-black/6 px-5 py-4">
+                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eef9fd] text-[#2389b8]">
+                          <User size={16} />
+                        </div>
+
+                        <span
+                          title={selectedSession.user_id || 'Unknown user'}
+                          className="max-w-65 truncate text-sm font-semibold text-[#1d1d1f]"
+                        >
+                          {selectedSession.user_id || 'Unknown user'}
+                        </span>
+
+                        {getStatusBadge(selectedSession.status)}
+
+                        {selectedTimer?.warning && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-100">
+                            <AlertTriangle size={12} />
+                            Ending soon
+                          </span>
+                        )}
+                      </div>
+
+                      {selectedSession.metadata?.description && (
+                        <p
+                          title={selectedSession.metadata.description}
+                          className="mt-2 max-w-2xl truncate text-xs text-[#6e6e73]"
+                        >
+                          {selectedSession.metadata.description}
+                        </p>
+                      )}
+
+                      <p className="mt-1 text-xs text-[#8e8e93]">
+                        Agent:{' '}
+                        {selectedSession.metadata?.assignedAgentName ||
+                          selectedSession.agent_id ||
+                          'Unassigned'}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedTimer && selectedSession.status === 'active' && (
+                        <div
+                          className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ring-1 ${
+                            selectedTimer.warning
+                              ? 'bg-amber-50 text-amber-700 ring-amber-100'
+                              : 'bg-[#f5f5f7] text-[#6e6e73] ring-black/6'
+                          }`}
+                        >
+                          <Timer size={16} />
+                          {selectedTimer.text}
+                        </div>
+                      )}
+
+                      {selectedSession.status === 'waiting' && (
+                        <button
+                          type="button"
+                          onClick={() => handleClaim(selectedSession)}
+                          disabled={claiming}
+                          className="rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {claiming ? 'Claiming...' : 'Claim Session'}
+                        </button>
+                      )}
+
+                      {(selectedSession.status === 'active' ||
+                        selectedSession.status === 'closed') && (
+                        <button
+                          type="button"
+                          onClick={handleCreateTicket}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-[#43acd6]/20 bg-[#eef9fd] px-3 py-2.5 text-sm font-medium text-[#2389b8] transition hover:bg-[#dff3fb]"
+                          title="Create a support ticket from this chat session"
+                        >
+                          <Ticket size={16} />
+                          Create Ticket
+                        </button>
+                      )}
+
+                      {selectedSession.status === 'active' && (
+                        <button
+                          type="button"
+                          onClick={handleClose}
+                          disabled={closing}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <XCircle size={16} />
+                          {closing ? 'Ending...' : 'End Session'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedTimer?.warning &&
+                  selectedSession.status === 'active' && (
+                    <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-700">
+                      This chat will end soon if there is no response. A warning
+                      message will also be sent to the customer.
+                    </div>
+                  )}
+
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#fbfbfd] p-5">
+                  {messages.length === 0 ? (
+                    <div className="rounded-3xl border border-black/6 bg-white p-6 text-center">
+                      <h3 className="font-semibold text-[#1d1d1f]">
+                        No messages yet
+                      </h3>
+
+                      <p className="mt-1 text-sm text-[#6e6e73]">
+                        Messages will appear here in real time.
+                      </p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => {
+                      const isAgent = msg.sender_role === 'agent';
+                      const isSystem =
+                        msg.sender_role === 'system' ||
+                        msg.sender_role === 'bot';
+                      const isUser = msg.sender_role === 'user';
+
+                      if (isSystem) {
+                        return (
+                          <div
+                            key={msg.id}
+                            className="mx-auto max-w-fit rounded-full bg-white px-4 py-2 text-center text-xs text-[#6e6e73] ring-1 ring-black/6"
+                          >
+                            {msg.content} · {formatTime(msg.created_at)}
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={msg.id}
-                          className="rounded-full bg-slate-100 px-4 py-2 text-center text-xs text-slate-500"
-                        >
-                          {msg.content} · {formatTime(msg.created_at)}
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex ${
-                          isAgent ? 'justify-end' : 'justify-start'
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                            isAgent
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-100 text-slate-900'
+                          className={`flex ${
+                            isAgent ? 'justify-end' : 'justify-start'
                           }`}
                         >
-                          <div className="text-sm leading-relaxed">
-                            {msg.attachment_url ? (
-                              <>
-                                {msg.content !== '[Image]' && (
-                                  <p>{msg.content}</p>
-                                )}
-
-                                <img
-                                  src={msg.attachment_url}
-                                  alt="Attachment"
-                                  className="mt-2 max-h-52 max-w-full cursor-pointer rounded-xl border border-slate-200 object-cover transition hover:opacity-90"
-                                  onClick={() =>
-                                    setLightboxUrl(msg.attachment_url)
-                                  }
-                                />
-                              </>
-                            ) : (
-                              msg.content
-                            )}
-                          </div>
-
                           <div
-                            className={`mt-2 text-xs ${
-                              isAgent ? 'text-blue-100' : 'text-slate-400'
+                            className={`max-w-[76%] rounded-[22px] px-4 py-3 shadow-sm ${
+                              isAgent
+                                ? 'bg-[#43acd6] text-white'
+                                : 'bg-white text-[#1d1d1f] ring-1 ring-black/6'
                             }`}
                           >
-                            {isUser
-                              ? 'Customer'
-                              : msg.metadata?.agentName || 'Agent'}{' '}
-                            · {formatTime(msg.created_at)}
+                            <div className="text-sm leading-6">
+                              {msg.attachment_url ? (
+                                <>
+                                  {msg.content !== '[Image]' && (
+                                    <p>{msg.content}</p>
+                                  )}
+
+                                  <img
+                                    src={msg.attachment_url}
+                                    alt="Attachment"
+                                    className="mt-2 max-h-52 max-w-full cursor-pointer rounded-2xl border border-black/6 object-cover transition hover:opacity-90"
+                                    onClick={() =>
+                                      setLightboxUrl(msg.attachment_url)
+                                    }
+                                  />
+                                </>
+                              ) : (
+                                msg.content
+                              )}
+                            </div>
+
+                            <div
+                              className={`mt-2 text-xs ${
+                                isAgent ? 'text-blue-50' : 'text-[#8e8e93]'
+                              }`}
+                            >
+                              {isUser
+                                ? 'Customer'
+                                : msg.metadata?.agentName || 'Agent'}{' '}
+                              · {formatTime(msg.created_at)}
+                            </div>
                           </div>
                         </div>
+                      );
+                    })
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+
+                <div className="border-t border-black/6 bg-white px-4 py-4">
+                  {selectedSession.status === 'closed' ? (
+                    <div className="rounded-3xl border border-black/6 bg-[#f5f5f7] p-4 text-center">
+                      <div className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-[#1d1d1f]">
+                        <Timer size={16} />
+                        Session Ended
                       </div>
-                    );
-                  })
-                )}
 
-                <div ref={messagesEndRef} />
-              </div>
+                      <p className="mt-1 text-sm text-[#6e6e73]">
+                        {selectedSession._closedWhileViewing
+                          ? 'This session was closed due to inactivity. The conversation history is preserved above.'
+                          : 'This session is closed. You can review the conversation history above.'}
+                      </p>
 
-              <div className="border-t border-slate-200 p-4">
-                {selectedSession.status === 'closed' ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                    <div className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-slate-700">
-                      <Timer size={16} />
-                      Session Ended
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSession(null);
+                          setMessages([]);
+
+                          if (msgSubRef.current) {
+                            msgSubRef.current.unsubscribe();
+                            msgSubRef.current = null;
+                          }
+                        }}
+                        className="mt-3 rounded-2xl border border-black/8 bg-white px-4 py-2 text-sm font-medium text-[#6e6e73] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+                      >
+                        Dismiss
+                      </button>
                     </div>
+                  ) : selectedSession.status === 'waiting' ? (
+                    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-center">
+                      <p className="text-sm font-medium text-amber-700">
+                        This session is waiting for an agent.
+                      </p>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      {selectedSession._closedWhileViewing
-                        ? 'This session was closed due to inactivity. The conversation history is preserved above.'
-                        : 'This session is closed. You can review the conversation history above.'}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedSession(null);
-                        setMessages([]);
-
-                        if (msgSubRef.current) {
-                          msgSubRef.current.unsubscribe();
-                          msgSubRef.current = null;
-                        }
-                      }}
-                      className="mt-3 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                      <p className="mt-1 text-xs text-amber-600">
+                        It should auto-assign when an agent is available. You can
+                        also claim it manually.
+                      </p>
+                    </div>
+                  ) : selectedSession.status === 'active' ? (
+                    <form
+                      onSubmit={handleSend}
+                      className="flex items-end gap-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3"
                     >
-                      Dismiss
-                    </button>
-                  </div>
-                ) : selectedSession.status === 'waiting' ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-                    <p className="text-sm font-medium text-amber-700">
-                      This session is waiting for an agent.
-                    </p>
+                      <textarea
+                        rows="2"
+                        value={input}
+                        onChange={(event) => setInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
+                            handleSend(event);
+                          }
+                        }}
+                        placeholder="Type your reply to customer..."
+                        className="max-h-32 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
+                      />
 
-                    <p className="mt-1 text-xs text-amber-600">
-                      It should auto-assign when an agent is available. You can
-                      also claim it manually.
-                    </p>
-                  </div>
-                ) : selectedSession.status === 'active' ? (
-                  <form
-                    onSubmit={handleSend}
-                    className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3"
-                  >
-                    <textarea
-                      rows="2"
-                      value={input}
-                      onChange={(event) => setInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault();
-                          handleSend(event);
-                        }
-                      }}
-                      placeholder="Type your reply to customer..."
-                      className="flex-1 resize-none bg-transparent text-sm outline-none"
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={sending || !input.trim()}
-                      className="rounded-xl bg-blue-600 p-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Send size={18} />
-                    </button>
-                  </form>
-                ) : (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                    This session is closed.
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                      <button
+                        type="submit"
+                        disabled={sending || !input.trim()}
+                        className="rounded-2xl bg-[#43acd6] p-3 text-white shadow-[0_14px_28px_rgba(67,172,214,0.20)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {sending ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Send size={18} />
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="rounded-3xl border border-black/6 bg-[#f5f5f7] p-4 text-center text-sm text-[#6e6e73]">
+                      This session is closed.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </main>
+        </section>
       </div>
 
       {lightboxUrl && (
@@ -856,11 +885,28 @@ const [currentTime, setCurrentTime] = useState(() => Date.now());
           <img
             src={lightboxUrl}
             alt="Full size attachment"
-            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain"
           />
         </div>
       )}
     </DashboardLayout>
+  );
+};
+
+const StatusPill = ({ label, value, tone }) => {
+  const tones = {
+    red: 'bg-red-50 text-red-700 ring-red-100',
+    green: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    blue: 'bg-[#eef9fd] text-[#2389b8] ring-[#43acd6]/15',
+  };
+
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ${tones[tone]}`}
+    >
+      <span>{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
   );
 };
 

@@ -156,6 +156,7 @@ const findAvailableAgentForSession = async () => {
 
 export const getSessions = async () => {
   const currentAgentId = getCurrentAgentId();
+  const currentUserRole = getCurrentUserRole();
 
   let query = supabase
     .from('sessions')
@@ -175,7 +176,7 @@ export const getSessions = async () => {
 
   // Admin sees all sessions.
   // Normal agents see only sessions assigned to them.
-  if (!isAdmin()) {
+  if (currentUserRole !== 'Admin') {
     if (!currentAgentId) return [];
     query = query.eq('assigned_agent_id', currentAgentId);
   }
@@ -192,6 +193,7 @@ export const getSessions = async () => {
 
 export const getSessionById = async (sessionId) => {
   const currentAgentId = getCurrentAgentId();
+  const currentUserRole = getCurrentUserRole();
 
   const { data, error } = await supabase
     .from('sessions')
@@ -215,7 +217,7 @@ export const getSessionById = async (sessionId) => {
     throw error;
   }
 
-  if (!isAdmin()) {
+  if (currentUserRole !== 'Admin') {
     const isAssignedToMe = data.assigned_agent_id === currentAgentId;
     const isWaiting =
       !data.assigned_agent_id ||
@@ -233,6 +235,13 @@ export const getSessionById = async (sessionId) => {
 
 export const getSessionsByChannel = async (channel) => {
   const currentAgentId = getCurrentAgentId();
+  const currentUserRole = getCurrentUserRole();
+
+  console.log('getSessionsByChannel filter:', {
+    channel,
+    currentAgentId,
+    currentUserRole,
+  });
 
   let query = supabase
     .from('sessions')
@@ -251,19 +260,21 @@ export const getSessionsByChannel = async (channel) => {
     .eq('channel', channel)
     .order('created_at', { ascending: false });
 
-  // Admin sees all channel sessions.
-  // Customer Service Agent can see own sessions plus waiting/unassigned sessions.
-  // Other agents only see assigned sessions.
-  if (!isAdmin()) {
-    if (!currentAgentId) return [];
+  /*
+    Admin can see all channel sessions.
+    Agents can only see sessions assigned to them.
 
-    if (isCustomerServiceAgent()) {
-      query = query.or(
-        `assigned_agent_id.eq.${currentAgentId},assigned_agent_id.is.null,status.eq.Waiting,status.eq.waiting,status.eq.New`
-      );
-    } else {
-      query = query.eq('assigned_agent_id', currentAgentId);
+    Waiting / unassigned sessions should NOT appear in every agent's
+    Telegram Sessions or Website Chatbot page.
+    They should appear in Waiting Queue only.
+  */
+  if (currentUserRole !== 'Admin') {
+    if (!currentAgentId) {
+      console.warn('Missing currentAgentId. Returning empty channel sessions.');
+      return [];
     }
+
+    query = query.eq('assigned_agent_id', currentAgentId);
   }
 
   const { data, error } = await query;
@@ -293,7 +304,9 @@ export const getWaitingSessions = async () => {
         status
       )
     `)
-    .or('assigned_agent_id.is.null,status.eq.Waiting,status.eq.waiting,status.eq.New')
+    .or(
+      'assigned_agent_id.is.null,status.eq.Waiting,status.eq.waiting,status.eq.New'
+    )
     .order('created_at', { ascending: true });
 
   // Admin and Customer Service Agent can see waiting queue.

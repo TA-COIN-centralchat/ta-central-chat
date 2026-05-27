@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { AlertTriangle, Loader2, X } from 'lucide-react';
+
 import { updateTicketStatus } from '../../services/ticketService';
 
 const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
@@ -37,42 +39,92 @@ const EscalateTicketModal = ({ open, onClose, ticket, onUpdated }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-950">
-          Escalate to Pending Investigation
-        </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#edf1f5] px-6 py-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-700 ring-1 ring-orange-100">
+              <AlertTriangle size={21} />
+            </div>
 
-        <p className="mt-2 text-sm text-slate-500">
-          Use this when {ticket?.id} cannot be solved immediately.
-        </p>
+            <div>
+              <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f]">
+                Escalate to Investigation
+              </h2>
 
-        <div className="mt-4 rounded-xl bg-orange-50 p-4 text-sm text-orange-800">
-          Customer session may end, but the ticket investigation will continue internally.
+              <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
+                Use this when{' '}
+                <span className="font-medium text-[#1d1d1f]">
+                  {ticket?.id}
+                </span>{' '}
+                cannot be solved immediately.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Close escalation modal"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <textarea
-          className="mt-4 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-blue-500"
-          rows="5"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason for escalation..."
-        />
+        <div className="space-y-4 px-6 py-5">
+          <div className="rounded-[22px] border border-orange-100 bg-orange-50 p-4 text-sm leading-6 text-orange-700">
+            Customer conversation may end, but the ticket investigation will
+            continue internally until the issue is reviewed.
+          </div>
 
-        <div className="mt-5 flex justify-end gap-3">
+          <div>
+            <label className="text-sm font-medium text-[#1d1d1f]">
+              Escalation Reason <span className="text-orange-600">*</span>
+            </label>
+
+            <textarea
+              className="mt-2 w-full resize-none rounded-[22px] border border-[#e8edf2] bg-[#f8fafc] px-4 py-3 text-sm leading-6 text-[#1d1d1f] outline-none transition placeholder:text-[#8e8e93] focus:border-[#43acd6] focus:bg-white focus:ring-4 focus:ring-[#43acd6]/10"
+              rows="5"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Explain why this ticket needs internal investigation..."
+            />
+
+            <p className="mt-2 text-xs text-[#8e8e93]">
+              This reason will be saved in the audit log.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse justify-end gap-3 border-t border-[#edf1f5] bg-[#fbfbfd] px-6 py-4 sm:flex-row">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
+            disabled={loading}
+            className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-medium text-[#6e6e73] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
 
           <button
+            type="button"
             onClick={handleEscalate}
             disabled={loading}
-            className="rounded-xl bg-orange-600 px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(234,88,12,0.18)] transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Submitting...' : 'Submit Investigation'}
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={16} />
+                Submit Investigation
+              </>
+            )}
           </button>
         </div>
       </div>
