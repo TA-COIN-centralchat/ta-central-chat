@@ -50,8 +50,7 @@ const findAvailableAgentForSession = async () => {
 };
 
 /**
- * Create a new chat session for a user requesting agent support.
- * Auto-assigns immediately when an available agent exists.
+ * Create a new chat session for a user requesting agent support
  */
 export async function createChatSession(userId, metadata = {}) {
   const selectedAgent = await findAvailableAgentForSession();
@@ -254,7 +253,7 @@ export function createPresenceChannel(sessionId, userId, role) {
 }
 
 /**
- * Generate a unique anonymous user ID.
+ * Generate a unique anonymous user ID
  */
 export function getOrCreateUserId() {
   let userId = localStorage.getItem('tacoin_chat_user_id');

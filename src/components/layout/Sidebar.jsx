@@ -188,8 +188,72 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const newCounts = await getSidebarCounts();
-        setCounts(newCounts);
+        const [tickets, chatSessions] = await Promise.all([
+          getTickets(),
+          getActiveSessions().catch(() => []),
+        ]);
+
+        setCounts({
+          allTickets: tickets.length,
+
+          waitingQueue: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'new' ||
+              status === 'waiting queue' ||
+              ticket.assignedTo === 'Unassigned'
+            );
+          }).length,
+
+          pendingInvestigation: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'pending investigation' ||
+              status === 'pending' ||
+              status === 'pending review' ||
+              status === 'investigation' ||
+              status === 'under investigation'
+            );
+          }).length,
+
+          readyToContact: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return status === 'ready to contact' || status === 'ready-to-contact';
+          }).length,
+
+          closedTickets: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'closed' ||
+              status === 'resolved' ||
+              status === 'completed'
+            );
+          }).length,
+
+          liveChat: chatSessions.filter((session) => {
+            return session.status === 'waiting';
+          }).length,
+
+          websiteChatbot: tickets.filter((ticket) => {
+            const channel = ticket.channel?.toLowerCase().trim();
+
+            return (
+              channel === 'website chatbot' ||
+              channel === 'chatbot' ||
+              channel === 'website'
+            );
+          }).length,
+
+          telegram: tickets.filter((ticket) => {
+            const channel = ticket.channel?.toLowerCase().trim();
+
+            return channel === 'telegram';
+          }).length,
+        });
       } catch (error) {
         console.error("Failed to load sidebar counts:", error);
       }
@@ -283,7 +347,7 @@ const Sidebar = ({ open = false, onClose }) => {
             </div>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <nav className="flex-1 overflow-y-auto px-3 py-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-800 hover:[&::-webkit-scrollbar-thumb]:bg-slate-700">
             <div className="mb-4 rounded-2xl bg-white/5 p-3">
               <div className="text-xs uppercase tracking-wide text-slate-400">
                 Current Role
