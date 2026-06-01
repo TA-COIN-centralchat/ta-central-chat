@@ -1,15 +1,37 @@
-import { Bell, Menu, Plus, Search, Wifi } from 'lucide-react';
+import { Bell, Menu, Plus, Search, Wifi, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import NotificationPanel from './NotificationPanel';
 import { supabase } from '../../services/supabaseClient';
+import { useNotifications } from '../../context/NotificationContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
 const HEARTBEAT_INTERVAL_MS = 30000;
 
+const ThemeToggle = () => {
+  const { theme, setTheme } = useTheme();
+  
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const nextTheme = theme === 'dark' ? 'light' : 'dark';
+        setTheme(nextTheme);
+      }}
+      className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
+      aria-label="Toggle Theme"
+    >
+      {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
+  );
+};
+
 const DashboardLayout = ({ title, description, children }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { unreadCount, panelOpen, setPanelOpen } = useNotifications();
 
   useEffect(() => {
     let stopped = false;
@@ -174,17 +196,17 @@ const DashboardLayout = ({ title, description, children }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fbfbfd]">
+    <div className="min-h-screen bg-[#fbfbfd] dark:bg-[#0f172a]">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="min-h-screen lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-[#edf1f5] bg-white/85 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-[#edf1f5] bg-white/85 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/85">
           <div className="flex min-h-20 items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8] lg:hidden"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8] lg:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
                 aria-label="Open sidebar"
               >
                 <Menu size={20} />
@@ -193,7 +215,7 @@ const DashboardLayout = ({ title, description, children }) => {
               <div className="min-w-0">
                 <h1
                   title={title}
-                  className="truncate text-xl font-semibold tracking-[-0.03em] text-[#1d1d1f] sm:text-2xl"
+                  className="truncate text-xl font-semibold tracking-[-0.03em] text-[#1d1d1f] sm:text-2xl dark:text-white"
                 >
                   {title}
                 </h1>
@@ -201,7 +223,7 @@ const DashboardLayout = ({ title, description, children }) => {
                 {description && (
                   <p
                     title={description}
-                    className="mt-1 hidden max-w-3xl truncate text-sm leading-6 text-[#6e6e73] sm:block"
+                    className="mt-1 hidden max-w-3xl truncate text-sm leading-6 text-[#6e6e73] sm:block dark:text-slate-400"
                   >
                     {description}
                   </p>
@@ -210,16 +232,16 @@ const DashboardLayout = ({ title, description, children }) => {
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-[#e8edf2] bg-[#f8fafc] px-4 transition focus-within:border-[#43acd6] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#43acd6]/10 xl:flex">
-                <Search size={16} className="shrink-0 text-[#8e8e93]" />
+              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-[#e8edf2] bg-[#f8fafc] px-4 transition focus-within:border-[#43acd6] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#43acd6]/10 xl:flex dark:border-slate-700 dark:bg-slate-800 dark:focus-within:bg-slate-800">
+                <Search size={16} className="shrink-0 text-[#8e8e93] dark:text-slate-400" />
 
                 <input
                   placeholder="Search ticket, customer..."
-                  className="w-56 bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
+                  className="w-56 bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93] dark:text-white dark:placeholder:text-slate-500"
                 />
               </div>
 
-              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 sm:inline-flex">
+              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 sm:inline-flex dark:border-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 <Wifi size={15} />
                 Connected
@@ -227,15 +249,20 @@ const DashboardLayout = ({ title, description, children }) => {
 
               <button
                 type="button"
-                className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8]"
+                onClick={() => setPanelOpen(!panelOpen)}
+                className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e8edf2] bg-white text-[#6e6e73] transition hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-[#f7fbfd] hover:text-[#2389b8] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
                 aria-label="Notifications"
               >
                 <Bell size={18} />
 
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white ring-2 ring-white">
-                  3
-                </span>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white ring-2 ring-white dark:ring-slate-800">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
+
+              <ThemeToggle />
 
               <button
                 type="button"
@@ -245,6 +272,8 @@ const DashboardLayout = ({ title, description, children }) => {
                 <Plus size={16} />
                 New Ticket
               </button>
+              
+              <NotificationPanel />
             </div>
           </div>
 

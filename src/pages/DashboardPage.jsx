@@ -147,7 +147,7 @@ const DashboardPage = () => {
       description="Overview of Central Chat ticket operations."
     >
       {loading ? (
-        <div className="flex min-h-72 items-center justify-center rounded-[28px] border border-[#e8edf2] bg-white p-10 text-center text-sm text-[#6e6e73] shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
+        <div className="flex min-h-72 items-center justify-center rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-[#1d1d1f] p-10 text-center text-sm text-[#6e6e73] dark:text-[#a1a1a6] shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-none">
           <div>
             <Loader2
               size={24}
@@ -179,14 +179,14 @@ const DashboardPage = () => {
           </section>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-[#d8eef7]">
-              <div className="flex items-center justify-between gap-4 border-b border-[#edf1f5] px-5 py-4">
+            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.3)] transition-all duration-200 hover:border-[#d8eef7] dark:hover:border-[#43acd6]/30">
+              <div className="flex items-center justify-between gap-4 border-b border-[#edf1f5] dark:border-white/10 px-5 py-4">
                 <div>
-                  <h2 className="text-base font-semibold text-[#1d1d1f]">
+                  <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                     Recent Tickets
                   </h2>
 
-                  <p className="mt-1 text-sm text-[#6e6e73]">
+                  <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                     Latest customer issues created in the system.
                   </p>
                 </div>
@@ -194,20 +194,20 @@ const DashboardPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/tickets')}
-                  className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-medium text-[#2389b8] transition hover:bg-[#f7fbfd]"
+                  className="rounded-2xl border border-[#e5e7eb] dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-[#2389b8] dark:text-[#43acd6] transition hover:bg-[#f7fbfd] dark:hover:bg-white/10"
                 >
                   View All
                 </button>
               </div>
 
               {recentTickets.length === 0 ? (
-                <div className="p-10 text-center text-sm text-[#6e6e73]">
+                <div className="p-10 text-center text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   No recent tickets found.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-190 text-left text-sm">
-                    <thead className="bg-[#f8fafc] text-[11px] uppercase tracking-[0.14em] text-[#8e8e93]">
+                    <thead className="bg-[#f8fafc] dark:bg-white/5 text-[11px] uppercase tracking-[0.14em] text-[#8e8e93] dark:text-[#a1a1a6]">
                       <tr>
                         <th className="px-5 py-3 font-semibold">Ticket</th>
                         <th className="px-5 py-3 font-semibold">Customer</th>
@@ -218,7 +218,7 @@ const DashboardPage = () => {
                       </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-[#edf1f5]">
+                    <tbody className="divide-y divide-[#edf1f5] dark:divide-white/10">
                       {recentTickets.map((ticket) => (
                         <tr
                           key={ticket.dbId}
@@ -230,12 +230,12 @@ const DashboardPage = () => {
                               },
                             })
                           }
-                          className="cursor-pointer transition hover:bg-[#f7fbfd]"
+                          className="cursor-pointer transition hover:bg-[#f7fbfd] dark:hover:bg-white/5"
                         >
                           <td className="px-5 py-4">
                             <div
                               title={ticket.id}
-                              className="max-w-37.5 truncate font-semibold text-[#1d1d1f]"
+                              className="max-w-37.5 truncate font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]"
                             >
                               {ticket.id}
                             </div>
@@ -244,7 +244,7 @@ const DashboardPage = () => {
                           <td className="px-5 py-4">
                             <div
                               title={ticket.customer}
-                              className="max-w-40 truncate text-[#6e6e73]"
+                              className="max-w-40 truncate text-[#6e6e73] dark:text-[#a1a1a6]"
                             >
                               {ticket.customer || 'Unknown customer'}
                             </div>
@@ -257,7 +257,7 @@ const DashboardPage = () => {
                           <td className="px-5 py-4">
                             <div
                               title={ticket.category}
-                              className="max-w-45 truncate text-[#6e6e73]"
+                              className="max-w-45 truncate text-[#6e6e73] dark:text-[#a1a1a6]"
                             >
                               {ticket.category || 'No category'}
                             </div>
@@ -270,7 +270,7 @@ const DashboardPage = () => {
                           <td className="px-5 py-4">
                             <div
                               title={ticket.assignedTo}
-                              className="max-w-40 truncate text-[#6e6e73]"
+                              className="max-w-40 truncate text-[#6e6e73] dark:text-[#a1a1a6]"
                             >
                               {ticket.assignedTo || 'Unassigned'}
                             </div>
@@ -283,46 +283,46 @@ const DashboardPage = () => {
               )}
             </section>
 
-            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-[#d8eef7]">
-              <div className="border-b border-[#edf1f5] px-5 py-4">
-                <h2 className="text-base font-semibold text-[#1d1d1f]">
+            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.3)] transition-all duration-200 hover:border-[#d8eef7] dark:hover:border-[#43acd6]/30">
+              <div className="border-b border-[#edf1f5] dark:border-white/10 px-5 py-4">
+                <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                   Agent Status
                 </h2>
 
-                <p className="mt-1 text-sm text-[#6e6e73]">
+                <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   Current availability of support staff.
                 </p>
               </div>
 
               {agents.length === 0 ? (
-                <div className="p-10 text-center text-sm text-[#6e6e73]">
+                <div className="p-10 text-center text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   No agents found.
                 </div>
               ) : (
-                <div className="divide-y divide-[#edf1f5]">
+                <div className="divide-y divide-[#edf1f5] dark:divide-white/10">
                   {agents.slice(0, 6).map((agent) => (
                     <button
                       key={agent.id}
                       type="button"
                       onClick={() => navigate('/agents')}
-                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#f7fbfd]"
+                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#f7fbfd] dark:hover:bg-white/5"
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7fbfd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#d8eef7]">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7fbfd] dark:bg-[#43acd6]/10 text-sm font-semibold text-[#2389b8] dark:text-[#43acd6] ring-1 ring-[#d8eef7] dark:ring-[#43acd6]/20">
                           {getInitials(agent.name)}
                         </div>
 
                         <div className="min-w-0">
                           <div
                             title={agent.name}
-                            className="truncate font-medium text-[#1d1d1f]"
+                            className="truncate font-medium text-[#1d1d1f] dark:text-[#f5f5f7]"
                           >
                             {agent.name}
                           </div>
 
                           <div
                             title={agent.role}
-                            className="mt-1 truncate text-xs text-[#8e8e93]"
+                            className="mt-1 truncate text-xs text-[#8e8e93] dark:text-[#a1a1a6]"
                           >
                             {agent.role}
                           </div>
@@ -335,11 +335,11 @@ const DashboardPage = () => {
                 </div>
               )}
 
-              <div className="border-t border-[#edf1f5] p-4">
+              <div className="border-t border-[#edf1f5] dark:border-white/10 p-4">
                 <button
                   type="button"
                   onClick={() => navigate('/agents')}
-                  className="w-full rounded-2xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-medium text-[#2389b8] transition hover:bg-[#f7fbfd]"
+                  className="w-full rounded-2xl border border-[#e5e7eb] dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-[#2389b8] dark:text-[#43acd6] transition hover:bg-[#f7fbfd] dark:hover:bg-white/10"
                 >
                   Manage Agents
                 </button>
@@ -456,7 +456,7 @@ const SoftBadge = ({ value }) => {
   return (
     <span
       title={value}
-      className="inline-flex max-w-35 rounded-full bg-[#f5f5f7] px-3 py-1 text-xs font-medium text-[#6e6e73] ring-1 ring-[#e5e7eb]"
+      className="inline-flex max-w-35 rounded-full bg-[#f5f5f7] dark:bg-white/5 px-3 py-1 text-xs font-medium text-[#6e6e73] dark:text-[#a1a1a6] ring-1 ring-[#e5e7eb] dark:ring-white/10"
     >
       <span className="truncate">{value}</span>
     </span>
@@ -468,12 +468,12 @@ const StatusBadge = ({ status }) => {
 
   const className =
     normalized === 'resolved' || normalized === 'closed'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 ring-emerald-100 dark:ring-emerald-500/20'
       : normalized === 'pending investigation'
-      ? 'bg-orange-50 text-orange-700 ring-orange-100'
+      ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-500 ring-orange-100 dark:ring-orange-500/20'
       : normalized === 'new'
-      ? 'bg-[#fffbea] text-[#8a6d00] ring-[#ffe88a]'
-      : 'bg-[#f5f5f7] text-[#6e6e73] ring-[#e5e7eb]';
+      ? 'bg-[#fffbea] dark:bg-yellow-500/10 text-[#8a6d00] dark:text-yellow-500 ring-[#ffe88a] dark:ring-yellow-500/20'
+      : 'bg-[#f5f5f7] dark:bg-white/5 text-[#6e6e73] dark:text-[#a1a1a6] ring-[#e5e7eb] dark:ring-white/10';
 
   const dotClass =
     normalized === 'resolved' || normalized === 'closed'
@@ -482,7 +482,7 @@ const StatusBadge = ({ status }) => {
       ? 'bg-orange-500'
       : normalized === 'new'
       ? 'bg-[#ffd84d]'
-      : 'bg-[#8e8e93]';
+      : 'bg-[#8e8e93] dark:bg-[#6e6e73]';
 
   return (
     <span
@@ -500,12 +500,12 @@ const AgentStatusBadge = ({ status }) => {
 
   const className =
     normalized === 'available'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 ring-emerald-100 dark:ring-emerald-500/20'
       : normalized === 'busy'
-      ? 'bg-orange-50 text-orange-700 ring-orange-100'
+      ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-500 ring-orange-100 dark:ring-orange-500/20'
       : normalized === 'away'
-      ? 'bg-amber-50 text-amber-700 ring-amber-100'
-      : 'bg-[#f5f5f7] text-[#6e6e73] ring-[#e5e7eb]';
+      ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-500 ring-amber-100 dark:ring-amber-500/20'
+      : 'bg-[#f5f5f7] dark:bg-white/5 text-[#6e6e73] dark:text-[#a1a1a6] ring-[#e5e7eb] dark:ring-white/10';
 
   const dotClass =
     normalized === 'available'
@@ -514,7 +514,7 @@ const AgentStatusBadge = ({ status }) => {
       ? 'bg-orange-500'
       : normalized === 'away'
       ? 'bg-amber-500'
-      : 'bg-[#8e8e93]';
+      : 'bg-[#8e8e93] dark:bg-[#6e6e73]';
 
   return (
     <span

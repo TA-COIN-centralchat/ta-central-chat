@@ -895,9 +895,9 @@ const LiveChatPage = () => {
 
 const StatusPill = ({ label, value, tone }) => {
   const tones = {
-    red: 'bg-red-50 text-red-700 ring-red-100',
-    green: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-    blue: 'bg-[#eef9fd] text-[#2389b8] ring-[#43acd6]/15',
+    red: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-500 ring-red-100 dark:ring-red-500/20',
+    green: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 ring-emerald-100 dark:ring-emerald-500/20',
+    blue: 'bg-[#eef9fd] dark:bg-[#43acd6]/10 text-[#2389b8] dark:text-[#43acd6] ring-[#43acd6]/15 dark:ring-[#43acd6]/20',
   };
 
   return (

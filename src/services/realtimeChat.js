@@ -274,6 +274,59 @@ export async function autoAssignWaitingChatSessions() {
 // ─── Session Management ───────────────────────────────────────────
 
 /**
+ * Claim a waiting session manually by an agent.
+ */
+export async function claimSession(sessionId, agentId) {
+  let agentName = "Agent";
+  let agentEmail = null;
+
+  try {
+    const { data: agentData } = await supabase
+      .from("agents")
+      .select("full_name, email")
+      .eq("id", agentId)
+      .single();
+    
+    if (agentData) {
+      agentName = agentData.full_name;
+      agentEmail = agentData.email;
+    }
+  } catch (e) {
+    // Ignore error if agent is not in db
+  }
+
+  const { data: existingSession, error: sessionReadError } = await supabase
+    .from("chat_sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .single();
+
+  if (sessionReadError) throw sessionReadError;
+
+  const existingMetadata = getSessionMetadata(existingSession);
+
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .update({
+      status: "active",
+      agent_id: agentId,
+      updated_at: new Date().toISOString(),
+      metadata: refreshSessionTimerMetadata({
+        ...existingMetadata,
+        assignedAgentName: agentName,
+        assignedAgentEmail: agentEmail,
+        claimedManually: true,
+      }),
+    })
+    .eq("id", sessionId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Create a new chat session for a user requesting agent support.
  * Auto-assigns to an available agent if possible.
  */

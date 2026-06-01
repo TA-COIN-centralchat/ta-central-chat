@@ -155,6 +155,10 @@ export const NotificationProvider = ({ children }) => {
         (payload) => {
           const oldStatus = payload.old?.status;
           const newStatus = payload.new?.status;
+          const oldAssignedTo = payload.old?.assigned_to;
+          const newAssignedTo = payload.new?.assigned_to;
+          const oldPriority = payload.old?.priority;
+          const newPriority = payload.new?.priority;
 
           if (!isResolvedStatus(oldStatus) && isResolvedStatus(newStatus)) {
             pushNotification({
@@ -163,6 +167,20 @@ export const NotificationProvider = ({ children }) => {
               body: `Ticket ${payload.new?.ticket_number || ""} marked as ${newStatus}.`,
               link: "/closed",
             });
+          } else if (oldAssignedTo !== newAssignedTo && newAssignedTo) {
+             pushNotification({
+               severity: "info",
+               title: "Ticket assigned",
+               body: `Ticket ${payload.new?.ticket_number || ""} was assigned to an agent.`,
+               link: "/tickets",
+             });
+          } else if (oldPriority !== newPriority && (newPriority === 'High' || newPriority === 'Urgent')) {
+             pushNotification({
+               severity: "warning",
+               title: "Ticket Escalated",
+               body: `Ticket ${payload.new?.ticket_number || ""} priority escalated to ${newPriority}.`,
+               link: "/tickets",
+             });
           }
         },
       )

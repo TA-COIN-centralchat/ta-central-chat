@@ -302,12 +302,12 @@ const Sidebar = ({ open = false, onClose }) => {
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-50 h-screen w-72 border-r border-black/6 bg-white/88 text-[#1d1d1f] shadow-[18px_0_60px_rgba(0,0,0,0.06)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 h-screen w-72 border-r border-black/6 dark:border-white/10 bg-white/88 dark:bg-[#1d1d1f]/88 text-[#1d1d1f] dark:text-[#f5f5f7] shadow-[18px_0_60px_rgba(0,0,0,0.06)] dark:shadow-[18px_0_60px_rgba(0,0,0,0.3)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
-          <div className="border-b border-black/6 px-5 py-5">
+          <div className="border-b border-black/6 dark:border-white/10 px-5 py-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <img
@@ -317,11 +317,11 @@ const Sidebar = ({ open = false, onClose }) => {
                 />
 
                 <div className="min-w-0">
-                  <div className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#1d1d1f]">
+                  <div className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#1d1d1f] dark:text-[#f5f5f7]">
                     T.A Coin
                   </div>
 
-                  <div className="text-xs font-normal text-[#6e6e73]">
+                  <div className="text-xs font-normal text-[#6e6e73] dark:text-[#a1a1a6]">
                     Central Chat
                   </div>
                 </div>
@@ -330,7 +330,7 @@ const Sidebar = ({ open = false, onClose }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-2xl text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] lg:hidden"
+                className="flex h-9 w-9 items-center justify-center rounded-2xl text-[#8e8e93] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-white lg:hidden"
                 aria-label="Close sidebar"
               >
                 <X size={18} strokeWidth={1.8} />
@@ -339,12 +339,12 @@ const Sidebar = ({ open = false, onClose }) => {
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
-            <div className="mb-5 rounded-[22px] border border-black/6 bg-[#f5f5f7] px-4 py-3">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#8e8e93]">
+            <div className="mb-5 rounded-[22px] border border-black/6 dark:border-white/10 bg-[#f5f5f7] dark:bg-white/5 px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#8e8e93] dark:text-[#a1a1a6]">
                 Current Role
               </div>
 
-              <div className="mt-1 truncate text-sm font-semibold text-[#1d1d1f]">
+              <div className="mt-1 truncate text-sm font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                 {currentUserRole || 'No role'}
               </div>
             </div>
@@ -355,7 +355,7 @@ const Sidebar = ({ open = false, onClose }) => {
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.title)}
-                    className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+                    className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e8e93] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-white"
                   >
                     <span>{group.title}</span>
 
@@ -382,7 +382,7 @@ const Sidebar = ({ open = false, onClose }) => {
                               `group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
                                 isActive
                                   ? 'bg-[#43acd6] text-white shadow-[0_12px_28px_rgba(67,172,214,0.24)]'
-                                  : 'text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
+                                  : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'
                               }`
                             }
                           >
@@ -393,7 +393,7 @@ const Sidebar = ({ open = false, onClose }) => {
                                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
                                       isActive
                                         ? 'bg-white/18 text-white'
-                                        : 'bg-white text-[#8e8e93] ring-1 ring-black/6 group-hover:text-[#1d1d1f]'
+                                        : 'bg-white dark:bg-white/10 text-[#8e8e93] dark:text-[#a1a1a6] ring-1 ring-black/6 dark:ring-white/10 group-hover:text-[#1d1d1f] dark:group-hover:text-[#f5f5f7]'
                                     }`}
                                   >
                                     <Icon size={17} strokeWidth={1.8} />
@@ -408,7 +408,7 @@ const Sidebar = ({ open = false, onClose }) => {
                                     className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                                       isActive
                                         ? 'bg-white/20 text-white'
-                                        : 'bg-[#eef9fd] text-[#2389b8]'
+                                        : 'bg-[#eef9fd] dark:bg-[#43acd6]/20 text-[#2389b8] dark:text-[#43acd6]'
                                     }`}
                                   >
                                     {item.count}
@@ -426,25 +426,25 @@ const Sidebar = ({ open = false, onClose }) => {
             </div>
           </nav>
 
-          <div className="border-t border-black/6 p-4">
-            <div className="mb-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
+          <div className="border-t border-black/6 dark:border-white/10 p-4">
+            <div className="mb-3 rounded-3xl border border-black/6 dark:border-white/10 bg-[#f5f5f7] dark:bg-white/5 p-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#43acd6] text-sm font-semibold text-white">
                   {currentUserName?.charAt(0)?.toUpperCase() || 'A'}
                 </div>
 
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+                  <div className="truncate text-sm font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                     {currentUserName || 'Unknown User'}
                   </div>
 
-                  <div className="truncate text-xs text-[#6e6e73]">
+                  <div className="truncate text-xs text-[#6e6e73] dark:text-[#a1a1a6]">
                     {currentUserRole || 'No role'}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600">
+              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Available
               </div>
@@ -453,7 +453,7 @@ const Sidebar = ({ open = false, onClose }) => {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-50"
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-50 dark:hover:bg-red-500/10"
             >
               <LogOut size={18} strokeWidth={1.8} />
               Logout

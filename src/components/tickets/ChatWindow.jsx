@@ -452,17 +452,17 @@ const StatusText = ({ status }) => {
 
   const className =
     normalized === 'resolved' || normalized === 'closed'
-      ? 'text-emerald-700'
+      ? 'text-emerald-700 dark:text-emerald-500'
       : normalized === 'pending investigation' ||
         normalized === 'pending' ||
         normalized === 'pending review'
-      ? 'text-orange-700'
+      ? 'text-orange-700 dark:text-orange-500'
       : normalized === 'ready to contact customer' ||
         normalized === 'ready to contact'
-      ? 'text-[#2389b8]'
+      ? 'text-[#2389b8] dark:text-[#43acd6]'
       : normalized === 'new'
-      ? 'text-[#8a6d00]'
-      : 'text-[#6e6e73]';
+      ? 'text-[#8a6d00] dark:text-yellow-500'
+      : 'text-[#6e6e73] dark:text-[#a1a1a6]';
 
   return <span className={`font-medium ${className}`}>{status}</span>;
 };
