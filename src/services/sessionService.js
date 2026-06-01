@@ -1,5 +1,9 @@
 import { supabase } from './supabaseClient';
 
+// Migrated from the legacy public.sessions table to public.chat_sessions.
+// Status values are stored lowercase to match the landing-page chatbot
+// ('waiting' | 'active' | 'closed'). The UI label mapping happens in mapSession.
+
 const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
 
 const SUPPORT_AGENT_ROLES = [
@@ -7,29 +11,41 @@ const SUPPORT_AGENT_ROLES = [
   'Customer Support Agent',
 ];
 
+const SESSION_SELECT = `
+  *,
+  customers (
+    id,
+    full_name,
+    phone,
+    email,
+    telegram_username,
+    ta_coin_user_id
+  ),
+  tickets (
+    id,
+    ticket_number,
+    status,
+    issue_type
+  ),
+  agents:assigned_agent_id (
+    id,
+    full_name,
+    email,
+    role,
+    status
+  )
+`;
+
 /* =========================
    Helpers
 ========================= */
 
-const getCurrentUserRole = () => {
-  return localStorage.getItem('currentUserRole');
-};
+const getCurrentUserRole = () => localStorage.getItem('currentUserRole');
+const getCurrentAgentId = () => localStorage.getItem('currentAgentId');
+const getCurrentUserName = () => localStorage.getItem('currentUserName') || 'Agent';
 
-const getCurrentAgentId = () => {
-  return localStorage.getItem('currentAgentId');
-};
-
-const getCurrentUserName = () => {
-  return localStorage.getItem('currentUserName') || 'Agent';
-};
-
-const isAdmin = () => {
-  return getCurrentUserRole() === 'Admin';
-};
-
-const isCustomerServiceAgent = () => {
-  return getCurrentUserRole() === 'Customer Service Agent';
-};
+const isAdmin = () => getCurrentUserRole() === 'Admin';
+const isCustomerServiceAgent = () => getCurrentUserRole() === 'Customer Service Agent';
 
 const logSupabaseError = (label, error) => {
   console.error(label, {
@@ -43,6 +59,83 @@ const logSupabaseError = (label, error) => {
 const formatDateTime = (dateValue) => {
   if (!dateValue) return 'N/A';
   return new Date(dateValue).toLocaleString();
+};
+
+// Lowercase storage → capitalized UI labels
+const STATUS_LABEL = {
+  waiting: 'Waiting',
+  active: 'Active',
+  closed: 'Ended',
+  ended: 'Ended',
+  'idle warning': 'Idle Warning',
+};
+
+const toStatusLabel = (status) => {
+  const key = String(status || '').toLowerCase();
+  return STATUS_LABEL[key] || status || 'Waiting';
+};
+
+// UI status string → DB storage value
+const STATUS_DB = {
+  Waiting: 'waiting',
+  Active: 'active',
+  Ended: 'closed',
+  Closed: 'closed',
+  'Idle Warning': 'idle warning',
+};
+
+const toStatusDb = (status) => STATUS_DB[status] || String(status || '').toLowerCase();
+
+const mapSession = (session) => {
+  const meta = session.metadata || {};
+  const telegramHandle = meta.telegramUsername
+    ? `@${meta.telegramUsername}`
+    : meta.telegramChatId || '';
+
+  return {
+    dbId: session.id,
+    id: session.session_number || session.id,
+
+    customerId: session.customer_id,
+    customer:
+      session.customers?.full_name ||
+      meta.customerName ||
+      meta.fullName ||
+      session.user_id ||
+      'Unknown Customer',
+    phone: session.customers?.phone || meta.phone || '',
+    telegram: session.customers?.telegram_username
+      ? `@${session.customers.telegram_username}`
+      : telegramHandle,
+    email: session.customers?.email || meta.email || '',
+    accountId: session.customers?.ta_coin_user_id || '',
+
+    channel: session.channel || meta.channel || '-',
+    status: toStatusLabel(session.status),
+
+    assignedAgentId: session.assigned_agent_id || null,
+    assignedAgentName:
+      session.agents?.full_name ||
+      session.assigned_agent_name ||
+      meta.assignedAgentName ||
+      'Unassigned',
+
+    lastMessage:
+      session.last_message ||
+      meta.issueDescription ||
+      'No message yet.',
+    issueType: meta.issueType || '',
+    issueDescription: meta.issueDescription || '',
+    rating: session.rating,
+    ratingComment: session.rating_comment || '',
+    endedAt: session.ended_at,
+    createdAt: session.created_at,
+    updatedAt: session.updated_at,
+    time: formatDateTime(session.created_at),
+
+    linkedTickets: session.tickets || [],
+    raw: session,
+  };
 };
 
 const createAuditLog = async ({
@@ -63,37 +156,6 @@ const createAuditLog = async ({
   }
 };
 
-const mapSession = (session) => ({
-  dbId: session.id,
-  id: session.session_number,
-
-  customerId: session.customer_id,
-  customer: session.customers?.full_name || 'Unknown Customer',
-  phone: session.customers?.phone || '',
-  telegram: session.customers?.telegram_username || '',
-  email: session.customers?.email || '',
-  accountId: session.customers?.ta_coin_user_id || '',
-
-  channel: session.channel || '-',
-  status: session.status || 'Waiting',
-
-  assignedAgentId: session.assigned_agent_id || null,
-  assignedAgentName:
-    session.agents?.full_name ||
-    session.assigned_agent_name ||
-    'Unassigned',
-
-  lastMessage: session.last_message || 'No message yet.',
-  rating: session.rating,
-  ratingComment: session.rating_comment || '',
-  endedAt: session.ended_at,
-  createdAt: session.created_at,
-  updatedAt: session.updated_at,
-  time: formatDateTime(session.created_at),
-
-  linkedTickets: session.tickets || [],
-});
-
 /* =========================
    Auto Assignment Helper
 ========================= */
@@ -111,14 +173,12 @@ const findAvailableAgentForSession = async () => {
     throw agentError;
   }
 
-  if (!agents || agents.length === 0) {
-    return null;
-  }
+  if (!agents || agents.length === 0) return null;
 
   const { data: activeSessions, error: sessionError } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .select('id, assigned_agent_id, status')
-    .eq('status', 'Active')
+    .eq('status', 'active')
     .not('assigned_agent_id', 'is', null);
 
   if (sessionError) {
@@ -126,31 +186,25 @@ const findAvailableAgentForSession = async () => {
     throw sessionError;
   }
 
-  const agentsWithSessionCount = agents.map((agent) => {
-    const activeSessionCount = (activeSessions || []).filter(
-      (session) => session.assigned_agent_id === agent.id
-    ).length;
-
-    return {
-      ...agent,
-      activeSessionCount,
-    };
-  });
+  const agentsWithSessionCount = agents.map((agent) => ({
+    ...agent,
+    activeSessionCount: (activeSessions || []).filter(
+      (session) => session.assigned_agent_id === agent.id,
+    ).length,
+  }));
 
   const eligibleAgents = agentsWithSessionCount.filter(
-    (agent) => agent.activeSessionCount < MAX_ACTIVE_SESSIONS_PER_AGENT
+    (agent) => agent.activeSessionCount < MAX_ACTIVE_SESSIONS_PER_AGENT,
   );
 
-  if (eligibleAgents.length === 0) {
-    return null;
-  }
+  if (eligibleAgents.length === 0) return null;
 
   const lowestWorkload = Math.min(
-    ...eligibleAgents.map((agent) => agent.activeSessionCount)
+    ...eligibleAgents.map((agent) => agent.activeSessionCount),
   );
 
   const lowestAgents = eligibleAgents.filter(
-    (agent) => agent.activeSessionCount === lowestWorkload
+    (agent) => agent.activeSessionCount === lowestWorkload,
   );
 
   return lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
@@ -165,23 +219,10 @@ export const getSessions = async () => {
   const currentUserRole = getCurrentUserRole();
 
   let query = supabase
-    .from('sessions')
-    .select(`
-      *,
-      customers (*),
-      tickets (*),
-      agents (
-        id,
-        full_name,
-        email,
-        role,
-        status
-      )
-    `)
+    .from('chat_sessions')
+    .select(SESSION_SELECT)
     .order('created_at', { ascending: false });
 
-  // Admin sees all sessions.
-  // Normal agents see only sessions assigned to them.
   if (currentUserRole !== 'Admin') {
     if (!currentAgentId) return [];
     query = query.eq('assigned_agent_id', currentAgentId);
@@ -202,19 +243,8 @@ export const getSessionById = async (sessionId) => {
   const currentUserRole = getCurrentUserRole();
 
   const { data, error } = await supabase
-    .from('sessions')
-    .select(`
-      *,
-      customers (*),
-      tickets (*),
-      agents (
-        id,
-        full_name,
-        email,
-        role,
-        status
-      )
-    `)
+    .from('chat_sessions')
+    .select(SESSION_SELECT)
     .eq('id', sessionId)
     .single();
 
@@ -225,11 +255,11 @@ export const getSessionById = async (sessionId) => {
 
   if (currentUserRole !== 'Admin') {
     const isAssignedToMe = data.assigned_agent_id === currentAgentId;
+    const status = String(data.status || '').toLowerCase();
     const isWaiting =
       !data.assigned_agent_id ||
-      data.status === 'Waiting' ||
-      data.status === 'waiting' ||
-      data.status === 'New';
+      status === 'waiting' ||
+      status === 'new';
 
     if (!isAssignedToMe && !(isCustomerServiceAgent() && isWaiting)) {
       throw new Error('You do not have permission to view this session.');
@@ -243,43 +273,17 @@ export const getSessionsByChannel = async (channel) => {
   const currentAgentId = getCurrentAgentId();
   const currentUserRole = getCurrentUserRole();
 
-  console.log('getSessionsByChannel filter:', {
-    channel,
-    currentAgentId,
-    currentUserRole,
-  });
-
   let query = supabase
-    .from('sessions')
-    .select(`
-      *,
-      customers (*),
-      tickets (*),
-      agents (
-        id,
-        full_name,
-        email,
-        role,
-        status
-      )
-    `)
+    .from('chat_sessions')
+    .select(SESSION_SELECT)
     .eq('channel', channel)
     .order('created_at', { ascending: false });
 
-  /*
-    Admin can see all channel sessions.
-    Agents can only see sessions assigned to them.
-
-    Waiting / unassigned sessions should NOT appear in every agent's
-    Telegram Sessions or Website Chatbot page.
-    They should appear in Waiting Queue only.
-  */
   if (currentUserRole !== 'Admin') {
     if (!currentAgentId) {
       console.warn('Missing currentAgentId. Returning empty channel sessions.');
       return [];
     }
-
     query = query.eq('assigned_agent_id', currentAgentId);
   }
 
@@ -297,26 +301,11 @@ export const getWaitingSessions = async () => {
   const currentAgentId = getCurrentAgentId();
 
   let query = supabase
-    .from('sessions')
-    .select(`
-      *,
-      customers (*),
-      tickets (*),
-      agents (
-        id,
-        full_name,
-        email,
-        role,
-        status
-      )
-    `)
-    .or(
-      'assigned_agent_id.is.null,status.eq.Waiting,status.eq.waiting,status.eq.New'
-    )
+    .from('chat_sessions')
+    .select(SESSION_SELECT)
+    .or('assigned_agent_id.is.null,status.eq.waiting')
     .order('created_at', { ascending: true });
 
-  // Admin and Customer Service Agent can see waiting queue.
-  // Customer Support Agent should only see own assigned sessions.
   if (!isAdmin() && !isCustomerServiceAgent()) {
     if (!currentAgentId) return [];
     query = query.eq('assigned_agent_id', currentAgentId);
@@ -345,15 +334,17 @@ export const createSession = async ({
   const selectedAgent = await findAvailableAgentForSession();
 
   const { data, error } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .insert({
       session_number: sessionNumber,
+      user_id: customerId ? String(customerId) : `agent-created-${Date.now()}`,
       customer_id: customerId || null,
       channel,
-      status: selectedAgent ? 'Active' : 'Waiting',
+      status: selectedAgent ? 'active' : 'waiting',
       last_message: lastMessage || null,
       assigned_agent_id: selectedAgent?.id || null,
       assigned_agent_name: selectedAgent?.full_name || null,
+      agent_id: selectedAgent?.id ? String(selectedAgent.id) : null,
     })
     .select()
     .single();
@@ -432,7 +423,7 @@ export const assignSessionToCurrentAgent = async (sessionId) => {
   }
 
   const { data: existingSession, error: checkError } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .select('id, assigned_agent_id, status')
     .eq('id', sessionId)
     .single();
@@ -451,11 +442,12 @@ export const assignSessionToCurrentAgent = async (sessionId) => {
   }
 
   const { data, error } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .update({
       assigned_agent_id: currentAgentId,
       assigned_agent_name: currentUserName,
-      status: 'Active',
+      agent_id: String(currentAgentId),
+      status: 'active',
       updated_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
@@ -490,7 +482,7 @@ export const updateSessionStatus = async ({
 
   if (!isAdmin()) {
     const { data: existingSession, error: checkError } = await supabase
-      .from('sessions')
+      .from('chat_sessions')
       .select('id, assigned_agent_id')
       .eq('id', sessionId)
       .single();
@@ -505,17 +497,19 @@ export const updateSessionStatus = async ({
     }
   }
 
+  const dbStatus = toStatusDb(status);
+
   const updateData = {
-    status,
+    status: dbStatus,
     updated_at: new Date().toISOString(),
   };
 
-  if (status === 'Ended' || status === 'Closed') {
+  if (dbStatus === 'closed') {
     updateData.ended_at = new Date().toISOString();
   }
 
   const { data, error } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .update(updateData)
     .eq('id', sessionId)
     .select()
@@ -536,20 +530,19 @@ export const updateSessionStatus = async ({
   return data;
 };
 
-export const endSession = async (sessionId) => {
-  return updateSessionStatus({
+export const endSession = async (sessionId) =>
+  updateSessionStatus({
     sessionId,
     status: 'Ended',
     auditDetails: 'Customer conversation session ended by agent.',
   });
-};
 
 export const sendSessionReply = async ({ sessionId, messageText }) => {
   const currentAgentId = getCurrentAgentId();
 
   if (!isAdmin()) {
     const { data: existingSession, error: checkError } = await supabase
-      .from('sessions')
+      .from('chat_sessions')
       .select('id, assigned_agent_id')
       .eq('id', sessionId)
       .single();
@@ -560,17 +553,16 @@ export const sendSessionReply = async ({ sessionId, messageText }) => {
     }
 
     if (existingSession.assigned_agent_id !== currentAgentId) {
-      throw new Error(
-        'You must assign this session to yourself before replying.'
-      );
+      throw new Error('You must assign this session to yourself before replying.');
     }
   }
 
   const { data, error } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .update({
       last_message: messageText,
-      status: 'Active',
+      status: 'active',
+      last_agent_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
@@ -598,7 +590,7 @@ export const submitSessionRating = async ({
   ratingComment,
 }) => {
   const { data, error } = await supabase
-    .from('sessions')
+    .from('chat_sessions')
     .update({
       rating,
       rating_comment: ratingComment || null,

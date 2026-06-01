@@ -28,65 +28,6 @@ const isTelegramChannel = (channelName) => {
   return channelName?.toLowerCase() === 'telegram';
 };
 
-const mapChatSessionStatus = (status) => {
-  const value = String(status || '').toLowerCase();
-
-  if (value === 'waiting') return 'Waiting';
-  if (value === 'active') return 'Active';
-  if (value === 'closed' || value === 'ended') return 'Ended';
-
-  return status || 'Waiting';
-};
-
-const mapTelegramSession = (session, latestMessages = {}) => {
-  const metadata = session.metadata || {};
-  const latestMessage = latestMessages[session.id];
-
-  return {
-    dbId: session.id,
-    id: session.id,
-
-    customer:
-      metadata.customerName ||
-      metadata.fullName ||
-      session.user_id ||
-      'Telegram Customer',
-
-    phone: metadata.phone || '',
-
-    telegram: metadata.telegramUsername
-      ? `@${metadata.telegramUsername}`
-      : metadata.telegramChatId || '',
-
-    email: '',
-    accountId: '',
-
-    channel: session.channel || metadata.channel || 'Telegram',
-    status: mapChatSessionStatus(session.status),
-
-    rating: null,
-
-    time: session.created_at
-      ? new Date(session.created_at).toLocaleString()
-      : 'N/A',
-
-    createdAt: session.created_at,
-
-    lastMessage:
-      latestMessage?.content ||
-      metadata.issueDescription ||
-      'No message yet.',
-
-    issueType: metadata.issueType || '',
-    issueDescription: metadata.issueDescription || '',
-
-    assignedAgentName:
-      metadata.assignedAgentName || session.agent_id || 'Unassigned',
-
-    raw: session,
-  };
-};
-
 const ChannelTicketsPage = ({
   channelName,
   title,
@@ -102,57 +43,9 @@ const ChannelTicketsPage = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sessionFilter, setSessionFilter] = useState('All');
 
-  const loadTelegramSessions = async () => {
-    const { data: telegramSessions, error: sessionError } = await supabase
-      .from('chat_sessions')
-      .select('*')
-      .eq('channel', 'Telegram')
-      .in('status', ['waiting', 'active', 'closed'])
-      .order('created_at', { ascending: false });
-
-    if (sessionError) {
-      throw sessionError;
-    }
-
-    const sessionIds = (telegramSessions || []).map((session) => session.id);
-
-    let latestMessages = {};
-
-    if (sessionIds.length > 0) {
-      const { data: messages, error: messageError } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .in('session_id', sessionIds)
-        .order('created_at', { ascending: false });
-
-      if (messageError) {
-        throw messageError;
-      }
-
-      latestMessages = (messages || []).reduce((acc, message) => {
-        if (!acc[message.session_id]) {
-          acc[message.session_id] = message;
-        }
-
-        return acc;
-      }, {});
-    }
-
-    return (telegramSessions || []).map((session) =>
-      mapTelegramSession(session, latestMessages)
-    );
-  };
-
   const loadChannelSessions = async () => {
     try {
       setLoading(true);
-
-      if (isTelegramChannel(channelName)) {
-        const data = await loadTelegramSessions();
-        setSessions(data);
-        return;
-      }
-
       const data = await getSessionsByChannel(channelName);
       setSessions(data || []);
     } catch (error) {
@@ -166,28 +59,24 @@ const ChannelTicketsPage = ({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadChannelSessions();
 
-    if (!isTelegramChannel(channelName)) {
-      return undefined;
-    }
-
     const sessionSub = supabase
-      .channel('telegram-channel-sessions-page')
+      .channel(`channel-sessions-${channelName}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'chat_sessions',
-          filter: 'channel=eq.Telegram',
+          filter: `channel=eq.${channelName}`,
         },
         () => {
           loadChannelSessions();
-        }
+        },
       )
       .subscribe();
 
     const messageSub = supabase
-      .channel('telegram-channel-messages-page')
+      .channel(`channel-messages-${channelName}`)
       .on(
         'postgres_changes',
         {
@@ -197,7 +86,7 @@ const ChannelTicketsPage = ({
         },
         () => {
           loadChannelSessions();
-        }
+        },
       )
       .subscribe();
 
