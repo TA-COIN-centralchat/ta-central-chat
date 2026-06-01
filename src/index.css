@@ -1,1 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+
+/* =========================
+   T.A Coin macOS Clean Theme
+   Global system design
+========================= */
+
+:root {
+  --ta-blue: #43acd6;
+  --ta-blue-dark: #2389b8;
+  --ta-blue-soft: #eef9fd;
+
+  --ta-yellow: #ffd21f;
+  --ta-yellow-soft: #fff8d8;
+  --ta-yellow-dark: #9a6a00;
+
+  --mac-bg: #f5f5f7;
+  --mac-surface: #ffffff;
+  --mac-surface-soft: #fbfbfd;
+
+  --mac-text: #1d1d1f;
+  --mac-subtext: #6e6e73;
+  --mac-border: rgba(0, 0, 0, 0.08);
+
+  --mac-radius: 28px;
+  --mac-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--mac-bg);
+  color: var(--mac-text);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* =========================
+   Reusable System Classes
+========================= */
+
+.system-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(67, 172, 214, 0.12), transparent 32%),
+    radial-gradient(circle at 85% 80%, rgba(255, 210, 31, 0.16), transparent 30%),
+    var(--mac-bg);
+}
+
+.system-shell {
+  border-radius: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--mac-shadow);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  overflow: hidden;
+}
+
+.system-brand-panel {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(245, 250, 253, 0.97)),
+    radial-gradient(circle at top left, rgba(67, 172, 214, 0.14), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(255, 210, 31, 0.18), transparent 36%);
+  border-right: 1px solid var(--mac-border);
+}
+
+.system-input {
+  border: 1px solid var(--mac-border);
+  background: #f5f5f7;
+  transition: all 0.2s ease;
+}
+
+.system-input:focus-within {
+  border-color: rgba(67, 172, 214, 0.55);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(67, 172, 214, 0.12);
+}
+
+.system-button {
+  background: var(--ta-blue);
+  color: #ffffff;
+  box-shadow: 0 16px 34px rgba(67, 172, 214, 0.24);
+  transition: all 0.2s ease;
+}
+
+.system-button:hover {
+  background: var(--ta-blue-dark);
+  transform: translateY(-1px);
+}
+
+.system-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.system-card {
+  border: 1px solid var(--mac-border);
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: var(--mac-radius);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.system-muted-text {
+  color: var(--mac-subtext);
+}

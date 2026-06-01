@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   BarChart3,
   CheckCircle,
@@ -9,152 +9,146 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
-  MessageCircle,
   Send,
   Settings,
   ShieldCheck,
   Tags,
   Users,
   X,
-} from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+} from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
 
-import { getTickets, getSidebarCounts } from "../../services/ticketService";
-import { getActiveSessions } from "../../services/realtimeChat";
-import { supabase } from "../../services/supabaseClient";
+import logo from '../../assets/logo.png';
+
+import { getTickets } from '../../services/ticketService';
+import { getActiveSessions } from '../../services/realtimeChat';
+import { supabase } from '../../services/supabaseClient';
 import {
   clearCurrentUser,
   getCurrentAgentId,
   getCurrentUserName,
   getCurrentUserRole,
-} from "../../utils/authUtils";
+} from '../../utils/authUtils';
 
 const buildMenuGroups = (counts) => [
   {
-    title: "Overview",
+    title: 'Overview',
     defaultOpen: true,
     items: [
       {
-        label: "Dashboard",
-        path: "/dashboard",
+        label: 'Dashboard',
+        path: '/dashboard',
         icon: LayoutDashboard,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
-        label: "Reports",
-        path: "/reports",
+        label: 'Reports',
+        path: '/reports',
         icon: BarChart3,
-        roles: ["Admin"],
+        roles: ['Admin'],
       },
       {
-        label: "Audit Logs",
-        path: "/audit-logs",
+        label: 'Audit Logs',
+        path: '/audit-logs',
         icon: ShieldCheck,
-        roles: ["Admin"],
+        roles: ['Admin'],
       },
     ],
   },
   {
-    title: "Tickets",
+    title: 'Tickets',
     defaultOpen: true,
     items: [
       {
-        label: "All Tickets",
-        path: "/tickets",
+        label: 'All Tickets',
+        path: '/tickets',
         icon: Inbox,
         count: counts.allTickets,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
-        label: "Waiting Queue",
-        path: "/waiting-queue",
+        label: 'Waiting Queue',
+        path: '/waiting-queue',
         icon: Clock,
         count: counts.waitingQueue,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin'],
       },
       {
-        label: "Pending Investigation",
-        path: "/investigation",
+        label: 'Pending Investigation',
+        path: '/investigation',
         icon: ShieldCheck,
         count: counts.pendingInvestigation,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
-        label: "Ready to Contact",
-        path: "/ready-to-contact",
+        label: 'Ready to Contact',
+        path: '/ready-to-contact',
         icon: Send,
         count: counts.readyToContact,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
-        label: "Closed Tickets",
-        path: "/closed",
+        label: 'Closed Tickets',
+        path: '/closed',
         icon: CheckCircle,
         count: counts.closedTickets,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
-        label: "Walk-in / Manual",
-        path: "/manual-ticket",
+        label: 'Walk-in / Manual',
+        path: '/manual-ticket',
         icon: ClipboardList,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
     ],
   },
   {
-    title: "Channels",
+    title: 'Channels',
     defaultOpen: false,
     items: [
       {
-        label: "Live Chat",
-        path: "/live-chat",
+        label: 'Live Chat',
+        path: '/live-chat',
         icon: Headphones,
         count: counts.liveChat,
-        roles: ["Admin", "Customer Service Agent"],
+        roles: ['Admin', 'Customer Service Agent'],
       },
       {
-        label: "Chatbot (Website)",
-        path: "/chatbot",
-        icon: MessageCircle,
-        count: counts.websiteChatbot,
-        roles: ["Admin", "Customer Service Agent"],
-      },
-      {
-        label: "Telegram Sessions",
-        path: "/telegram",
+        label: 'Telegram Sessions',
+        path: '/telegram',
         icon: Send,
         count: counts.telegram,
-        roles: ["Admin", "Customer Service Agent"],
+        roles: ['Admin', 'Customer Service Agent'],
       },
     ],
   },
   {
-    title: "Management",
+    title: 'Management',
     defaultOpen: false,
     items: [
       {
-        label: "Customers",
-        path: "/customers",
+        label: 'Customers',
+        path: '/customers',
         icon: Users,
-        roles: ["Admin", "Customer Service Agent", "Customer Support Agent"],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
-        label: "Agents",
-        path: "/agents",
+        label: 'Agents',
+        path: '/agents',
         icon: Users,
-        roles: ["Admin"],
+        roles: ['Admin'],
       },
       {
-        label: "Categories",
-        path: "/categories",
+        label: 'Categories',
+        path: '/categories',
         icon: Tags,
-        roles: ["Admin"],
+        roles: ['Admin'],
       },
       {
-        label: "Settings",
-        path: "/settings",
+        label: 'Settings',
+        path: '/settings',
         icon: Settings,
-        roles: ["Admin"],
+        roles: ['Admin'],
       },
     ],
   },
@@ -174,7 +168,6 @@ const Sidebar = ({ open = false, onClose }) => {
     readyToContact: 0,
     closedTickets: 0,
     liveChat: 0,
-    websiteChatbot: 0,
     telegram: 0,
   });
 
@@ -188,10 +181,64 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const newCounts = await getSidebarCounts();
-        setCounts(newCounts);
+        const [tickets, chatSessions] = await Promise.all([
+          getTickets(),
+          getActiveSessions().catch(() => []),
+        ]);
+
+        setCounts({
+          allTickets: tickets.length,
+
+          waitingQueue: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'new' ||
+              status === 'waiting queue' ||
+              ticket.assignedTo === 'Unassigned'
+            );
+          }).length,
+
+          pendingInvestigation: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'pending investigation' ||
+              status === 'pending' ||
+              status === 'pending review' ||
+              status === 'investigation' ||
+              status === 'under investigation'
+            );
+          }).length,
+
+          readyToContact: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return status === 'ready to contact' || status === 'ready-to-contact';
+          }).length,
+
+          closedTickets: tickets.filter((ticket) => {
+            const status = ticket.status?.toLowerCase().trim();
+
+            return (
+              status === 'closed' ||
+              status === 'resolved' ||
+              status === 'completed'
+            );
+          }).length,
+
+          liveChat: chatSessions.filter((session) => {
+            return session.status === 'waiting';
+          }).length,
+
+          telegram: tickets.filter((ticket) => {
+            const channel = ticket.channel?.toLowerCase().trim();
+
+            return channel === 'telegram';
+          }).length,
+        });
       } catch (error) {
-        console.error("Failed to load sidebar counts:", error);
+        console.error('Failed to load sidebar counts:', error);
       }
     };
 
@@ -226,20 +273,20 @@ const Sidebar = ({ open = false, onClose }) => {
     try {
       if (currentAgentId) {
         await supabase
-          .from("agents")
-          .update({ status: "Offline" })
-          .eq("id", currentAgentId);
+          .from('agents')
+          .update({ status: 'Offline' })
+          .eq('id', currentAgentId);
       }
 
       await supabase.auth.signOut();
       clearCurrentUser();
 
-      navigate("/login", { replace: true });
+      navigate('/login', { replace: true });
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error('Logout failed:', error);
 
       clearCurrentUser();
-      navigate("/login", { replace: true });
+      navigate('/login', { replace: true });
     }
   };
 
@@ -250,64 +297,73 @@ const Sidebar = ({ open = false, onClose }) => {
           type="button"
           aria-label="Close sidebar overlay"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-50 h-screen w-72 bg-slate-950 text-white transition-transform duration-300 lg:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-50 h-screen w-72 border-r border-black/6 bg-white/88 text-[#1d1d1f] shadow-[18px_0_60px_rgba(0,0,0,0.06)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
+          open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
-          <div className="border-b border-white/10 p-6">
+          <div className="border-b border-black/6 px-5 py-5">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-lg font-bold text-slate-950">
-                  $
-                </div>
+              <div className="flex min-w-0 items-center gap-3">
+                <img
+                  src={logo}
+                  alt="T.A Coin Logo"
+                  className="h-12 w-12 shrink-0 object-contain"
+                />
 
-                <div>
-                  <div className="text-lg font-bold">T.A Coin</div>
-                  <div className="text-sm text-slate-400">Central Chat</div>
+                <div className="min-w-0">
+                  <div className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#1d1d1f]">
+                    T.A Coin
+                  </div>
+
+                  <div className="text-xs font-normal text-[#6e6e73]">
+                    Central Chat
+                  </div>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
+                className="flex h-9 w-9 items-center justify-center rounded-2xl text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] lg:hidden"
+                aria-label="Close sidebar"
               >
-                <X size={18} />
+                <X size={18} strokeWidth={1.8} />
               </button>
             </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
-            <div className="mb-4 rounded-2xl bg-white/5 p-3">
-              <div className="text-xs uppercase tracking-wide text-slate-400">
+            <div className="mb-5 rounded-[22px] border border-black/6 bg-[#f5f5f7] px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#8e8e93]">
                 Current Role
               </div>
 
-              <div className="mt-1 text-sm font-semibold text-white">
-                {currentUserRole || "No role"}
+              <div className="mt-1 truncate text-sm font-semibold text-[#1d1d1f]">
+                {currentUserRole || 'No role'}
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {menuGroups.map((group) => (
                 <div key={group.title}>
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.title)}
-                    className="flex w-full items-center justify-between rounded-xl h-10 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                    className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
                   >
                     <span>{group.title}</span>
 
                     <ChevronDown
-                      size={16}
+                      size={15}
+                      strokeWidth={1.8}
                       className={`transition-transform ${
-                        openGroups[group.title] ? "rotate-180" : ""
+                        openGroups[group.title] ? 'rotate-180' : ''
                       }`}
                     />
                   </button>
@@ -323,24 +379,43 @@ const Sidebar = ({ open = false, onClose }) => {
                             to={item.path}
                             onClick={handleNavClick}
                             className={({ isActive }) =>
-                              `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition ${
+                              `group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
                                 isActive
-                                  ? "bg-blue-600 text-white shadow-sm"
-                                  : "text-slate-300 hover:bg-white/10 hover:text-white"
+                                  ? 'bg-[#43acd6] text-white shadow-[0_12px_28px_rgba(67,172,214,0.24)]'
+                                  : 'text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
                               }`
                             }
                           >
-                            <span className="flex items-center gap-3">
-                              <Icon size={18} />
-                              {item.label}
-                            </span>
+                            {({ isActive }) => (
+                              <>
+                                <span className="flex min-w-0 items-center gap-3">
+                                  <span
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
+                                      isActive
+                                        ? 'bg-white/18 text-white'
+                                        : 'bg-white text-[#8e8e93] ring-1 ring-black/6 group-hover:text-[#1d1d1f]'
+                                    }`}
+                                  >
+                                    <Icon size={17} strokeWidth={1.8} />
+                                  </span>
 
-                            {typeof item.count === "number" &&
-                            item.count > 0 ? (
-                              <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
-                                {item.count}
-                              </span>
-                            ) : null}
+                                  <span className="truncate">{item.label}</span>
+                                </span>
+
+                                {typeof item.count === 'number' &&
+                                item.count > 0 ? (
+                                  <span
+                                    className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                      isActive
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-[#eef9fd] text-[#2389b8]'
+                                    }`}
+                                  >
+                                    {item.count}
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
                           </NavLink>
                         );
                       })}
@@ -351,18 +426,26 @@ const Sidebar = ({ open = false, onClose }) => {
             </div>
           </nav>
 
-          <div className="border-t border-white/10 p-4">
-            <div className="mb-3 rounded-2xl bg-white/5 p-3">
-              <div className="text-sm font-semibold">
-                {currentUserName || "Unknown User"}
+          <div className="border-t border-black/6 p-4">
+            <div className="mb-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#43acd6] text-sm font-semibold text-white">
+                  {currentUserName?.charAt(0)?.toUpperCase() || 'A'}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+                    {currentUserName || 'Unknown User'}
+                  </div>
+
+                  <div className="truncate text-xs text-[#6e6e73]">
+                    {currentUserRole || 'No role'}
+                  </div>
+                </div>
               </div>
 
-              <div className="text-xs text-slate-400">
-                {currentUserRole || "No role"}
-              </div>
-
-              <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Available
               </div>
             </div>
@@ -370,9 +453,9 @@ const Sidebar = ({ open = false, onClose }) => {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl h-10 px-3 text-sm text-red-300 hover:bg-red-500/10"
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-50"
             >
-              <LogOut size={18} />
+              <LogOut size={18} strokeWidth={1.8} />
               Logout
             </button>
           </div>

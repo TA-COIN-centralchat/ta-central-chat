@@ -1,5 +1,5 @@
-import DashboardLayout from "../components/layout/DashboardLayout";
-import { getCurrentUserRole } from "../routes/ProtectedRoute";
+import DashboardLayout from '../components/layout/DashboardLayout';
+import { getCurrentUserRole } from '../routes/ProtectedRoute';
 
 const SettingsPage = () => {
   const currentUserRole = getCurrentUserRole();
@@ -9,113 +9,147 @@ const SettingsPage = () => {
       title="Settings"
       description="Manage dashboard configuration and system information."
     >
-      <div className="space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-slate-950">
-            Account & Role
-          </h2>
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="rounded-[28px] border border-[#e8edf2] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-[#d8eef7]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <h2 className="text-base font-semibold text-[#1d1d1f]">
+                Account & Role
+              </h2>
 
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">
-            User roles are controlled by the system. Agents cannot change their
-            own role from Settings. In the real system, the role will be loaded
-            from the logged-in agent profile created by Admin.
-          </p>
-
-          <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-            <div>
-              <span className="font-medium text-slate-900">Current Role:</span>{" "}
-              {currentUserRole}
+              <p className="mt-2 text-sm leading-6 text-[#6e6e73]">
+                User roles are controlled by the system. Agents cannot change
+                their own role from Settings. In the real system, the role will
+                be loaded from the logged-in agent profile created by Admin.
+              </p>
             </div>
 
-            <div className="mt-2">
-              <span className="font-medium text-slate-900">Role Source:</span>{" "}
-              Temporary frontend role until Supabase Auth is connected.
+            <div className="w-full rounded-3xl border border-[#d8eef7] bg-[#f7fbfd] p-4 lg:max-w-sm">
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-[#8e8e93]">
+                Current Role
+              </div>
+
+              <div className="mt-2 text-lg font-semibold text-[#1d1d1f]">
+                {currentUserRole || 'No role found'}
+              </div>
+
+              <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[#6e6e73] ring-1 ring-[#e8edf2]">
+                Role source: Temporary frontend role until Supabase Auth is
+                connected.
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-slate-950">
-            Role Access Summary
-          </h2>
+        <section className="rounded-[28px] border border-[#e8edf2] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
+          <div className="mb-5">
+            <h2 className="text-base font-semibold text-[#1d1d1f]">
+              Role Access Summary
+            </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Admin creates agent accounts and assigns roles. Agents cannot assign
-            or upgrade their own access.
-          </p>
+            <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
+              Admin creates agent accounts and assigns roles. Agents cannot
+              assign or upgrade their own access.
+            </p>
+          </div>
 
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-5 py-3">Role</th>
-                  <th className="px-5 py-3">Access</th>
-                </tr>
-              </thead>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <RoleCard
+              role="Admin"
+              access="Full dashboard access, including reports, audit logs, agents, categories, settings, and all ticket operations."
+              highlight
+            />
 
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="px-5 py-4 font-medium text-slate-900">
-                    Admin
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    Full dashboard access, including reports, audit logs,
-                    agents, categories, settings, and all ticket operations.
-                  </td>
-                </tr>
+            <RoleCard
+              role="Customer Service Agent"
+              access="Daily ticket handling, manual ticket creation, waiting queue, Telegram, Website Chatbot, customers, and closed tickets."
+            />
 
-                <tr>
-                  <td className="px-5 py-4 font-medium text-slate-900">
-                    Customer Service Agent
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    Daily ticket handling, manual ticket creation, waiting
-                    queue, Telegram, Website Chatbot, customers, and closed
-                    tickets.
-                  </td>
-                </tr>
-
-                <tr>
-                  <td className="px-5 py-4 font-medium text-slate-900">
-                    Customer Support Agent
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    Ticket review, pending investigation, customers, and closed
-                    tickets.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <RoleCard
+              role="Customer Support Agent"
+              access="Ticket review, pending investigation, customers, and closed tickets."
+            />
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-slate-950">
-            Future Authentication Flow
-          </h2>
+        <section className="rounded-[28px] border border-[#e8edf2] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
+          <div className="mb-5">
+            <h2 className="text-base font-semibold text-[#1d1d1f]">
+              Future Authentication Flow
+            </h2>
 
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
-            <div className="rounded-xl bg-slate-50 p-4">
-              1. Admin creates an agent account from the Agents page.
-            </div>
+            <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
+              Planned production flow for account creation, login, and
+              role-based access.
+            </p>
+          </div>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              2. Admin assigns the agent role: Admin, Customer Service Agent, or
-              Customer Support Agent.
-            </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <FlowStep
+              number="1"
+              title="Create Agent"
+              description="Admin creates an agent account from the Agents page."
+            />
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              3. Agent logs in using Supabase Auth.
-            </div>
+            <FlowStep
+              number="2"
+              title="Assign Role"
+              description="Admin assigns Admin, Customer Service Agent, or Customer Support Agent."
+            />
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              4. System reads the saved role from the agent profile and controls
-              sidebar/routes automatically.
-            </div>
+            <FlowStep
+              number="3"
+              title="Agent Login"
+              description="Agent logs in using Supabase Auth."
+            />
+
+            <FlowStep
+              number="4"
+              title="Access Control"
+              description="System reads the saved role and controls sidebar/routes automatically."
+            />
           </div>
         </section>
       </div>
     </DashboardLayout>
+  );
+};
+
+const RoleCard = ({ role, access, highlight = false }) => {
+  return (
+    <div
+      className={`rounded-3xl border p-4 transition-all duration-200 hover:-translate-y-0.5 ${
+        highlight
+          ? 'border-[#d8eef7] bg-[#f7fbfd] shadow-[0_14px_32px_rgba(67,172,214,0.10)]'
+          : 'border-[#e8edf2] bg-[#fbfbfd] hover:border-[#d8eef7] hover:bg-white'
+      }`}
+    >
+      <div
+        className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+          highlight
+            ? 'bg-white text-[#2389b8] ring-[#d8eef7]'
+            : 'bg-white text-[#6e6e73] ring-[#e8edf2]'
+        }`}
+      >
+        {role}
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-[#6e6e73]">{access}</p>
+    </div>
+  );
+};
+
+const FlowStep = ({ number, title, description }) => {
+  return (
+    <div className="rounded-3xl border border-[#e8edf2] bg-[#fbfbfd] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#d8eef7] hover:bg-white hover:shadow-[0_14px_32px_rgba(67,172,214,0.08)]">
+      <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-[#2389b8] ring-1 ring-[#d8eef7]">
+        {number}
+      </div>
+
+      <h3 className="mt-4 text-sm font-semibold text-[#1d1d1f]">{title}</h3>
+
+      <p className="mt-2 text-sm leading-6 text-[#6e6e73]">{description}</p>
+    </div>
   );
 };
 

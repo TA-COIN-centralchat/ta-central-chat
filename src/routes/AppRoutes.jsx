@@ -1,34 +1,37 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import DashboardLayout from "../components/layout/DashboardLayout";
-import DashboardPage from "../pages/DashboardPage";
-import AllTicketsPage from "../pages/AllTicketsPage";
-import LoginPage from "../pages/LoginPage";
-import ManualTicketPage from "../pages/ManualTicketPage";
-import AgentsPage from "../pages/AgentsPage";
-import SettingsPage from "../pages/SettingsPage";
-import WaitingQueuePage from "../pages/WaitingQueuePage";
-import InvestigationPage from "../pages/InvestigationPage";
-import ReadyToContactPage from "../pages/ReadyToContactPage";
-import ClosedTicketsPage from "../pages/ClosedTicketsPage";
-import CategoriesPage from "../pages/CategoriesPage";
-import ReportsPage from "../pages/ReportsPage";
-import ChannelTicketsPage from "../pages/ChannelTicketsPage";
-import AuditLogsPage from "../pages/AuditLogsPage";
-import CustomersPage from "../pages/CustomersPage";
-import TicketDetailPage from "../pages/TicketDetailPage";
-import SessionWorkspacePage from "../pages/SessionWorkspacePage";
-import LiveChatPage from "../pages/LiveChatPage";
+import DashboardPage from '../pages/DashboardPage';
+import AllTicketsPage from '../pages/AllTicketsPage';
+import LoginPage from '../pages/LoginPage';
+import ManualTicketPage from '../pages/ManualTicketPage';
+import AgentsPage from '../pages/AgentsPage';
+import SettingsPage from '../pages/SettingsPage';
+import WaitingQueuePage from '../pages/WaitingQueuePage';
+import InvestigationPage from '../pages/InvestigationPage';
+import ReadyToContactPage from '../pages/ReadyToContactPage';
+import ClosedTicketsPage from '../pages/ClosedTicketsPage';
+import CategoriesPage from '../pages/CategoriesPage';
+import ReportsPage from '../pages/ReportsPage';
+import ChannelTicketsPage from '../pages/ChannelTicketsPage';
+import AuditLogsPage from '../pages/AuditLogsPage';
+import CustomersPage from '../pages/CustomersPage';
+import TicketDetailPage from '../pages/TicketDetailPage';
+import SessionWorkspacePage from '../pages/SessionWorkspacePage';
+import LiveChatPage from '../pages/LiveChatPage';
 
-import ProtectedRoute from "./ProtectedRoute";
+import ProtectedRoute from './ProtectedRoute';
 
-const ADMIN = ["Admin"];
+const ADMIN = ['Admin'];
 
-const ALL_ROLES = ["Admin", "Customer Service Agent", "Customer Support Agent"];
+const ALL_ROLES = [
+  'Admin',
+  'Customer Service Agent',
+  'Customer Support Agent',
+];
 
-const ADMIN_AND_SERVICE = ["Admin", "Customer Service Agent"];
+const ADMIN_AND_SERVICE = ['Admin', 'Customer Service Agent'];
 
-const ADMIN_AND_SUPPORT = ["Admin", "Customer Support Agent"];
+const ADMIN_AND_SUPPORT = ['Admin', 'Customer Support Agent'];
 
 const protect = (roles, element) => (
   <ProtectedRoute allowedRoles={roles}>{element}</ProtectedRoute>
@@ -39,38 +42,119 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        <Route element={protect(ALL_ROLES, <DashboardLayout />)}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/tickets" element={<AllTicketsPage />} />
-          <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
-          <Route path="/waiting-queue" element={<WaitingQueuePage />} />
-          <Route path="/investigation" element={<InvestigationPage />} />
-          <Route path="/ready-to-contact" element={<ReadyToContactPage />} />
-          <Route path="/closed" element={<ClosedTicketsPage />} />
-          <Route path="/manual-ticket" element={<ManualTicketPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-        </Route>
+        <Route
+          path="/dashboard"
+          element={protect(ALL_ROLES, <DashboardPage />)}
+        />
 
-        <Route element={protect(ADMIN_AND_SERVICE, <DashboardLayout />)}>
-          <Route path="/live-chat" element={<LiveChatPage />} />
-          <Route path="/chatbot" element={<ChannelTicketsPage channel="Chatbot" />} />
-          <Route path="/telegram" element={<ChannelTicketsPage channel="Telegram" />} />
-          <Route path="/chatbot/:sessionId" element={<SessionWorkspacePage />} />
-          <Route path="/telegram/:sessionId" element={<SessionWorkspacePage />} />
-        </Route>
+        <Route
+          path="/tickets"
+          element={protect(ALL_ROLES, <AllTicketsPage />)}
+        />
 
-        <Route element={protect(ADMIN_AND_SUPPORT, <DashboardLayout />)}>
-          <Route path="/agents" element={<AgentsPage />} />
-        </Route>
+        <Route
+          path="/tickets/:ticketId"
+          element={protect(ALL_ROLES, <TicketDetailPage />)}
+        />
 
-        <Route element={protect(ADMIN, <DashboardLayout />)}>
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/audit-logs" element={<AuditLogsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
+        <Route
+          path="/waiting-queue"
+          element={protect(ALL_ROLES, <WaitingQueuePage />)}
+        />
+
+        <Route
+          path="/investigation"
+          element={protect(ALL_ROLES, <InvestigationPage />)}
+        />
+
+        <Route
+          path="/ready-to-contact"
+          element={protect(ALL_ROLES, <ReadyToContactPage />)}
+        />
+
+        <Route
+          path="/closed"
+          element={protect(ALL_ROLES, <ClosedTicketsPage />)}
+        />
+
+        <Route
+          path="/manual-ticket"
+          element={protect(ALL_ROLES, <ManualTicketPage />)}
+        />
+
+        <Route
+          path="/live-chat"
+          element={protect(ADMIN_AND_SERVICE, <LiveChatPage />)}
+        />
+
+        <Route
+          path="/chatbot"
+          element={protect(
+            ADMIN_AND_SERVICE,
+            <ChannelTicketsPage
+              channelName="Website Chatbot"
+              title="Chatbot Sessions"
+              description="Customer conversations from the website chatbot."
+              workspaceBasePath="/chatbot"
+            />
+          )}
+        />
+
+        <Route
+          path="/telegram"
+          element={protect(
+            ADMIN_AND_SERVICE,
+            <ChannelTicketsPage
+              channelName="Telegram"
+              title="Telegram Sessions"
+              description="Customer conversations from the Telegram bot."
+              workspaceBasePath="/telegram"
+            />
+          )}
+        />
+
+        <Route
+          path="/chatbot/:sessionId"
+          element={protect(ADMIN_AND_SERVICE, <SessionWorkspacePage />)}
+        />
+
+        <Route
+          path="/telegram/:sessionId"
+          element={protect(ADMIN_AND_SERVICE, <SessionWorkspacePage />)}
+        />
+
+        <Route
+          path="/customers"
+          element={protect(ALL_ROLES, <CustomersPage />)}
+        />
+
+        <Route
+          path="/categories"
+          element={protect(ADMIN, <CategoriesPage />)}
+        />
+
+        <Route
+          path="/reports"
+          element={protect(ADMIN, <ReportsPage />)}
+        />
+
+        <Route
+          path="/audit-logs"
+          element={protect(ADMIN, <AuditLogsPage />)}
+        />
+
+        <Route
+          path="/agents"
+          element={protect(ADMIN_AND_SUPPORT, <AgentsPage />)}
+        />
+
+        <Route
+          path="/settings"
+          element={protect(ADMIN, <SettingsPage />)}
+        />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
