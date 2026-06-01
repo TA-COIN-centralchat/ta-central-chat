@@ -88,19 +88,6 @@ const ReadyToContactPage = () => {
     });
   };
 
-  const highPriorityCount = tickets.filter((ticket) => {
-    const text = `${ticket.category || ''} ${ticket.subCategory || ''} ${
-      ticket.lastMessage || ''
-    }`.toLowerCase();
-
-    return (
-      text.includes('urgent') ||
-      text.includes('high') ||
-      text.includes('withdrawal') ||
-      text.includes('payment')
-    );
-  }).length;
-
   const telegramCount = tickets.filter(
     (ticket) => ticket.channel?.toLowerCase() === 'telegram'
   ).length;
@@ -131,12 +118,6 @@ const ReadyToContactPage = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <StatusPill label="Ready" value={tickets.length} tone="blue" />
-              <StatusPill
-                label="High Priority"
-                value={highPriorityCount}
-                tone="orange"
-              />
               <StatusPill
                 label="Telegram"
                 value={telegramCount}

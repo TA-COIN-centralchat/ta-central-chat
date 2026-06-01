@@ -4,13 +4,23 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { supabase } from "../services/supabaseClient";
 import { autoAssignWaitingChatSessions } from "../services/realtimeChat";
+import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext(null);
+
 const MAX_NOTIFICATIONS = 50;
+const TOAST_DURATION_MS = 4500;
+const AUTO_ASSIGN_INTERVAL_MS = 15000;
+
+const isResolvedStatus = (status = "") => {
+  const normalized = String(status).toLowerCase().trim();
+  return normalized === "resolved" || normalized === "closed";
+};
 
 const getChannelLabel = (session) => {
   const metadata =
@@ -18,87 +28,157 @@ const getChannelLabel = (session) => {
       ? session.metadata
       : {};
 
-  return metadata.channel || metadata.sourceChannel || "Live Chat";
+  return (
+    session?.channel ||
+    metadata.channel ||
+    metadata.sourceChannel ||
+    "Live Chat"
+  );
 };
 
-const isResolvedStatus = (status = "") => {
-  const normalized = String(status).toLowerCase().trim();
-  return normalized === "resolved" || normalized === "closed";
+const channelKey = (channel) =>
+  String(channel || "").toLowerCase().trim();
+
+export const getChannelRoute = (channel, sessionId) => {
+  const key = channelKey(channel);
+
+  if (key === "telegram") {
+    return {
+      path: sessionId ? `/telegram/${sessionId}` : "/telegram",
+      from: "/telegram",
+      fromLabel: "Telegram Sessions",
+      mode: "telegram-chat",
+      channel: "Telegram",
+    };
+  }
+
+  if (key === "website chatbot" || key === "chatbot") {
+    return {
+      path: sessionId ? `/chatbot/${sessionId}` : "/chatbot",
+      from: "/chatbot",
+      fromLabel: "Chatbot Sessions",
+      mode: "session",
+      channel: "Website Chatbot",
+    };
+  }
+
+  return {
+    path: "/live-chat",
+    from: "/live-chat",
+    fromLabel: "Live Chat",
+    mode: "session",
+    channel: channel || "Live Chat",
+  };
+};
+
+const getCustomerName = (session) => {
+  const metadata =
+    session?.metadata && typeof session.metadata === "object"
+      ? session.metadata
+      : {};
+
+  return (
+    metadata.customerName ||
+    metadata.fullName ||
+    metadata.telegramUsername ||
+    session?.user_id ||
+    "Customer"
+  );
 };
 
 export const NotificationProvider = ({ children }) => {
+  const { currentAgent } = useAuth();
+
   const [notifications, setNotifications] = useState([]);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [currentAgent, setCurrentAgent] = useState(null);
+  const [toastNotification, setToastNotification] = useState(null);
+  const [realtimeStatus, setRealtimeStatus] = useState("connecting");
+  const toastTimerRef = useRef(null);
+
+  const handleSubscribeStatus = useCallback((status) => {
+    if (status === "SUBSCRIBED") {
+      setRealtimeStatus("connected");
+    } else if (
+      status === "CHANNEL_ERROR" ||
+      status === "TIMED_OUT" ||
+      status === "CLOSED"
+    ) {
+      setRealtimeStatus("disconnected");
+    } else {
+      setRealtimeStatus("connecting");
+    }
+  }, []);
 
   const pushNotification = useCallback((entry) => {
     const item = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      id: entry.id || crypto.randomUUID(),
+      createdAt: entry.createdAt || new Date().toISOString(),
       read: false,
+      severity: "info",
+      kind: "system",
       ...entry,
     };
 
     setNotifications((prev) => [item, ...prev].slice(0, MAX_NOTIFICATIONS));
+
+    if (item.kind === "message") {
+      setToastNotification(item);
+    }
+
+    return item;
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const resolveAgent = async (session) => {
-      if (!session?.user?.email) {
-        if (isMounted) setCurrentAgent(null);
-        return;
-      }
-
-      const { data: agent, error } = await supabase
-        .from("agents")
-        .select("id, role, email")
-        .eq("email", session.user.email)
-        .single();
-
-      if (error || !agent) {
-        if (isMounted) setCurrentAgent(null);
-        return;
-      }
-
-      if (isMounted) setCurrentAgent(agent);
-    };
-
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error) return;
-      resolveAgent(data?.session);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      resolveAgent(session);
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [pushNotification]);
-
-  useEffect(() => {
-    if (!currentAgent) {
+    if (!toastNotification) {
       return undefined;
     }
 
-    const chatChannel = supabase
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastNotification(null);
+      toastTimerRef.current = null;
+    }, TOAST_DURATION_MS);
+
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, [toastNotification]);
+
+  useEffect(() => {
+    if (!currentAgent?.id) {
+      return undefined;
+    }
+
+    const isAdmin = String(currentAgent.role || "").toLowerCase() === "admin";
+
+    const sessionChannel = supabase
       .channel(`notifications-chat-sessions-${currentAgent.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chat_sessions" },
         (payload) => {
           const sessionData = payload.new;
+          const channelLabel = getChannelLabel(sessionData);
+          const route = getChannelRoute(channelLabel, sessionData?.id);
+
           pushNotification({
+            kind: "session",
             severity: "info",
-            title: "New live chat session",
-            body: `${getChannelLabel(sessionData)} customer started a new session.`,
-            link: "/live-chat",
+            title: `New ${channelLabel} session`,
+            body: `${channelLabel} customer started a new session.`,
+            link: route.path,
+            linkState: {
+              from: route.from,
+              fromLabel: route.fromLabel,
+              mode: route.mode,
+              channel: route.channel,
+            },
           });
         },
       )
@@ -106,33 +186,50 @@ export const NotificationProvider = ({ children }) => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "chat_sessions" },
         (payload) => {
-          const nextStatus = payload.new?.status;
+          const sessionData = payload.new;
           const prevStatus = payload.old?.status;
+          const nextStatus = sessionData?.status;
+          const channelLabel = getChannelLabel(sessionData);
+          const route = getChannelRoute(channelLabel, sessionData?.id);
 
           if (
             prevStatus !== "active" &&
             nextStatus === "active" &&
-            payload.new?.agent_id
+            sessionData?.agent_id
           ) {
             pushNotification({
+              kind: "session",
               severity: "success",
-              title: "Session assigned",
-              body: "Session was assigned to an available agent.",
-              link: "/live-chat",
+              title: `${channelLabel} session assigned`,
+              body: `A ${channelLabel} session was assigned to an agent.`,
+              link: route.path,
+              linkState: {
+                from: route.from,
+                fromLabel: route.fromLabel,
+                mode: route.mode,
+                channel: route.channel,
+              },
             });
           }
 
           if (prevStatus !== "closed" && nextStatus === "closed") {
             pushNotification({
+              kind: "session",
               severity: "warning",
-              title: "Session ended",
-              body: "A live chat session has ended.",
-              link: "/live-chat",
+              title: `${channelLabel} session ended`,
+              body: `A ${channelLabel} session has ended.`,
+              link: route.path,
+              linkState: {
+                from: route.from,
+                fromLabel: route.fromLabel,
+                mode: route.mode,
+                channel: route.channel,
+              },
             });
           }
         },
       )
-      .subscribe();
+      .subscribe(handleSubscribeStatus);
 
     const ticketChannel = supabase
       .channel(`notifications-tickets-${currentAgent.id}`)
@@ -142,6 +239,7 @@ export const NotificationProvider = ({ children }) => {
         (payload) => {
           const ticket = payload.new;
           pushNotification({
+            kind: "ticket",
             severity: "info",
             title: "Ticket created",
             body: `Ticket ${ticket.ticket_number || ""} was created.`,
@@ -159,64 +257,145 @@ export const NotificationProvider = ({ children }) => {
           const newAssignedTo = payload.new?.assigned_to;
           const oldPriority = payload.old?.priority;
           const newPriority = payload.new?.priority;
+          const ticketNumber = payload.new?.ticket_number || "";
 
           if (!isResolvedStatus(oldStatus) && isResolvedStatus(newStatus)) {
             pushNotification({
+              kind: "ticket",
               severity: "success",
               title: "Issue resolved",
-              body: `Ticket ${payload.new?.ticket_number || ""} marked as ${newStatus}.`,
+              body: `Ticket ${ticketNumber} marked as ${newStatus}.`,
               link: "/closed",
             });
           } else if (oldAssignedTo !== newAssignedTo && newAssignedTo) {
-             pushNotification({
-               severity: "info",
-               title: "Ticket assigned",
-               body: `Ticket ${payload.new?.ticket_number || ""} was assigned to an agent.`,
-               link: "/tickets",
-             });
-          } else if (oldPriority !== newPriority && (newPriority === 'High' || newPriority === 'Urgent')) {
-             pushNotification({
-               severity: "warning",
-               title: "Ticket Escalated",
-               body: `Ticket ${payload.new?.ticket_number || ""} priority escalated to ${newPriority}.`,
-               link: "/tickets",
-             });
+            pushNotification({
+              kind: "ticket",
+              severity: "info",
+              title: "Ticket assigned",
+              body: `Ticket ${ticketNumber} was assigned to an agent.`,
+              link: "/tickets",
+            });
+          } else if (
+            oldPriority !== newPriority &&
+            (newPriority === "High" || newPriority === "Urgent")
+          ) {
+            pushNotification({
+              kind: "ticket",
+              severity: "warning",
+              title: "Ticket escalated",
+              body: `Ticket ${ticketNumber} priority escalated to ${newPriority}.`,
+              link: "/tickets",
+            });
           }
         },
       )
-      .subscribe();
+      .subscribe(handleSubscribeStatus);
+
+    let messageChannel = null;
+
+    if (!isAdmin) {
+      messageChannel = supabase
+        .channel(`notifications-chat-messages-${currentAgent.id}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chat_messages" },
+          async (payload) => {
+            const newMessage = payload.new;
+            const sessionId = newMessage?.session_id;
+            if (!sessionId) return;
+
+            const senderType = String(
+              newMessage.sender_type ||
+                newMessage.sender ||
+                newMessage.role ||
+                "",
+            ).toLowerCase();
+
+            if (
+              senderType === "agent" ||
+              senderType === "admin" ||
+              senderType === "system"
+            ) {
+              return;
+            }
+
+            const { data: session, error: sessionError } = await supabase
+              .from("chat_sessions")
+              .select("id, agent_id, channel, metadata, user_id")
+              .eq("id", sessionId)
+              .maybeSingle();
+
+            if (sessionError || !session) return;
+            if (session.agent_id !== currentAgent.id) return;
+
+            const channelLabel = getChannelLabel(session);
+            const route = getChannelRoute(channelLabel, sessionId);
+            const customerName = getCustomerName(session);
+
+            const messageText =
+              newMessage.content ||
+              newMessage.message_text ||
+              newMessage.text ||
+              "New customer message";
+
+            pushNotification({
+              id: newMessage.id || `${sessionId}-${Date.now()}`,
+              createdAt: newMessage.created_at || new Date().toISOString(),
+              kind: "message",
+              severity: "info",
+              title: customerName,
+              body: messageText,
+              link: route.path,
+              linkState: {
+                from: route.from,
+                fromLabel: route.fromLabel,
+                mode: route.mode,
+                channel: route.channel,
+              },
+              sessionId,
+              customerName,
+              channel: route.channel,
+            });
+          },
+        )
+        .subscribe();
+    }
 
     const autoAssignInterval = setInterval(() => {
       autoAssignWaitingChatSessions().catch((error) => {
         console.error("Live chat auto-assignment failed:", error);
       });
-    }, 15000);
+    }, AUTO_ASSIGN_INTERVAL_MS);
 
     return () => {
       clearInterval(autoAssignInterval);
-      chatChannel.unsubscribe();
+      sessionChannel.unsubscribe();
       ticketChannel.unsubscribe();
+      if (messageChannel) messageChannel.unsubscribe();
     };
-  }, [currentAgent, pushNotification]);
+  }, [currentAgent, pushNotification, handleSubscribeStatus]);
 
-  useEffect(() => {
-    if (notifications.length === 0) return undefined;
-
-    const timer = setTimeout(() => {
-      setNotifications((prev) => {
-        if (prev.length === 0) return prev;
-        const [latest, ...rest] = prev;
-        return [{ ...latest, read: true }, ...rest];
-      });
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [notifications]);
-
-  const unreadCount = notifications.filter((item) => !item.read).length;
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => !item.read).length,
+    [notifications],
+  );
 
   const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+    setNotifications((prev) =>
+      prev.map((item) => (item.read ? item : { ...item, read: true })),
+    );
+  }, []);
+
+  const markRead = useCallback((id) => {
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === id && !item.read ? { ...item, read: true } : item,
+      ),
+    );
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    setToastNotification(null);
   }, []);
 
   const value = useMemo(
@@ -226,9 +405,23 @@ export const NotificationProvider = ({ children }) => {
       panelOpen,
       setPanelOpen,
       markAllRead,
+      markRead,
       addNotification: pushNotification,
+      toastNotification,
+      dismissToast,
+      realtimeStatus,
     }),
-    [markAllRead, notifications, panelOpen, unreadCount, pushNotification],
+    [
+      notifications,
+      unreadCount,
+      panelOpen,
+      markAllRead,
+      markRead,
+      pushNotification,
+      toastNotification,
+      dismissToast,
+      realtimeStatus,
+    ],
   );
 
   return (

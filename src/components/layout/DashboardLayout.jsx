@@ -1,8 +1,9 @@
-import { Bell, Menu, Plus, Search, Wifi, X } from 'lucide-react';
+import { Bell, Menu, Plus, Search, Wifi, WifiOff, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { supabase } from '../../services/supabaseClient';
+import { useNotifications } from '../../context/NotificationContext';
 
 const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
 const HEARTBEAT_INTERVAL_MS = 30000;
@@ -10,40 +11,44 @@ const HEARTBEAT_INTERVAL_MS = 30000;
 const DashboardLayout = ({ title, description, children }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [notifications, setNotifications] = useState([]);
-  const [toastNotification, setToastNotification] = useState(null);
+
+  const {
+    notifications,
+    unreadCount,
+    markAllRead,
+    markRead,
+    toastNotification,
+    dismissToast,
+    realtimeStatus,
+  } = useNotifications();
 
   useEffect(() => {
     let stopped = false;
     let intervalId;
 
-    const getStoredAgentInfo = () => {
-      return {
-        agentId:
-          localStorage.getItem('currentAgentId') ||
-          localStorage.getItem('tacoin_agent_id') ||
-          localStorage.getItem('agentId') ||
-          null,
-        fullName:
-          localStorage.getItem('currentUserName') ||
-          localStorage.getItem('tacoin_agent_name') ||
-          localStorage.getItem('agentName') ||
-          'Agent',
-        email:
-          localStorage.getItem('currentUserEmail') ||
-          localStorage.getItem('tacoin_agent_email') ||
-          localStorage.getItem('agentEmail') ||
-          null,
-        role:
-          localStorage.getItem('currentUserRole') ||
-          localStorage.getItem('tacoin_agent_role') ||
-          localStorage.getItem('agentRole') ||
-          'Customer Service Agent',
-      };
-    };
+    const getStoredAgentInfo = () => ({
+      agentId:
+        localStorage.getItem('currentAgentId') ||
+        localStorage.getItem('tacoin_agent_id') ||
+        localStorage.getItem('agentId') ||
+        null,
+      fullName:
+        localStorage.getItem('currentUserName') ||
+        localStorage.getItem('tacoin_agent_name') ||
+        localStorage.getItem('agentName') ||
+        'Agent',
+      email:
+        localStorage.getItem('currentUserEmail') ||
+        localStorage.getItem('tacoin_agent_email') ||
+        localStorage.getItem('agentEmail') ||
+        null,
+      role:
+        localStorage.getItem('currentUserRole') ||
+        localStorage.getItem('tacoin_agent_role') ||
+        localStorage.getItem('agentRole') ||
+        'Customer Service Agent',
+    });
 
     const findAgentProfile = async () => {
       const storedAgent = getStoredAgentInfo();
@@ -55,9 +60,7 @@ const DashboardLayout = ({ title, description, children }) => {
           .eq('id', storedAgent.agentId)
           .maybeSingle();
 
-        if (!error && data) {
-          return data;
-        }
+        if (!error && data) return data;
       }
 
       if (storedAgent.email) {
@@ -72,7 +75,6 @@ const DashboardLayout = ({ title, description, children }) => {
           localStorage.setItem('currentUserName', data.full_name || 'Agent');
           localStorage.setItem('currentUserEmail', data.email || '');
           localStorage.setItem('currentUserRole', data.role || storedAgent.role);
-
           return data;
         }
       }
@@ -89,7 +91,6 @@ const DashboardLayout = ({ title, description, children }) => {
           localStorage.setItem('currentUserName', data.full_name || 'Agent');
           localStorage.setItem('currentUserEmail', data.email || '');
           localStorage.setItem('currentUserRole', data.role || storedAgent.role);
-
           return data;
         }
       }
@@ -100,10 +101,7 @@ const DashboardLayout = ({ title, description, children }) => {
     const getActiveSessionCount = async (agentId) => {
       const { count, error } = await supabase
         .from('chat_sessions')
-        .select('id', {
-          count: 'exact',
-          head: true,
-        })
+        .select('id', { count: 'exact', head: true })
         .eq('agent_id', agentId)
         .eq('status', 'active');
 
@@ -118,18 +116,13 @@ const DashboardLayout = ({ title, description, children }) => {
     const updateAgentPresence = async () => {
       try {
         const agent = await findAgentProfile();
-
-        if (!agent?.id || stopped) {
-          return;
-        }
+        if (!agent?.id || stopped) return;
 
         const activeSessionCount = await getActiveSessionCount(agent.id);
-
         const agentStatus =
           activeSessionCount >= MAX_ACTIVE_SESSIONS_PER_AGENT
             ? 'Busy'
             : 'Available';
-
         const now = new Date().toISOString();
 
         await supabase.from('agent_presence').upsert(
@@ -146,17 +139,12 @@ const DashboardLayout = ({ title, description, children }) => {
             logged_out_at: null,
             updated_at: now,
           },
-          {
-            onConflict: 'agent_id',
-          }
+          { onConflict: 'agent_id' },
         );
 
         await supabase
           .from('agents')
-          .update({
-            status: agentStatus,
-            updated_at: now,
-          })
+          .update({ status: agentStatus, updated_at: now })
           .eq('id', agent.id);
       } catch (error) {
         console.warn('Agent heartbeat failed:', error);
@@ -164,159 +152,37 @@ const DashboardLayout = ({ title, description, children }) => {
     };
 
     updateAgentPresence();
-
-    intervalId = window.setInterval(() => {
-      updateAgentPresence();
-    }, HEARTBEAT_INTERVAL_MS);
+    intervalId = window.setInterval(updateAgentPresence, HEARTBEAT_INTERVAL_MS);
 
     return () => {
       stopped = true;
-
-      if (intervalId) {
-        window.clearInterval(intervalId);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const currentAgentId =
-      localStorage.getItem('currentAgentId') ||
-      localStorage.getItem('tacoin_agent_id') ||
-      localStorage.getItem('agentId') ||
-      null;
-
-    const currentUserRole =
-      localStorage.getItem('currentUserRole') ||
-      localStorage.getItem('tacoin_agent_role') ||
-      localStorage.getItem('agentRole') ||
-      null;
-
-    if (!currentAgentId || currentUserRole === 'Admin') {
-      return undefined;
-    }
-
-    const handleNewChatMessage = async (newMessage) => {
-      try {
-        const sessionId = newMessage.session_id;
-
-        if (!sessionId) {
-          return;
-        }
-
-        const senderType = String(
-          newMessage.sender_type ||
-            newMessage.sender ||
-            newMessage.role ||
-            ''
-        ).toLowerCase();
-
-        if (
-          senderType === 'agent' ||
-          senderType === 'admin' ||
-          senderType === 'system'
-        ) {
-          return;
-        }
-
-        const { data: session, error: sessionError } = await supabase
-          .from('chat_sessions')
-          .select('id, agent_id, channel, metadata, user_id')
-          .eq('id', sessionId)
-          .maybeSingle();
-
-        if (sessionError) {
-          console.warn('Failed to check notification session:', sessionError);
-          return;
-        }
-
-        if (!session) {
-          return;
-        }
-
-        if (session.agent_id !== currentAgentId) {
-          return;
-        }
-
-        const metadata = session.metadata || {};
-
-        const customerName =
-          metadata.customerName ||
-          metadata.fullName ||
-          metadata.telegramUsername ||
-          session.user_id ||
-          'Customer';
-
-        const messageText =
-          newMessage.content ||
-          newMessage.message_text ||
-          newMessage.text ||
-          'New customer message';
-
-        const notification = {
-          id: newMessage.id || `${sessionId}-${Date.now()}`,
-          sessionId,
-          customerName,
-          channel: session.channel || 'Telegram',
-          message: messageText,
-          createdAt: newMessage.created_at || new Date().toISOString(),
-        };
-
-        setNotifications((prev) => [notification, ...prev].slice(0, 10));
-        setNotificationCount((prev) => prev + 1);
-        setToastNotification(notification);
-
-        window.setTimeout(() => {
-          setToastNotification(null);
-        }, 4500);
-
-        console.log('✅ Agent notification received:', notification);
-      } catch (error) {
-        console.warn('Failed to handle message notification:', error);
-      }
-    };
-
-    const notificationSub = supabase
-      .channel(`agent-message-notifications-${currentAgentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        (payload) => {
-          handleNewChatMessage(payload.new);
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Agent notification realtime status:', status);
-      });
-
-    return () => {
-      notificationSub.unsubscribe();
+      if (intervalId) window.clearInterval(intervalId);
     };
   }, []);
 
   const handleBellClick = () => {
-    setNotificationOpen((prev) => !prev);
-
-    if (!notificationOpen) {
-      setNotificationCount(0);
-    }
+    setNotificationOpen((prev) => {
+      const next = !prev;
+      if (next) markAllRead();
+      return next;
+    });
   };
 
-  const openNotificationSession = (notification) => {
+  const openNotification = (notification) => {
     setNotificationOpen(false);
-    setNotificationCount(0);
+    markRead(notification.id);
 
-    navigate(`/telegram/${notification.sessionId}`, {
-      state: {
-        from: '/telegram',
-        fromLabel: 'Telegram Sessions',
-        mode: 'telegram-chat',
-        channel: notification.channel || 'Telegram',
-      },
+    if (!notification.link) return;
+
+    navigate(notification.link, {
+      state: notification.linkState,
     });
+  };
+
+  const openToast = () => {
+    if (!toastNotification) return;
+    dismissToast();
+    openNotification(toastNotification);
   };
 
   return (
@@ -365,11 +231,7 @@ const DashboardLayout = ({ title, description, children }) => {
                 />
               </div>
 
-              <div className="hidden h-11 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 sm:inline-flex">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <Wifi size={15} />
-                Connected
-              </div>
+              <ConnectionStatusPill status={realtimeStatus} />
 
               <div className="relative">
                 <button
@@ -380,78 +242,19 @@ const DashboardLayout = ({ title, description, children }) => {
                 >
                   <Bell size={18} />
 
-                  {notificationCount > 0 && (
+                  {unreadCount > 0 && (
                     <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white ring-2 ring-white">
-                      {notificationCount > 9 ? '9+' : notificationCount}
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </button>
 
                 {notificationOpen && (
-                  <div className="absolute right-0 top-13 z-50 w-80 overflow-hidden rounded-3xl border border-[#e8edf2] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] sm:w-96">
-                    <div className="flex items-center justify-between border-b border-[#edf1f5] px-4 py-3">
-                      <div>
-                        <div className="text-sm font-semibold text-[#1d1d1f]">
-                          Notifications
-                        </div>
-
-                        <div className="text-xs text-[#8e8e93]">
-                          New assigned customer messages
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setNotificationOpen(false)}
-                        className="rounded-xl p-1.5 text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-
-                    {notifications.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-sm text-[#6e6e73]">
-                        No new notifications yet.
-                      </div>
-                    ) : (
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.map((notification) => (
-                          <button
-                            key={notification.id}
-                            type="button"
-                            onClick={() =>
-                              openNotificationSession(notification)
-                            }
-                            className="block w-full border-b border-[#edf1f5] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#f7fbfd]"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
-                                {notification.customerName
-                                  ?.charAt(0)
-                                  ?.toUpperCase() || 'C'}
-                              </div>
-
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-[#1d1d1f]">
-                                  {notification.customerName}
-                                </div>
-
-                                <div className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
-                                  {notification.message}
-                                </div>
-
-                                <div className="mt-1 text-[11px] text-[#8e8e93]">
-                                  {formatNotificationTime(
-                                    notification.createdAt
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <NotificationDropdown
+                    notifications={notifications}
+                    onClose={() => setNotificationOpen(false)}
+                    onItemClick={openNotification}
+                  />
                 )}
               </div>
 
@@ -479,33 +282,205 @@ const DashboardLayout = ({ title, description, children }) => {
       </main>
 
       {toastNotification && (
+        <NotificationToast
+          notification={toastNotification}
+          onClick={openToast}
+          onDismiss={dismissToast}
+        />
+      )}
+    </div>
+  );
+};
+
+const NotificationDropdown = ({ notifications, onClose, onItemClick }) => {
+  return (
+    <div className="absolute right-0 top-13 z-50 w-80 overflow-hidden rounded-3xl border border-[#e8edf2] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] sm:w-96">
+      <div className="flex items-center justify-between border-b border-[#edf1f5] px-4 py-3">
+        <div>
+          <div className="text-sm font-semibold text-[#1d1d1f]">
+            Notifications
+          </div>
+          <div className="text-xs text-[#8e8e93]">
+            New activity from your sessions
+          </div>
+        </div>
+
         <button
           type="button"
-          onClick={() => openNotificationSession(toastNotification)}
-          className="fixed bottom-6 right-6 z-50 w-80 rounded-3xl border border-[#d8eef7] bg-white p-4 text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(15,23,42,0.22)] sm:w-96"
+          onClick={onClose}
+          className="rounded-xl p-1.5 text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
         >
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
-              {toastNotification.customerName?.charAt(0)?.toUpperCase() ||
-                'C'}
-            </div>
-
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-[#1d1d1f]">
-                New customer message
-              </div>
-
-              <div className="mt-1 truncate text-sm font-medium text-[#2389b8]">
-                {toastNotification.customerName}
-              </div>
-
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
-                {toastNotification.message}
-              </p>
-            </div>
-          </div>
+          <X size={16} />
         </button>
+      </div>
+
+      {notifications.length === 0 ? (
+        <div className="px-4 py-8 text-center text-sm text-[#6e6e73]">
+          No new notifications yet.
+        </div>
+      ) : (
+        <div className="max-h-96 overflow-y-auto">
+          {notifications.map((notification) => (
+            <NotificationItem
+              key={notification.id}
+              notification={notification}
+              onClick={() => onItemClick(notification)}
+            />
+          ))}
+        </div>
       )}
+    </div>
+  );
+};
+
+const NotificationItem = ({ notification, onClick }) => {
+  const isMessage = notification.kind === 'message';
+  const Wrapper = notification.link ? Link : 'button';
+  const wrapperProps = notification.link
+    ? { to: notification.link, state: notification.linkState }
+    : { type: 'button' };
+
+  return (
+    <Wrapper
+      {...wrapperProps}
+      onClick={onClick}
+      className={`block w-full border-b border-[#edf1f5] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#f7fbfd] ${
+        notification.read ? '' : 'bg-[#f7fbfd]/40'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {isMessage ? (
+          <CustomerAvatar name={notification.customerName} />
+        ) : (
+          <SeverityIcon severity={notification.severity} />
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+              {notification.title}
+            </div>
+            {!notification.read && (
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#43acd6]" />
+            )}
+          </div>
+
+          <div className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
+            {notification.body}
+          </div>
+
+          <div className="mt-1 text-[11px] text-[#8e8e93]">
+            {formatNotificationTime(notification.createdAt)}
+          </div>
+        </div>
+      </div>
+    </Wrapper>
+  );
+};
+
+const NotificationToast = ({ notification, onClick, onDismiss }) => {
+  const isMessage = notification.kind === 'message';
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 w-80 rounded-3xl border border-[#d8eef7] bg-white p-4 text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)] sm:w-96">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-start gap-3 text-left"
+      >
+        {isMessage ? (
+          <CustomerAvatar name={notification.customerName} size="lg" />
+        ) : (
+          <SeverityIcon severity={notification.severity} size="lg" />
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-[#1d1d1f]">
+            {isMessage ? 'New customer message' : notification.title}
+          </div>
+
+          {isMessage && (
+            <div className="mt-1 truncate text-sm font-medium text-[#2389b8]">
+              {notification.customerName}
+            </div>
+          )}
+
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
+            {notification.body}
+          </p>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="absolute right-2 top-2 rounded-xl p-1 text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+        aria-label="Dismiss"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+};
+
+const CustomerAvatar = ({ name, size = 'md' }) => {
+  const sizeClass = size === 'lg' ? 'h-10 w-10' : 'h-9 w-9';
+
+  return (
+    <div
+      className={`mt-0.5 flex ${sizeClass} shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15`}
+    >
+      {name?.charAt(0)?.toUpperCase() || 'C'}
+    </div>
+  );
+};
+
+const SeverityIcon = ({ severity, size = 'md' }) => {
+  const sizeClass = size === 'lg' ? 'h-10 w-10' : 'h-9 w-9';
+  const colorClass =
+    severity === 'success'
+      ? 'bg-emerald-100 text-emerald-600 ring-emerald-200'
+      : severity === 'warning'
+      ? 'bg-amber-100 text-amber-600 ring-amber-200'
+      : severity === 'error'
+      ? 'bg-red-100 text-red-600 ring-red-200'
+      : 'bg-[#eef9fd] text-[#2389b8] ring-[#43acd6]/15';
+
+  return (
+    <div
+      className={`mt-0.5 flex ${sizeClass} shrink-0 items-center justify-center rounded-full ring-1 ${colorClass}`}
+    >
+      <Bell size={size === 'lg' ? 16 : 14} />
+    </div>
+  );
+};
+
+const ConnectionStatusPill = ({ status }) => {
+  if (status === 'connected') {
+    return (
+      <div className="hidden h-11 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 sm:inline-flex">
+        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        <Wifi size={15} />
+        Connected
+      </div>
+    );
+  }
+
+  if (status === 'disconnected') {
+    return (
+      <div className="hidden h-11 items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-medium text-red-700 sm:inline-flex">
+        <span className="h-2 w-2 rounded-full bg-red-500" />
+        <WifiOff size={15} />
+        Offline
+      </div>
+    );
+  }
+
+  return (
+    <div className="hidden h-11 items-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 text-sm font-medium text-amber-700 sm:inline-flex">
+      <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+      <Wifi size={15} />
+      Connecting
     </div>
   );
 };
@@ -514,10 +489,7 @@ const formatNotificationTime = (value) => {
   if (!value) return 'Just now';
 
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Just now';
-  }
+  if (Number.isNaN(date.getTime())) return 'Just now';
 
   return date.toLocaleTimeString([], {
     hour: '2-digit',

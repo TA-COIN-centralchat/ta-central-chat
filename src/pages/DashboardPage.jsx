@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getAgents, getTickets } from '../services/ticketService';
+import { supabase } from '../services/supabaseClient';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -20,28 +21,81 @@ const DashboardPage = () => {
   const [tickets, setTickets] = useState([]);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const refreshTimerRef = useRef(null);
+
+  const loadDashboard = useCallback(async ({ silent = false } = {}) => {
+    try {
+      if (!silent) setLoading(true);
+
+      const [ticketData, agentData] = await Promise.all([
+        getTickets(),
+        getAgents(),
+      ]);
+
+      setTickets(ticketData);
+      setAgents(agentData);
+    } catch (error) {
+      console.error('Failed to load dashboard:', error);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
+    loadDashboard();
+  }, [loadDashboard]);
 
-        const [ticketData, agentData] = await Promise.all([
-          getTickets(),
-          getAgents(),
-        ]);
-
-        setTickets(ticketData);
-        setAgents(agentData);
-      } catch (error) {
-        console.error('Failed to load dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(() => {
+    const scheduleRefresh = () => {
+      if (refreshTimerRef.current) return;
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        loadDashboard({ silent: true });
+      }, 500);
     };
 
-    loadDashboard();
-  }, []);
+    const ticketChannel = supabase
+      .channel('dashboard-tickets')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tickets' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    const sessionChannel = supabase
+      .channel('dashboard-chat-sessions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_sessions' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    const agentChannel = supabase
+      .channel('dashboard-agents')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agents' },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agent_presence' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      ticketChannel.unsubscribe();
+      sessionChannel.unsubscribe();
+      agentChannel.unsubscribe();
+    };
+  }, [loadDashboard]);
 
   const stats = useMemo(() => {
     const waitingQueue = tickets.filter(
