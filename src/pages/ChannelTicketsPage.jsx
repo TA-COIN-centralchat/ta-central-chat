@@ -15,6 +15,10 @@ import {
   getSessionsByChannel,
 } from '../services/sessionService';
 import { supabase } from '../services/supabaseClient';
+import {
+  getCurrentAgentId,
+  getCurrentUserRole,
+} from '../utils/authUtils';
 
 const sessionStatusOptions = [
   'All',
@@ -103,12 +107,34 @@ const ChannelTicketsPage = ({
   const [sessionFilter, setSessionFilter] = useState('All');
 
   const loadTelegramSessions = async () => {
-    const { data: telegramSessions, error: sessionError } = await supabase
+    const currentAgentId = getCurrentAgentId();
+    const currentUserRole = getCurrentUserRole();
+
+    let query = supabase
       .from('chat_sessions')
       .select('*')
       .eq('channel', 'Telegram')
       .in('status', ['waiting', 'active', 'closed'])
       .order('created_at', { ascending: false });
+
+    /*
+      Admin can see all Telegram sessions.
+      Agents can only see Telegram sessions assigned to their own account.
+
+      This prevents one agent from seeing another agent's Telegram conversation.
+      Example: if the Telegram bot connected the customer to Thyda,
+      Ying will not see that session unless Ying is the assigned agent.
+    */
+    if (currentUserRole !== 'Admin') {
+      if (!currentAgentId) {
+        console.warn('Missing currentAgentId. Returning empty Telegram sessions.');
+        return [];
+      }
+
+      query = query.eq('agent_id', currentAgentId);
+    }
+
+    const { data: telegramSessions, error: sessionError } = await query;
 
     if (sessionError) {
       throw sessionError;

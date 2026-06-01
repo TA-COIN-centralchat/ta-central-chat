@@ -2,6 +2,11 @@ import { supabase } from './supabaseClient';
 
 const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
 
+const SUPPORT_AGENT_ROLES = [
+  'Customer Service Agent',
+  'Customer Support Agent',
+];
+
 /* =========================
    Helpers
 ========================= */
@@ -98,6 +103,7 @@ const findAvailableAgentForSession = async () => {
     .from('agents')
     .select('*')
     .eq('status', 'Available')
+    .in('role', SUPPORT_AGENT_ROLES)
     .order('active_tickets', { ascending: true });
 
   if (agentError) {

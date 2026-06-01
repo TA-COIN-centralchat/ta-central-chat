@@ -1,5 +1,10 @@
 import { supabase } from './supabaseClient';
 
+const SUPPORT_AGENT_ROLES = [
+  'Customer Service Agent',
+  'Customer Support Agent',
+];
+
 /* =========================
    Helpers
 ========================= */
@@ -228,6 +233,7 @@ export const createTicketWithAutoAssign = async (formData) => {
     .from('agents')
     .select('*')
     .eq('status', 'Available')
+    .in('role', SUPPORT_AGENT_ROLES)
     .order('active_tickets', { ascending: true });
 
   if (agentError) {
@@ -246,7 +252,8 @@ export const createTicketWithAutoAssign = async (formData) => {
       (agent) => (agent.active_tickets || 0) === lowestWorkload
     );
 
-    selectedAgent = lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
+    selectedAgent =
+      lowestAgents[Math.floor(Math.random() * lowestAgents.length)];
   }
 
   const { data: customer, error: customerError } = await supabase
@@ -411,7 +418,9 @@ export const getMessagesByTicketId = async (ticketId) => {
     }
 
     if (ticket.assigned_agent_id !== currentAgentId) {
-      throw new Error('You do not have permission to view messages for this ticket.');
+      throw new Error(
+        'You do not have permission to view messages for this ticket.'
+      );
     }
   }
 
@@ -605,6 +614,7 @@ export const autoAssignWaitingTickets = async () => {
     .from('agents')
     .select('*')
     .eq('status', 'Available')
+    .in('role', SUPPORT_AGENT_ROLES)
     .order('active_tickets', { ascending: true });
 
   if (agentError) {
