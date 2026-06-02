@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { supabase } from '../../services/supabaseClient';
+import { useNotifications } from '../../context/NotificationContext';
 
 const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
 const HEARTBEAT_INTERVAL_MS = 30000;
@@ -11,10 +12,16 @@ const DashboardLayout = ({ title, description, children }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [notifications, setNotifications] = useState([]);
-  const [toastNotification, setToastNotification] = useState(null);
+  const {
+    notifications,
+    unreadCount,
+    panelOpen: notificationOpen,
+    setPanelOpen: setNotificationOpen,
+    markRead,
+    markAllRead,
+    toastNotification,
+    dismissToast
+  } = useNotifications();
 
   useEffect(() => {
     let stopped = false;
@@ -104,7 +111,7 @@ const DashboardLayout = ({ title, description, children }) => {
           count: 'exact',
           head: true,
         })
-        .eq('agent_id', agentId)
+        .eq('assigned_agent_id', agentId)
         .eq('status', 'active');
 
       if (error) {
@@ -155,7 +162,6 @@ const DashboardLayout = ({ title, description, children }) => {
           .from('agents')
           .update({
             status: agentStatus,
-            updated_at: now,
           })
           .eq('id', agent.id);
       } catch (error) {
@@ -178,145 +184,20 @@ const DashboardLayout = ({ title, description, children }) => {
     };
   }, []);
 
-  useEffect(() => {
-    const currentAgentId =
-      localStorage.getItem('currentAgentId') ||
-      localStorage.getItem('tacoin_agent_id') ||
-      localStorage.getItem('agentId') ||
-      null;
-
-    const currentUserRole =
-      localStorage.getItem('currentUserRole') ||
-      localStorage.getItem('tacoin_agent_role') ||
-      localStorage.getItem('agentRole') ||
-      null;
-
-    if (!currentAgentId || currentUserRole === 'Admin') {
-      return undefined;
-    }
-
-    const handleNewChatMessage = async (newMessage) => {
-      try {
-        const sessionId = newMessage.session_id;
-
-        if (!sessionId) {
-          return;
-        }
-
-        const senderType = String(
-          newMessage.sender_type ||
-            newMessage.sender ||
-            newMessage.role ||
-            ''
-        ).toLowerCase();
-
-        if (
-          senderType === 'agent' ||
-          senderType === 'admin' ||
-          senderType === 'system'
-        ) {
-          return;
-        }
-
-        const { data: session, error: sessionError } = await supabase
-          .from('chat_sessions')
-          .select('id, agent_id, channel, metadata, user_id')
-          .eq('id', sessionId)
-          .maybeSingle();
-
-        if (sessionError) {
-          console.warn('Failed to check notification session:', sessionError);
-          return;
-        }
-
-        if (!session) {
-          return;
-        }
-
-        if (session.agent_id !== currentAgentId) {
-          return;
-        }
-
-        const metadata = session.metadata || {};
-
-        const customerName =
-          metadata.customerName ||
-          metadata.fullName ||
-          metadata.telegramUsername ||
-          session.user_id ||
-          'Customer';
-
-        const messageText =
-          newMessage.content ||
-          newMessage.message_text ||
-          newMessage.text ||
-          'New customer message';
-
-        const notification = {
-          id: newMessage.id || `${sessionId}-${Date.now()}`,
-          sessionId,
-          customerName,
-          channel: session.channel || 'Telegram',
-          message: messageText,
-          createdAt: newMessage.created_at || new Date().toISOString(),
-        };
-
-        setNotifications((prev) => [notification, ...prev].slice(0, 10));
-        setNotificationCount((prev) => prev + 1);
-        setToastNotification(notification);
-
-        window.setTimeout(() => {
-          setToastNotification(null);
-        }, 4500);
-
-        console.log('✅ Agent notification received:', notification);
-      } catch (error) {
-        console.warn('Failed to handle message notification:', error);
-      }
-    };
-
-    const notificationSub = supabase
-      .channel(`agent-message-notifications-${currentAgentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        (payload) => {
-          handleNewChatMessage(payload.new);
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Agent notification realtime status:', status);
-      });
-
-    return () => {
-      notificationSub.unsubscribe();
-    };
-  }, []);
-
   const handleBellClick = () => {
     setNotificationOpen((prev) => !prev);
-
     if (!notificationOpen) {
-      setNotificationCount(0);
+      markAllRead();
     }
   };
 
   const openNotificationSession = (notification) => {
     setNotificationOpen(false);
-    setNotificationCount(0);
-
-    navigate(`/telegram/${notification.sessionId}`, {
-      state: {
-        from: '/telegram',
-        fromLabel: 'Telegram Sessions',
-        mode: 'telegram-chat',
-        channel: notification.channel || 'Telegram',
-      },
-    });
+    markRead(notification.id);
+    
+    if (notification.link) {
+      navigate(notification.link, { state: notification.linkState });
+    }
   };
 
   return (
@@ -380,9 +261,9 @@ const DashboardLayout = ({ title, description, children }) => {
                 >
                   <Bell size={18} />
 
-                  {notificationCount > 0 && (
+                  {unreadCount > 0 && (
                     <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white ring-2 ring-white">
-                      {notificationCount > 9 ? '9+' : notificationCount}
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </button>
@@ -396,7 +277,7 @@ const DashboardLayout = ({ title, description, children }) => {
                         </div>
 
                         <div className="text-xs text-[#8e8e93]">
-                          New assigned customer messages
+                          Recent updates
                         </div>
                       </div>
 
@@ -422,22 +303,22 @@ const DashboardLayout = ({ title, description, children }) => {
                             onClick={() =>
                               openNotificationSession(notification)
                             }
-                            className="block w-full border-b border-[#edf1f5] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#f7fbfd]"
+                            className={`block w-full border-b border-[#edf1f5] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#f7fbfd] ${notification.read ? 'opacity-60' : ''}`}
                           >
                             <div className="flex items-start gap-3">
                               <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
                                 {notification.customerName
                                   ?.charAt(0)
-                                  ?.toUpperCase() || 'C'}
+                                  ?.toUpperCase() || notification.title?.charAt(0)?.toUpperCase() || 'N'}
                               </div>
 
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-semibold text-[#1d1d1f]">
-                                  {notification.customerName}
+                                  {notification.customerName || notification.title}
                                 </div>
 
                                 <div className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
-                                  {notification.message}
+                                  {notification.body || notification.message}
                                 </div>
 
                                 <div className="mt-1 text-[11px] text-[#8e8e93]">
@@ -481,27 +362,42 @@ const DashboardLayout = ({ title, description, children }) => {
       {toastNotification && (
         <button
           type="button"
-          onClick={() => openNotificationSession(toastNotification)}
-          className="fixed bottom-6 right-6 z-50 w-80 rounded-3xl border border-[#d8eef7] bg-white p-4 text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(15,23,42,0.22)] sm:w-96"
+          onClick={() => {
+            openNotificationSession(toastNotification);
+            dismissToast();
+          }}
+          className="fixed bottom-6 right-6 z-50 w-[calc(100vw-3rem)] max-w-sm rounded-3xl border border-[#d8eef7] bg-white p-4 text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(15,23,42,0.22)] sm:w-96"
         >
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
-              {toastNotification.customerName?.charAt(0)?.toUpperCase() ||
-                'C'}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
+              {(toastNotification.customerName || toastNotification.title || 'N')
+                .charAt(0)
+                .toUpperCase()}
             </div>
 
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-[#1d1d1f]">
-                New customer message
+            <div className="min-w-0 flex-1">
+              {/* Channel chip is only present on chat-message notifications. */}
+              {toastNotification.channel && (
+                <div className="mb-1 inline-flex items-center gap-1 rounded-full bg-[#eef9fd] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#2389b8] ring-1 ring-[#43acd6]/15">
+                  {toastNotification.channel}
+                </div>
+              )}
+
+              {/* Customer name (or generic notification title) — never duplicate. */}
+              <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+                {toastNotification.customerName ||
+                  toastNotification.title ||
+                  'New notification'}
               </div>
 
-              <div className="mt-1 truncate text-sm font-medium text-[#2389b8]">
-                {toastNotification.customerName}
-              </div>
-
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
-                {toastNotification.message}
+              {/* Message body / notification description. */}
+              <p className="mt-1 line-clamp-3 text-sm leading-5 text-[#6e6e73]">
+                {toastNotification.body || toastNotification.message}
               </p>
+
+              <div className="mt-2 text-[11px] font-medium text-[#2389b8]">
+                Click to open session
+              </div>
             </div>
           </div>
         </button>

@@ -303,14 +303,14 @@ const AllTicketsPage = () => {
             <div className="overflow-x-auto">
               <table className="w-full min-w-255 table-fixed text-left text-sm">
                 <colgroup>
-                  <col className="w-140px" />
-                  <col className="w-250px" />
-                  <col className="w-150px" />
-                  <col className="w-270px" />
-                  <col className="w-190px" />
-                  <col className="w-180px" />
-                  <col className="w-120px" />
-                  <col className="w-120px" />
+                  <col className="w-35" />
+                  <col className="w-62.5" />
+                  <col className="w-37.5" />
+                  <col className="w-67.5" />
+                  <col className="w-47.5" />
+                  <col className="w-45" />
+                  <col className="w-30" />
+                  <col className="w-30" />
                 </colgroup>
 
                 <thead className="bg-[#f5f5f7] text-xs uppercase tracking-[0.16em] text-[#8e8e93]">

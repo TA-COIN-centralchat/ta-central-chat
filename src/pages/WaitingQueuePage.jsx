@@ -107,9 +107,9 @@ const WaitingQueuePage = () => {
       title="Waiting Queue"
       description="Tickets waiting for an available support agent."
     >
-      <div className="mx-auto max-w-7xl space-y-5">
-        <section className="rounded-[28px] border border-[#e8edf2] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-[#d8eef7]">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className="mx-auto max-w-7xl">
+        <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
+          <div className="flex flex-col gap-4 border-b border-[#edf1f5] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f7fbfd] text-[#2389b8] ring-1 ring-[#d8eef7]">
                 <Timer size={20} />
@@ -127,8 +127,9 @@ const WaitingQueuePage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <span className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#fffbea] px-4 text-sm font-medium text-[#8a6d00] ring-1 ring-[#ffe88a]">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#fffbea] px-3 py-1.5 text-xs font-medium text-[#8a6d00] ring-1 ring-[#ffe88a]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#ffd84d]" />
                 {waitingTickets.length} Waiting
               </span>
 
@@ -136,7 +137,7 @@ const WaitingQueuePage = () => {
                 type="button"
                 onClick={handleAutoAssign}
                 disabled={assigning}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:-translate-y-0.5 hover:bg-[#2389b8] hover:shadow-[0_18px_36px_rgba(67,172,214,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {assigning ? (
                   <>
@@ -153,25 +154,25 @@ const WaitingQueuePage = () => {
             </div>
           </div>
 
-          <div className="mt-5 flex max-w-xl items-center gap-3 rounded-2xl border border-[#e8edf2] bg-[#f8fafc] px-4 py-3 transition focus-within:border-[#43acd6] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#43acd6]/10">
-            <Search size={16} className="shrink-0 text-[#8e8e93]" />
+          <div className="border-b border-[#edf1f5] px-5 py-4">
+            <div className="system-input flex h-11 max-w-xl items-center gap-3 rounded-2xl px-4">
+              <Search size={16} className="shrink-0 text-[#8e8e93]" />
 
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search queue tickets..."
-              className="w-full bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
-            />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search queue tickets..."
+                className="w-full bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
+              />
+            </div>
           </div>
-        </section>
 
-        {message && (
-          <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-700">
-            {message}
-          </div>
-        )}
+          {message && (
+            <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-700">
+              {message}
+            </div>
+          )}
 
-        <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
           {loading ? (
             <div className="flex min-h-72 items-center justify-center p-10 text-center text-sm text-[#6e6e73]">
               <div>

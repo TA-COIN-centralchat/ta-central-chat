@@ -1,15 +1,31 @@
-import { useState } from 'react';
-import { FolderPlus, Loader2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { FolderPlus, Loader2, Pencil, X } from 'lucide-react';
 
-import { createCategory } from '../../services/ticketService';
+import { createCategory, updateCategory } from '../../services/ticketService';
 
-const CreateCategoryModal = ({ open, onClose, onCreated }) => {
+// Used for both Create and Edit. When `category` is passed, the modal acts as
+// an editor: the form pre-fills with that category's name/description and
+// submit dispatches updateCategory instead of createCategory.
+const CreateCategoryModal = ({ open, onClose, onSaved, category = null }) => {
+  const isEditMode = Boolean(category);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
   });
 
   const [loading, setLoading] = useState(false);
+
+  // Sync form state whenever the modal opens or the target category changes.
+  // Without this the form keeps stale values when switching between rows.
+  useEffect(() => {
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFormData({
+      name: category?.name || '',
+      description: category?.description || '',
+    });
+  }, [open, category]);
 
   if (!open) return null;
 
@@ -29,28 +45,44 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
     try {
       setLoading(true);
 
-      await createCategory({
+      const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-      });
+      };
 
-      setFormData({
-        name: '',
-        description: '',
-      });
+      if (isEditMode) {
+        await updateCategory(category.id, payload);
+      } else {
+        await createCategory(payload);
+      }
 
-      if (onCreated) {
-        await onCreated();
+      if (onSaved) {
+        await onSaved();
       }
 
       onClose();
     } catch (error) {
-      console.error('Create category error:', error);
-      alert('Failed to create category. Please check console.');
+      console.error(
+        isEditMode ? 'Update category error:' : 'Create category error:',
+        error
+      );
+      alert(
+        isEditMode
+          ? 'Failed to update category. Please check console.'
+          : 'Failed to create category. Please check console.'
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  const HeaderIcon = isEditMode ? Pencil : FolderPlus;
+  const heading = isEditMode ? 'Edit Category' : 'Add Category';
+  const subheading = isEditMode
+    ? 'Update the name or description for this issue category.'
+    : 'Create a new issue category for customer support tickets.';
+  const submitIdleLabel = isEditMode ? 'Save Changes' : 'Create Category';
+  const submitBusyLabel = isEditMode ? 'Saving...' : 'Creating...';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
@@ -58,16 +90,16 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
         <div className="flex items-start justify-between gap-4 border-b border-[#edf1f5] px-6 py-5">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f7fbfd] text-[#2389b8] ring-1 ring-[#d8eef7]">
-              <FolderPlus size={21} />
+              <HeaderIcon size={21} />
             </div>
 
             <div>
               <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f]">
-                Add Category
+                {heading}
               </h2>
 
               <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
-                Create a new issue category for customer support tickets.
+                {subheading}
               </p>
             </div>
           </div>
@@ -77,7 +109,7 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
             onClick={onClose}
             disabled={loading}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-[#8e8e93] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Close create category modal"
+            aria-label="Close category modal"
           >
             <X size={18} />
           </button>
@@ -115,14 +147,23 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
             />
           </div>
 
-          <div className="rounded-[22px] border border-[#d8eef7] bg-[#f7fbfd] p-4 text-sm leading-6 text-[#2389b8]">
-            <div className="font-semibold text-[#1d1d1f]">Default Status</div>
+          {!isEditMode && (
+            <div className="rounded-[22px] border border-[#d8eef7] bg-[#f7fbfd] p-4 text-sm leading-6 text-[#2389b8]">
+              <div className="font-semibold text-[#1d1d1f]">Default Status</div>
 
-            <p className="mt-1">
-              New categories will be created as{' '}
-              <span className="font-semibold">Active</span>.
-            </p>
-          </div>
+              <p className="mt-1">
+                New categories will be created as{' '}
+                <span className="font-semibold">Active</span>.
+              </p>
+            </div>
+          )}
+
+          {isEditMode && (
+            <div className="rounded-[22px] border border-[#e8edf2] bg-[#f8fafc] p-4 text-sm leading-6 text-[#6e6e73]">
+              Editing here doesn't change the active/inactive state. Use the
+              Disable / Enable button on the card to toggle visibility.
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col-reverse justify-end gap-3 border-t border-[#edf1f5] bg-[#fbfbfd] px-6 py-4 sm:flex-row">
@@ -139,17 +180,17 @@ const CreateCategoryModal = ({ open, onClose, onCreated }) => {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:-translate-y-0.5 hover:bg-[#2389b8] hover:shadow-[0_18px_36px_rgba(67,172,214,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Creating...
+                {submitBusyLabel}
               </>
             ) : (
               <>
-                <FolderPlus size={16} />
-                Create Category
+                <HeaderIcon size={16} />
+                {submitIdleLabel}
               </>
             )}
           </button>

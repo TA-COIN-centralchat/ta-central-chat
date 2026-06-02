@@ -29,10 +29,6 @@ const ALL_ROLES = [
   'Customer Support Agent',
 ];
 
-const ADMIN_AND_SERVICE = ['Admin', 'Customer Service Agent'];
-
-const ADMIN_AND_SUPPORT = ['Admin', 'Customer Support Agent'];
-
 const protect = (roles, element) => (
   <ProtectedRoute allowedRoles={roles}>{element}</ProtectedRoute>
 );
@@ -87,13 +83,13 @@ const AppRoutes = () => {
 
         <Route
           path="/live-chat"
-          element={protect(ADMIN_AND_SERVICE, <LiveChatPage />)}
+          element={protect(ALL_ROLES, <LiveChatPage />)}
         />
 
         <Route
           path="/chatbot"
           element={protect(
-            ADMIN_AND_SERVICE,
+            ALL_ROLES,
             <ChannelTicketsPage
               channelName="Website Chatbot"
               title="Chatbot Sessions"
@@ -106,7 +102,7 @@ const AppRoutes = () => {
         <Route
           path="/telegram"
           element={protect(
-            ADMIN_AND_SERVICE,
+            ALL_ROLES,
             <ChannelTicketsPage
               channelName="Telegram"
               title="Telegram Sessions"
@@ -118,12 +114,17 @@ const AppRoutes = () => {
 
         <Route
           path="/chatbot/:sessionId"
-          element={protect(ADMIN_AND_SERVICE, <SessionWorkspacePage />)}
+          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
+        />
+
+        <Route
+          path="/live-chat/:sessionId"
+          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
         />
 
         <Route
           path="/telegram/:sessionId"
-          element={protect(ADMIN_AND_SERVICE, <SessionWorkspacePage />)}
+          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
         />
 
         <Route
@@ -148,7 +149,7 @@ const AppRoutes = () => {
 
         <Route
           path="/agents"
-          element={protect(ADMIN_AND_SUPPORT, <AgentsPage />)}
+          element={protect(ADMIN, <AgentsPage />)}
         />
 
         <Route

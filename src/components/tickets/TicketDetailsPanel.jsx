@@ -371,20 +371,20 @@ const AuditHistoryModal = ({ open, onClose, ticket }) => {
 
 const SideCard = ({ icon: Icon, title, description, children }) => {
   return (
-    <section className="rounded-3xl border border-[#e8edf2] bg-white shadow-sm">
-      <div className="border-b border-[#edf1f5] p-4">
+    <section className="rounded-3xl border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-[#1d1d1f] shadow-sm">
+      <div className="border-b border-[#edf1f5] dark:border-white/10 p-4">
         <div className="flex items-start gap-3">
           {Icon && (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#f7fbfd] text-[#2389b8] ring-1 ring-[#d8eef7]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#f7fbfd] dark:bg-[#43acd6]/10 text-[#2389b8] dark:text-[#43acd6] ring-1 ring-[#d8eef7] dark:ring-[#43acd6]/20">
               <Icon size={16} />
             </div>
           )}
 
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-[#1d1d1f]">{title}</h3>
+            <h3 className="text-sm font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">{title}</h3>
 
             {description && (
-              <p className="mt-1 text-xs leading-5 text-[#6e6e73]">
+              <p className="mt-1 text-xs leading-5 text-[#6e6e73] dark:text-[#a1a1a6]">
                 {description}
               </p>
             )}
@@ -399,14 +399,14 @@ const SideCard = ({ icon: Icon, title, description, children }) => {
 
 const Detail = ({ icon: Icon, label, value }) => (
   <div className="min-w-0">
-    <div className="flex items-center gap-1.5 text-xs text-[#8e8e93]">
+    <div className="flex items-center gap-1.5 text-xs text-[#8e8e93] dark:text-[#a1a1a6]">
       {Icon && <Icon size={12} />}
       {label}
     </div>
 
     <div
       title={value}
-      className="wrap-break-word mt-1 font-medium text-[#1d1d1f]"
+      className="wrap-break-word mt-1 font-medium text-[#1d1d1f] dark:text-[#f5f5f7]"
     >
       {value}
     </div>
@@ -415,10 +415,10 @@ const Detail = ({ icon: Icon, label, value }) => (
 
 const TimelineItem = ({ title, time }) => (
   <div className="relative">
-    <span className="absolute -left-5.25 top-1.5 h-2.5 w-2.5 rounded-full bg-[#43acd6] ring-4 ring-[#f7fbfd]" />
+    <span className="absolute -left-5.25 top-1.5 h-2.5 w-2.5 rounded-full bg-[#43acd6] ring-4 ring-[#f7fbfd] dark:ring-[#1d1d1f]" />
 
-    <div className="font-medium text-[#1d1d1f]">{title}</div>
-    <div className="mt-1 text-xs text-[#8e8e93]">{time}</div>
+    <div className="font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">{title}</div>
+    <div className="mt-1 text-xs text-[#8e8e93] dark:text-[#a1a1a6]">{time}</div>
   </div>
 );
 

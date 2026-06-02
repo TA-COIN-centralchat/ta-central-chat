@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getAgents, getTickets } from '../services/ticketService';
+import { supabase } from '../services/supabaseClient';
+import { getCurrentUserRole } from '../utils/authUtils';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -20,28 +22,82 @@ const DashboardPage = () => {
   const [tickets, setTickets] = useState([]);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const refreshTimerRef = useRef(null);
+
+  const loadDashboard = useCallback(async ({ silent = false } = {}) => {
+    try {
+      if (!silent) setLoading(true);
+
+      const [ticketData, agentData] = await Promise.all([
+        getTickets(),
+        getAgents(),
+      ]);
+
+      setTickets(ticketData);
+      setAgents(agentData);
+    } catch (error) {
+      console.error('Failed to load dashboard:', error);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadDashboard();
+  }, [loadDashboard]);
 
-        const [ticketData, agentData] = await Promise.all([
-          getTickets(),
-          getAgents(),
-        ]);
-
-        setTickets(ticketData);
-        setAgents(agentData);
-      } catch (error) {
-        console.error('Failed to load dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(() => {
+    const scheduleRefresh = () => {
+      if (refreshTimerRef.current) return;
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        loadDashboard({ silent: true });
+      }, 500);
     };
 
-    loadDashboard();
-  }, []);
+    const ticketChannel = supabase
+      .channel('dashboard-tickets')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tickets' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    const sessionChannel = supabase
+      .channel('dashboard-chat-sessions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_sessions' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    const agentChannel = supabase
+      .channel('dashboard-agents')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agents' },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agent_presence' },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      ticketChannel.unsubscribe();
+      sessionChannel.unsubscribe();
+      agentChannel.unsubscribe();
+    };
+  }, [loadDashboard]);
 
   const stats = useMemo(() => {
     const waitingQueue = tickets.filter(
@@ -65,7 +121,8 @@ const DashboardPage = () => {
     ).length;
 
     const availableAgents = agents.filter(
-      (agent) => agent.status === 'Available'
+      (agent) =>
+        agent.status === 'Available' && agent.role !== 'Admin'
     ).length;
 
     return {
@@ -80,64 +137,97 @@ const DashboardPage = () => {
     };
   }, [tickets, agents]);
 
-  const dashboardCards = [
-    {
-      title: 'All Tickets',
-      value: stats.totalTickets,
-      description: 'All support records',
-      icon: Inbox,
-      path: '/tickets',
-      sparkline: true,
-    },
-    {
-      title: 'Waiting Queue',
-      value: stats.waitingQueue,
-      description: 'Waiting assignment',
-      icon: Clock,
-      path: '/waiting-queue',
-      accent: 'yellow',
-    },
-    {
-      title: 'Pending Investigation',
-      value: stats.pendingInvestigation,
-      description: 'Internal follow-up',
-      icon: AlertTriangle,
-      path: '/pending-investigation',
-      accent: 'orange',
-    },
-    {
-      title: 'Closed / Resolved',
-      value: stats.closedTickets,
-      description: 'Completed records',
-      icon: CheckCircle,
-      path: '/closed-tickets',
-      accent: 'green',
-    },
-    {
-      title: 'Telegram',
-      value: stats.telegramTickets,
-      description: 'Telegram channel',
-      icon: Send,
-      path: '/telegram',
-      accent: 'blue',
-    },
-    {
-      title: 'Website Chatbot',
-      value: stats.chatbotTickets,
-      description: 'Website channel',
-      icon: MessageCircle,
-      path: '/chatbot',
-      accent: 'blue',
-    },
-    {
-      title: 'Agents',
-      value: stats.totalAgents,
-      description: `${stats.availableAgents} available`,
-      icon: Users,
-      path: '/agents',
-      accent: 'slate',
-    },
-  ];
+  // Role-driven card visibility. Per product spec:
+  //   Admin  → All Tickets, Waiting Queue, Pending Investigation, Agents,
+  //            Agent Status panel
+  //   Agent  → All Tickets, Pending Investigation, Closed/Resolved, Telegram,
+  //            Website Chatbot
+  // Routes here must match AppRoutes.
+  const isAdmin = getCurrentUserRole() === 'Admin';
+
+  const cardAllTickets = {
+    title: 'All Tickets',
+    value: stats.totalTickets,
+    description: 'All support records',
+    icon: Inbox,
+    path: '/tickets',
+    sparkline: true,
+  };
+
+  const cardWaitingQueue = {
+    title: 'Waiting Queue',
+    value: stats.waitingQueue,
+    description: 'Waiting assignment',
+    icon: Clock,
+    path: '/waiting-queue',
+    accent: 'yellow',
+  };
+
+  const cardPendingInvestigation = {
+    title: 'Pending Investigation',
+    value: stats.pendingInvestigation,
+    description: 'Internal follow-up',
+    icon: AlertTriangle,
+    path: '/investigation',
+    accent: 'orange',
+  };
+
+  const cardClosed = {
+    title: 'Closed / Resolved',
+    value: stats.closedTickets,
+    description: 'Completed records',
+    icon: CheckCircle,
+    path: '/closed',
+    accent: 'green',
+  };
+
+  const cardTelegram = {
+    title: 'Telegram',
+    value: stats.telegramTickets,
+    description: 'Telegram channel',
+    icon: Send,
+    path: '/telegram',
+    accent: 'blue',
+  };
+
+  const cardChatbot = {
+    title: 'Website Chatbot',
+    value: stats.chatbotTickets,
+    description: 'Website channel',
+    icon: MessageCircle,
+    path: '/live-chat',
+    accent: 'blue',
+  };
+
+  const cardAgents = {
+    title: 'Agents',
+    value: stats.totalAgents,
+    description: `${stats.availableAgents} available`,
+    icon: Users,
+    path: '/agents',
+    accent: 'slate',
+  };
+
+  // Admin: ticket counters + Agents folded into one 4-card row so the Agents
+  // card isn't stranded on its own row at full width. Agents have no admin
+  // metric to display, so their channel row holds Telegram + Website Chatbot.
+  const metricCards = isAdmin
+    ? [cardAllTickets, cardWaitingQueue, cardPendingInvestigation, cardAgents]
+    : [cardAllTickets, cardPendingInvestigation, cardClosed];
+
+  const channelCards = isAdmin ? [] : [cardTelegram, cardChatbot];
+
+  const metricGridClass =
+    metricCards.length >= 4
+      ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-4'
+      : metricCards.length === 3
+      ? 'grid gap-4 md:grid-cols-2 lg:grid-cols-3'
+      : 'grid gap-4 md:grid-cols-2';
+
+  const channelGridClass =
+    channelCards.length >= 2
+      ? 'grid gap-4 md:grid-cols-2'
+      : 'grid gap-4';
 
   const recentTickets = tickets.slice(0, 5);
 
@@ -147,7 +237,7 @@ const DashboardPage = () => {
       description="Overview of Central Chat ticket operations."
     >
       {loading ? (
-        <div className="flex min-h-72 items-center justify-center rounded-[28px] border border-[#e8edf2] bg-white p-10 text-center text-sm text-[#6e6e73] shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
+        <div className="flex min-h-72 items-center justify-center rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-[#1d1d1f] p-10 text-center text-sm text-[#6e6e73] dark:text-[#a1a1a6] shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-none">
           <div>
             <Loader2
               size={24}
@@ -158,8 +248,8 @@ const DashboardPage = () => {
         </div>
       ) : (
         <div className="mx-auto max-w-7xl space-y-5">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {dashboardCards.slice(0, 4).map((card) => (
+          <section className={metricGridClass}>
+            {metricCards.map((card) => (
               <DashboardMetricCard
                 key={card.title}
                 card={card}
@@ -168,25 +258,27 @@ const DashboardPage = () => {
             ))}
           </section>
 
-          <section className="grid gap-4 md:grid-cols-3">
-            {dashboardCards.slice(4).map((card) => (
-              <ChannelCard
-                key={card.title}
-                card={card}
-                onClick={() => navigate(card.path)}
-              />
-            ))}
-          </section>
+          {channelCards.length > 0 && (
+            <section className={channelGridClass}>
+              {channelCards.map((card) => (
+                <ChannelCard
+                  key={card.title}
+                  card={card}
+                  onClick={() => navigate(card.path)}
+                />
+              ))}
+            </section>
+          )}
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-[#d8eef7]">
-              <div className="flex items-center justify-between gap-4 border-b border-[#edf1f5] px-5 py-4">
+          <div className={isAdmin ? 'grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]' : 'grid gap-5'}>
+            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.3)] transition-all duration-200 hover:border-[#d8eef7] dark:hover:border-[#43acd6]/30">
+              <div className="flex items-center justify-between gap-4 border-b border-[#edf1f5] dark:border-white/10 px-5 py-4">
                 <div>
-                  <h2 className="text-base font-semibold text-[#1d1d1f]">
+                  <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                     Recent Tickets
                   </h2>
 
-                  <p className="mt-1 text-sm text-[#6e6e73]">
+                  <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                     Latest customer issues created in the system.
                   </p>
                 </div>
@@ -194,20 +286,20 @@ const DashboardPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/tickets')}
-                  className="rounded-2xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-medium text-[#2389b8] transition hover:bg-[#f7fbfd]"
+                  className="rounded-2xl border border-[#e5e7eb] dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-[#2389b8] dark:text-[#43acd6] transition hover:bg-[#f7fbfd] dark:hover:bg-white/10"
                 >
                   View All
                 </button>
               </div>
 
               {recentTickets.length === 0 ? (
-                <div className="p-10 text-center text-sm text-[#6e6e73]">
+                <div className="p-10 text-center text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   No recent tickets found.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-190 text-left text-sm">
-                    <thead className="bg-[#f8fafc] text-[11px] uppercase tracking-[0.14em] text-[#8e8e93]">
+                    <thead className="bg-[#f8fafc] dark:bg-white/5 text-[11px] uppercase tracking-[0.14em] text-[#8e8e93] dark:text-[#a1a1a6]">
                       <tr>
                         <th className="px-5 py-3 font-semibold">Ticket</th>
                         <th className="px-5 py-3 font-semibold">Customer</th>
@@ -218,7 +310,7 @@ const DashboardPage = () => {
                       </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-[#edf1f5]">
+                    <tbody className="divide-y divide-[#edf1f5] dark:divide-white/10">
                       {recentTickets.map((ticket) => (
                         <tr
                           key={ticket.dbId}
@@ -230,12 +322,12 @@ const DashboardPage = () => {
                               },
                             })
                           }
-                          className="cursor-pointer transition hover:bg-[#f7fbfd]"
+                          className="cursor-pointer transition hover:bg-[#f7fbfd] dark:hover:bg-white/5"
                         >
                           <td className="px-5 py-4">
                             <div
                               title={ticket.id}
-                              className="max-w-37.5 truncate font-semibold text-[#1d1d1f]"
+                              className="max-w-37.5 truncate font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]"
                             >
                               {ticket.id}
                             </div>
@@ -244,7 +336,7 @@ const DashboardPage = () => {
                           <td className="px-5 py-4">
                             <div
                               title={ticket.customer}
-                              className="max-w-40 truncate text-[#6e6e73]"
+                              className="max-w-40 truncate text-[#6e6e73] dark:text-[#a1a1a6]"
                             >
                               {ticket.customer || 'Unknown customer'}
                             </div>
@@ -257,7 +349,7 @@ const DashboardPage = () => {
                           <td className="px-5 py-4">
                             <div
                               title={ticket.category}
-                              className="max-w-45 truncate text-[#6e6e73]"
+                              className="max-w-45 truncate text-[#6e6e73] dark:text-[#a1a1a6]"
                             >
                               {ticket.category || 'No category'}
                             </div>
@@ -270,7 +362,7 @@ const DashboardPage = () => {
                           <td className="px-5 py-4">
                             <div
                               title={ticket.assignedTo}
-                              className="max-w-40 truncate text-[#6e6e73]"
+                              className="max-w-40 truncate text-[#6e6e73] dark:text-[#a1a1a6]"
                             >
                               {ticket.assignedTo || 'Unassigned'}
                             </div>
@@ -283,46 +375,47 @@ const DashboardPage = () => {
               )}
             </section>
 
-            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-[#d8eef7]">
-              <div className="border-b border-[#edf1f5] px-5 py-4">
-                <h2 className="text-base font-semibold text-[#1d1d1f]">
+            {isAdmin && (
+            <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.3)] transition-all duration-200 hover:border-[#d8eef7] dark:hover:border-[#43acd6]/30">
+              <div className="border-b border-[#edf1f5] dark:border-white/10 px-5 py-4">
+                <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
                   Agent Status
                 </h2>
 
-                <p className="mt-1 text-sm text-[#6e6e73]">
+                <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   Current availability of support staff.
                 </p>
               </div>
 
               {agents.length === 0 ? (
-                <div className="p-10 text-center text-sm text-[#6e6e73]">
+                <div className="p-10 text-center text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   No agents found.
                 </div>
               ) : (
-                <div className="divide-y divide-[#edf1f5]">
+                <div className="divide-y divide-[#edf1f5] dark:divide-white/10">
                   {agents.slice(0, 6).map((agent) => (
                     <button
                       key={agent.id}
                       type="button"
                       onClick={() => navigate('/agents')}
-                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#f7fbfd]"
+                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#f7fbfd] dark:hover:bg-white/5"
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7fbfd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#d8eef7]">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7fbfd] dark:bg-[#43acd6]/10 text-sm font-semibold text-[#2389b8] dark:text-[#43acd6] ring-1 ring-[#d8eef7] dark:ring-[#43acd6]/20">
                           {getInitials(agent.name)}
                         </div>
 
                         <div className="min-w-0">
                           <div
                             title={agent.name}
-                            className="truncate font-medium text-[#1d1d1f]"
+                            className="truncate font-medium text-[#1d1d1f] dark:text-[#f5f5f7]"
                           >
                             {agent.name}
                           </div>
 
                           <div
                             title={agent.role}
-                            className="mt-1 truncate text-xs text-[#8e8e93]"
+                            className="mt-1 truncate text-xs text-[#8e8e93] dark:text-[#a1a1a6]"
                           >
                             {agent.role}
                           </div>
@@ -335,16 +428,17 @@ const DashboardPage = () => {
                 </div>
               )}
 
-              <div className="border-t border-[#edf1f5] p-4">
+              <div className="border-t border-[#edf1f5] dark:border-white/10 p-4">
                 <button
                   type="button"
                   onClick={() => navigate('/agents')}
-                  className="w-full rounded-2xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-medium text-[#2389b8] transition hover:bg-[#f7fbfd]"
+                  className="w-full rounded-2xl border border-[#e5e7eb] dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-[#2389b8] dark:text-[#43acd6] transition hover:bg-[#f7fbfd] dark:hover:bg-white/10"
                 >
                   Manage Agents
                 </button>
               </div>
             </section>
+            )}
           </div>
         </div>
       )}
@@ -456,7 +550,7 @@ const SoftBadge = ({ value }) => {
   return (
     <span
       title={value}
-      className="inline-flex max-w-35 rounded-full bg-[#f5f5f7] px-3 py-1 text-xs font-medium text-[#6e6e73] ring-1 ring-[#e5e7eb]"
+      className="inline-flex max-w-35 rounded-full bg-[#f5f5f7] dark:bg-white/5 px-3 py-1 text-xs font-medium text-[#6e6e73] dark:text-[#a1a1a6] ring-1 ring-[#e5e7eb] dark:ring-white/10"
     >
       <span className="truncate">{value}</span>
     </span>
@@ -468,12 +562,12 @@ const StatusBadge = ({ status }) => {
 
   const className =
     normalized === 'resolved' || normalized === 'closed'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 ring-emerald-100 dark:ring-emerald-500/20'
       : normalized === 'pending investigation'
-      ? 'bg-orange-50 text-orange-700 ring-orange-100'
+      ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-500 ring-orange-100 dark:ring-orange-500/20'
       : normalized === 'new'
-      ? 'bg-[#fffbea] text-[#8a6d00] ring-[#ffe88a]'
-      : 'bg-[#f5f5f7] text-[#6e6e73] ring-[#e5e7eb]';
+      ? 'bg-[#fffbea] dark:bg-yellow-500/10 text-[#8a6d00] dark:text-yellow-500 ring-[#ffe88a] dark:ring-yellow-500/20'
+      : 'bg-[#f5f5f7] dark:bg-white/5 text-[#6e6e73] dark:text-[#a1a1a6] ring-[#e5e7eb] dark:ring-white/10';
 
   const dotClass =
     normalized === 'resolved' || normalized === 'closed'
@@ -482,7 +576,7 @@ const StatusBadge = ({ status }) => {
       ? 'bg-orange-500'
       : normalized === 'new'
       ? 'bg-[#ffd84d]'
-      : 'bg-[#8e8e93]';
+      : 'bg-[#8e8e93] dark:bg-[#6e6e73]';
 
   return (
     <span
@@ -500,12 +594,12 @@ const AgentStatusBadge = ({ status }) => {
 
   const className =
     normalized === 'available'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 ring-emerald-100 dark:ring-emerald-500/20'
       : normalized === 'busy'
-      ? 'bg-orange-50 text-orange-700 ring-orange-100'
+      ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-500 ring-orange-100 dark:ring-orange-500/20'
       : normalized === 'away'
-      ? 'bg-amber-50 text-amber-700 ring-amber-100'
-      : 'bg-[#f5f5f7] text-[#6e6e73] ring-[#e5e7eb]';
+      ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-500 ring-amber-100 dark:ring-amber-500/20'
+      : 'bg-[#f5f5f7] dark:bg-white/5 text-[#6e6e73] dark:text-[#a1a1a6] ring-[#e5e7eb] dark:ring-white/10';
 
   const dotClass =
     normalized === 'available'
@@ -514,7 +608,7 @@ const AgentStatusBadge = ({ status }) => {
       ? 'bg-orange-500'
       : normalized === 'away'
       ? 'bg-amber-500'
-      : 'bg-[#8e8e93]';
+      : 'bg-[#8e8e93] dark:bg-[#6e6e73]';
 
   return (
     <span

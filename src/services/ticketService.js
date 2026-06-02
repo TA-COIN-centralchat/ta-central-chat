@@ -1,5 +1,8 @@
 import { supabase } from './supabaseClient';
 
+// Allow-list of roles eligible for auto-assignment. Mirrors the chat-session
+// services — Admins are intentionally excluded; they can view and reassign
+// but never carry workload via auto-assign.
 const SUPPORT_AGENT_ROLES = [
   'Customer Service Agent',
   'Customer Support Agent',
@@ -137,14 +140,61 @@ export const createCategory = async (formData) => {
   return data;
 };
 
+export const updateCategory = async (categoryId, formData) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .update({
+      name: formData.name,
+      description: formData.description || null,
+    })
+    .eq('id', categoryId)
+    .select()
+    .single();
+
+  if (error) {
+    logSupabaseError('Error updating category:', error);
+    throw error;
+  }
+
+  await createAuditLog({
+    userName: localStorage.getItem('currentUserName') || 'Admin',
+    role: localStorage.getItem('currentUserRole') || 'Admin',
+    action: 'Category Updated',
+    details: `Category updated: ${formData.name}.`,
+  });
+
+  return data;
+};
+
+export const setCategoryStatus = async (categoryId, status) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .update({ status })
+    .eq('id', categoryId)
+    .select()
+    .single();
+
+  if (error) {
+    logSupabaseError('Error updating category status:', error);
+    throw error;
+  }
+
+  await createAuditLog({
+    userName: localStorage.getItem('currentUserName') || 'Admin',
+    role: localStorage.getItem('currentUserRole') || 'Admin',
+    action: `Category ${status === 'Active' ? 'Enabled' : 'Disabled'}`,
+    details: `Category "${data?.name || categoryId}" set to ${status}.`,
+  });
+
+  return data;
+};
+
 /* =========================
    Tickets
 ========================= */
 
 export const getTickets = async () => {
-  const currentAgentId = getCurrentAgentId();
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('tickets')
     .select(`
       *,
@@ -167,18 +217,6 @@ export const getTickets = async () => {
     `)
     .order('created_at', { ascending: false });
 
-  // Admin can see all tickets.
-  // Normal agents can only see tickets assigned to them.
-  if (!isAdmin()) {
-    if (!currentAgentId) {
-      return [];
-    }
-
-    query = query.eq('assigned_agent_id', currentAgentId);
-  }
-
-  const { data, error } = await query;
-
   if (error) {
     logSupabaseError('Error fetching tickets:', error);
     throw error;
@@ -188,9 +226,7 @@ export const getTickets = async () => {
 };
 
 export const getTicketById = async (ticketId) => {
-  const currentAgentId = getCurrentAgentId();
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('tickets')
     .select(`
       *,
@@ -214,15 +250,9 @@ export const getTicketById = async (ticketId) => {
     .eq('id', ticketId)
     .single();
 
-  const { data, error } = await query;
-
   if (error) {
     logSupabaseError('Error fetching ticket by ID:', error);
     throw error;
-  }
-
-  if (!isAdmin() && data.assigned_agent_id !== currentAgentId) {
-    throw new Error('You do not have permission to view this ticket.');
   }
 
   return mapTicket(data);
@@ -403,27 +433,6 @@ export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => 
 ========================= */
 
 export const getMessagesByTicketId = async (ticketId) => {
-  const currentAgentId = getCurrentAgentId();
-
-  if (!isAdmin()) {
-    const { data: ticket, error: ticketError } = await supabase
-      .from('tickets')
-      .select('id, assigned_agent_id')
-      .eq('id', ticketId)
-      .single();
-
-    if (ticketError) {
-      logSupabaseError('Error checking message permission:', ticketError);
-      throw ticketError;
-    }
-
-    if (ticket.assigned_agent_id !== currentAgentId) {
-      throw new Error(
-        'You do not have permission to view messages for this ticket.'
-      );
-    }
-  }
-
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -504,21 +513,10 @@ export const sendTicketMessage = async ({
 ========================= */
 
 export const getAgents = async () => {
-  const currentAgentId = getCurrentAgentId();
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('agents')
     .select('*')
     .order('created_at', { ascending: false });
-
-  // Admin sees all agents.
-  // Agent sees only their own profile.
-  if (!isAdmin()) {
-    if (!currentAgentId) return [];
-    query = query.eq('id', currentAgentId);
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     logSupabaseError('Error fetching agents:', error);
@@ -547,11 +545,6 @@ export const getRawAgents = async () => {
   if (error) {
     logSupabaseError('Error fetching raw agents:', error);
     throw error;
-  }
-
-  if (!isAdmin()) {
-    const currentAgentId = getCurrentAgentId();
-    return (data || []).filter((agent) => agent.id === currentAgentId);
   }
 
   return data || [];

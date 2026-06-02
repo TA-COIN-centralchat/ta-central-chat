@@ -9,6 +9,7 @@ import {
   Send,
   User,
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
@@ -31,7 +32,23 @@ const initialFormData = {
 };
 
 const ManualTicketPage = () => {
-  const [formData, setFormData] = useState(initialFormData);
+  const location = useLocation();
+  // Live chat and session workspace pages navigate here with a state payload
+  // (customer name, phone, channel, issue text, etc.) so the form starts
+  // pre-filled. Without this merge the prefill is silently dropped.
+  const presetData = location.state || {};
+
+  const [formData, setFormData] = useState(() => ({
+    ...initialFormData,
+    customerName: presetData.customerName || '',
+    phone: presetData.phone || '',
+    telegram: presetData.telegram || '',
+    email: presetData.email || '',
+    accountId: presetData.accountId || '',
+    channel: presetData.channel || initialFormData.channel,
+    issueDescription: presetData.issueDescription || '',
+    internalNote: presetData.internalNote || '',
+  }));
   const [categories, setCategories] = useState([]);
 
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -283,11 +300,13 @@ const ManualTicketPage = () => {
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="text-sm font-medium text-[#1d1d1f]">
+                  <label htmlFor="issueType" className="text-sm font-medium text-[#1d1d1f]">
                     Issue Type <span className="text-red-500">*</span>
                   </label>
 
                   <select
+                    id="issueType"
+                    name="issueType"
                     value={formData.issueType}
                     onChange={(event) =>
                       handleChange('issueType', event.target.value)
@@ -467,13 +486,16 @@ const AlertBox = ({ type, icon: Icon, message }) => {
 };
 
 const Input = ({ label, placeholder, value, onChange, required = false }) => {
+  const inputId = label.replace(/\s+/g, '-').toLowerCase();
   return (
     <div>
-      <label className="text-sm font-medium text-[#1d1d1f]">
+      <label htmlFor={inputId} className="text-sm font-medium text-[#1d1d1f]">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
       <input
+        id={inputId}
+        name={inputId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -491,13 +513,16 @@ const Select = ({
   required = false,
   helperText,
 }) => {
+  const selectId = label.replace(/\s+/g, '-').toLowerCase();
   return (
     <div>
-      <label className="text-sm font-medium text-[#1d1d1f]">
+      <label htmlFor={selectId} className="text-sm font-medium text-[#1d1d1f]">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
       <select
+        id={selectId}
+        name={selectId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="system-input mt-2 w-full rounded-2xl px-4 py-3 text-sm text-[#1d1d1f] outline-none"
@@ -523,13 +548,16 @@ const Textarea = ({
   required = false,
   helperText,
 }) => {
+  const textareaId = label.replace(/\s+/g, '-').toLowerCase();
   return (
     <div>
-      <label className="text-sm font-medium text-[#1d1d1f]">
+      <label htmlFor={textareaId} className="text-sm font-medium text-[#1d1d1f]">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
       <textarea
+        id={textareaId}
+        name={textareaId}
         rows={rows}
         value={value}
         onChange={(event) => onChange(event.target.value)}

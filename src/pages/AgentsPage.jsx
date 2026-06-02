@@ -273,12 +273,12 @@ const AgentsPage = () => {
                   <UserPlus size={19} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-[#1d1d1f]">
                     Create New Agent Login
                   </h3>
 
-                  <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-[#6e6e73]">
                     This creates both a Supabase Auth user and an agent profile.
                     The agent can log in immediately using the email and
                     temporary password.
@@ -305,11 +305,13 @@ const AgentsPage = () => {
                 />
 
                 <div>
-                  <label className="text-sm font-medium text-[#1d1d1f]">
+                  <label htmlFor="agentRole" className="text-sm font-medium text-[#1d1d1f]">
                     Role <span className="text-red-500">*</span>
                   </label>
 
                   <select
+                    id="agentRole"
+                    name="agentRole"
                     value={formData.role}
                     onChange={(event) =>
                       handleChange('role', event.target.value)
@@ -322,23 +324,31 @@ const AgentsPage = () => {
                       </option>
                     ))}
                   </select>
+
+                  {/* Balances the column height against the password helper
+                      so the two-column grid doesn't end up lopsided. */}
+                  <p className="mt-2 text-xs text-[#6e6e73]">
+                    Permissions are determined by the selected role.
+                  </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-[#1d1d1f]">
+                  <label htmlFor="agentPassword" className="text-sm font-medium text-[#1d1d1f]">
                     Temporary Password{' '}
                     <span className="text-red-500">*</span>
                   </label>
 
                   <div className="system-input mt-2 flex items-center gap-3 rounded-2xl px-4 py-3">
                     <input
+                      id="agentPassword"
+                      name="agentPassword"
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password}
                       onChange={(event) =>
                         handleChange('password', event.target.value)
                       }
                       placeholder="Minimum 8 characters"
-                      className="w-full bg-transparent text-sm text-[#1d1f1d] outline-none placeholder:text-[#8e8e93]"
+                      className="w-full bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
                     />
 
                     <button
@@ -359,7 +369,7 @@ const AgentsPage = () => {
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-col-reverse justify-end gap-3 sm:flex-row">
+              <div className="mt-5 flex flex-col-reverse justify-end gap-3 border-t border-black/6 pt-5 sm:flex-row">
                 <button
                   type="button"
                   onClick={() => {
@@ -499,7 +509,7 @@ const MetricCard = ({ label, value, tone = 'blue' }) => {
   };
 
   return (
-    <div className="rounded-[26px] border border-black/0.06 bg-white/85 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.04)] backdrop-blur">
+    <div className="rounded-[26px] border border-[#e8edf2] bg-white/85 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.04)] backdrop-blur">
       <div
         className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl ring-1 ${tones[tone]}`}
       >
@@ -539,13 +549,16 @@ const Input = ({
   type = 'text',
   required = false,
 }) => {
+  const inputId = label.replace(/\s+/g, '-').toLowerCase();
   return (
     <div>
-      <label className="text-sm font-medium text-[#1d1d1f]">
+      <label htmlFor={inputId} className="text-sm font-medium text-[#1d1d1f]">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
       <input
+        id={inputId}
+        name={inputId}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
