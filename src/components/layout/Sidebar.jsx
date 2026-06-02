@@ -22,6 +22,7 @@ import logo from '../../assets/logo.png';
 
 import { getTickets } from '../../services/ticketService';
 import { getActiveSessions } from '../../services/realtimeChat';
+import { getSessions } from '../../services/sessionService';
 import { supabase } from '../../services/supabaseClient';
 import {
   clearCurrentUser,
@@ -181,9 +182,10 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const [tickets, chatSessions] = await Promise.all([
+        const [tickets, liveChatSessions, allSessions] = await Promise.all([
           getTickets(),
-          getActiveSessions().catch(() => []),
+          getActiveSessions('Website Chatbot').catch(() => []),
+          getSessions().catch(() => []),
         ]);
 
         setCounts({
@@ -227,14 +229,12 @@ const Sidebar = ({ open = false, onClose }) => {
             );
           }).length,
 
-          liveChat: chatSessions.filter((session) => {
+          liveChat: liveChatSessions.filter((session) => {
             return session.status === 'waiting';
           }).length,
 
-          telegram: tickets.filter((ticket) => {
-            const channel = ticket.channel?.toLowerCase().trim();
-
-            return channel === 'telegram';
+          telegram: allSessions.filter((session) => {
+            return session.channel?.toLowerCase().trim() === 'telegram';
           }).length,
         });
       } catch (error) {
@@ -243,6 +243,30 @@ const Sidebar = ({ open = false, onClose }) => {
     };
 
     loadCounts();
+
+    // Real-time updates for sidebar notifications
+    const ticketsSub = supabase
+      .channel('sidebar-tickets-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tickets' },
+        () => loadCounts(),
+      )
+      .subscribe();
+
+    const sessionsSub = supabase
+      .channel('sidebar-sessions-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_sessions' },
+        () => loadCounts(),
+      )
+      .subscribe();
+
+    return () => {
+      ticketsSub.unsubscribe();
+      sessionsSub.unsubscribe();
+    };
   }, []);
 
   const canAccess = (allowedRoles) => {

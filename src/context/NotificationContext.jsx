@@ -16,6 +16,48 @@ const NotificationContext = createContext(null);
 const MAX_NOTIFICATIONS = 50;
 const TOAST_DURATION_MS = 4500;
 const AUTO_ASSIGN_INTERVAL_MS = 15000;
+const SHARED_STORAGE_KEY = "tacoin_notifications_shared";
+const BACKFILL_HOURS = 24;
+
+const loadPersistedNotifications = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SHARED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_NOTIFICATIONS) : [];
+  } catch (error) {
+    console.warn("Failed to load persisted notifications:", error);
+    return [];
+  }
+};
+
+const persistNotifications = (notifications) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      SHARED_STORAGE_KEY,
+      JSON.stringify(notifications.slice(0, MAX_NOTIFICATIONS)),
+    );
+  } catch (error) {
+    console.warn("Failed to persist notifications:", error);
+  }
+};
+
+const mergeNotifications = (current, additions) => {
+  const seen = new Set(current.map((item) => item.id));
+  const merged = [...current];
+  additions.forEach((item) => {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  });
+  merged.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  return merged.slice(0, MAX_NOTIFICATIONS);
+};
 
 const isResolvedStatus = (status = "") => {
   const normalized = String(status).toLowerCase().trim();
@@ -86,6 +128,75 @@ const getCustomerName = (session) => {
   );
 };
 
+const backfillRecentActivity = async (existing) => {
+  try {
+    const since = new Date(
+      Date.now() - BACKFILL_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+    const existingIds = new Set(existing.map((item) => item.id));
+
+    const [sessionsResult, ticketsResult] = await Promise.all([
+      supabase
+        .from("chat_sessions")
+        .select("id, channel, metadata, created_at, status")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(MAX_NOTIFICATIONS),
+      supabase
+        .from("tickets")
+        .select("id, ticket_number, status, created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(MAX_NOTIFICATIONS),
+    ]);
+
+    const synthesized = [];
+
+    (sessionsResult.data || []).forEach((session) => {
+      const id = `backfill-session-${session.id}`;
+      if (existingIds.has(id)) return;
+      const channelLabel = getChannelLabel(session);
+      const route = getChannelRoute(channelLabel, session.id);
+      synthesized.push({
+        id,
+        kind: "session",
+        severity: "info",
+        title: `${channelLabel} session`,
+        body: `${channelLabel} customer session opened.`,
+        link: route.path,
+        linkState: {
+          from: route.from,
+          fromLabel: route.fromLabel,
+          mode: route.mode,
+          channel: route.channel,
+        },
+        createdAt: session.created_at,
+        read: true,
+      });
+    });
+
+    (ticketsResult.data || []).forEach((ticket) => {
+      const id = `backfill-ticket-${ticket.id}`;
+      if (existingIds.has(id)) return;
+      synthesized.push({
+        id,
+        kind: "ticket",
+        severity: "info",
+        title: "Ticket created",
+        body: `Ticket ${ticket.ticket_number || ""} was created.`,
+        link: "/tickets",
+        createdAt: ticket.created_at,
+        read: true,
+      });
+    });
+
+    return synthesized;
+  } catch (error) {
+    console.warn("Failed to backfill recent activity:", error);
+    return [];
+  }
+};
+
 export const NotificationProvider = ({ children }) => {
   const { currentAgent } = useAuth();
 
@@ -109,6 +220,25 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!currentAgent?.id) {
+      setNotifications([]);
+      return;
+    }
+
+    const persisted = loadPersistedNotifications();
+    setNotifications(persisted);
+
+    backfillRecentActivity(persisted).then((extras) => {
+      if (extras.length === 0) return;
+      setNotifications((prev) => mergeNotifications(prev, extras));
+    });
+  }, [currentAgent?.id]);
+
+  useEffect(() => {
+    persistNotifications(notifications);
+  }, [notifications]);
+
   const pushNotification = useCallback((entry) => {
     const item = {
       id: entry.id || crypto.randomUUID(),
@@ -119,9 +249,17 @@ export const NotificationProvider = ({ children }) => {
       ...entry,
     };
 
-    setNotifications((prev) => [item, ...prev].slice(0, MAX_NOTIFICATIONS));
+    let added = false;
+    setNotifications((prev) => {
+      const existingIndex = prev.findIndex((entry) => entry.id === item.id);
+      if (existingIndex !== -1) return prev;
+      added = true;
+      return [item, ...prev].slice(0, MAX_NOTIFICATIONS);
+    });
 
-    if (item.kind === "message") {
+    // Snackbar pops for any new unread notification — not just chat messages.
+    // Backfilled history (read: true) is silent so the user isn't blasted on login.
+    if (added && !item.read) {
       setToastNotification(item);
     }
 
@@ -195,7 +333,7 @@ export const NotificationProvider = ({ children }) => {
           if (
             prevStatus !== "active" &&
             nextStatus === "active" &&
-            sessionData?.agent_id
+            sessionData?.assigned_agent_id
           ) {
             pushNotification({
               kind: "session",
@@ -305,7 +443,8 @@ export const NotificationProvider = ({ children }) => {
             if (!sessionId) return;
 
             const senderType = String(
-              newMessage.sender_type ||
+              newMessage.sender_role ||
+                newMessage.sender_type ||
                 newMessage.sender ||
                 newMessage.role ||
                 "",
@@ -321,12 +460,12 @@ export const NotificationProvider = ({ children }) => {
 
             const { data: session, error: sessionError } = await supabase
               .from("chat_sessions")
-              .select("id, agent_id, channel, metadata, user_id")
+              .select("id, assigned_agent_id, channel, metadata, user_id")
               .eq("id", sessionId)
               .maybeSingle();
 
             if (sessionError || !session) return;
-            if (session.agent_id !== currentAgent.id) return;
+            if (session.assigned_agent_id !== currentAgent.id) return;
 
             const channelLabel = getChannelLabel(session);
             const route = getChannelRoute(channelLabel, sessionId);

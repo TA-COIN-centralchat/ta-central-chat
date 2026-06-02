@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 const SUPPORT_AGENT_ROLES = [
   'Customer Service Agent',
   'Customer Support Agent',
+  'Admin',
 ];
 
 /* =========================
@@ -142,9 +143,7 @@ export const createCategory = async (formData) => {
 ========================= */
 
 export const getTickets = async () => {
-  const currentAgentId = getCurrentAgentId();
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('tickets')
     .select(`
       *,
@@ -167,18 +166,6 @@ export const getTickets = async () => {
     `)
     .order('created_at', { ascending: false });
 
-  // Admin can see all tickets.
-  // Normal agents can only see tickets assigned to them.
-  if (!isAdmin()) {
-    if (!currentAgentId) {
-      return [];
-    }
-
-    query = query.eq('assigned_agent_id', currentAgentId);
-  }
-
-  const { data, error } = await query;
-
   if (error) {
     logSupabaseError('Error fetching tickets:', error);
     throw error;
@@ -188,9 +175,7 @@ export const getTickets = async () => {
 };
 
 export const getTicketById = async (ticketId) => {
-  const currentAgentId = getCurrentAgentId();
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('tickets')
     .select(`
       *,
@@ -214,15 +199,9 @@ export const getTicketById = async (ticketId) => {
     .eq('id', ticketId)
     .single();
 
-  const { data, error } = await query;
-
   if (error) {
     logSupabaseError('Error fetching ticket by ID:', error);
     throw error;
-  }
-
-  if (!isAdmin() && data.assigned_agent_id !== currentAgentId) {
-    throw new Error('You do not have permission to view this ticket.');
   }
 
   return mapTicket(data);
@@ -403,27 +382,6 @@ export const updateTicketStatus = async ({ ticketId, status, auditDetails }) => 
 ========================= */
 
 export const getMessagesByTicketId = async (ticketId) => {
-  const currentAgentId = getCurrentAgentId();
-
-  if (!isAdmin()) {
-    const { data: ticket, error: ticketError } = await supabase
-      .from('tickets')
-      .select('id, assigned_agent_id')
-      .eq('id', ticketId)
-      .single();
-
-    if (ticketError) {
-      logSupabaseError('Error checking message permission:', ticketError);
-      throw ticketError;
-    }
-
-    if (ticket.assigned_agent_id !== currentAgentId) {
-      throw new Error(
-        'You do not have permission to view messages for this ticket.'
-      );
-    }
-  }
-
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -504,21 +462,10 @@ export const sendTicketMessage = async ({
 ========================= */
 
 export const getAgents = async () => {
-  const currentAgentId = getCurrentAgentId();
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('agents')
     .select('*')
     .order('created_at', { ascending: false });
-
-  // Admin sees all agents.
-  // Agent sees only their own profile.
-  if (!isAdmin()) {
-    if (!currentAgentId) return [];
-    query = query.eq('id', currentAgentId);
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     logSupabaseError('Error fetching agents:', error);
@@ -547,11 +494,6 @@ export const getRawAgents = async () => {
   if (error) {
     logSupabaseError('Error fetching raw agents:', error);
     throw error;
-  }
-
-  if (!isAdmin()) {
-    const currentAgentId = getCurrentAgentId();
-    return (data || []).filter((agent) => agent.id === currentAgentId);
   }
 
   return data || [];

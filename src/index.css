@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/* Dark mode disabled: dark: utility classes are no-ops. */
+@custom-variant dark (&:where([data-disabled-dark]));
+
 /* =========================
    T.A Coin macOS Clean Theme
    Global system design

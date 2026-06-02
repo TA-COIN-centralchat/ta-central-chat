@@ -14,6 +14,7 @@ import {
   createTestSession,
   getSessionsByChannel,
 } from '../services/sessionService';
+import { subscribeToChannelSessions } from '../services/realtimeChat';
 import { supabase } from '../services/supabaseClient';
 
 const sessionStatusOptions = [
@@ -39,63 +40,63 @@ const ChannelTicketsPage = ({
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creatingTest, setCreatingTest] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 20;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sessionFilter, setSessionFilter] = useState('All');
 
-  const loadChannelSessions = async () => {
+  const loadChannelSessions = async (targetPage = 1, append = false) => {
     try {
-      setLoading(true);
-      const data = await getSessionsByChannel(channelName);
-      setSessions(data || []);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const data = await getSessionsByChannel(channelName, targetPage, PAGE_SIZE);
+
+      if (append) {
+        setSessions((prev) => [...prev, ...(data || [])]);
+      } else {
+        setSessions(data || []);
+      }
+
+      setHasMore(data?.length === PAGE_SIZE);
     } catch (error) {
       console.error(`Failed to load ${channelName} sessions:`, error);
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
   useEffect(() => {
+    setPage(1);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadChannelSessions();
+    loadChannelSessions(1, false);
 
-    const sessionSub = supabase
-      .channel(`channel-sessions-${channelName}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_sessions',
-          filter: `channel=eq.${channelName}`,
-        },
-        () => {
-          loadChannelSessions();
-        },
-      )
-      .subscribe();
-
-    const messageSub = supabase
-      .channel(`channel-messages-${channelName}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        () => {
-          loadChannelSessions();
-        },
-      )
-      .subscribe();
+    const sessionSub = subscribeToChannelSessions(
+      channelName,
+      () => {
+        setPage(1);
+        loadChannelSessions(1, false);
+      }
+    );
 
     return () => {
       sessionSub.unsubscribe();
-      messageSub.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelName]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadChannelSessions(nextPage, true);
+  };
 
   const handleCreateTestSession = async () => {
     if (isTelegramChannel(channelName)) {
@@ -238,6 +239,29 @@ const ChannelTicketsPage = ({
                   onOpen={() => openSession(session)}
                 />
               ))}
+
+              {hasMore && (
+                <div className="flex justify-center border-t border-black/5 bg-[#fbfbfd] p-6">
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.07] bg-white px-6 py-2.5 text-sm font-semibold text-[#6e6e73] shadow-sm transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      <>
+                        Load More
+                        <Plus size={16} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -259,8 +283,16 @@ const SessionRow = ({ session, onOpen }) => {
   return (
     <article className="grid gap-4 px-5 py-4 transition hover:bg-[#f8fafc] lg:grid-cols-[minmax(260px,1fr)_minmax(280px,1.15fr)_170px_150px] lg:items-center">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
-          <UserRound size={18} />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
+          {session.avatarUrl ? (
+            <img
+              src={session.avatarUrl}
+              alt={session.customer}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <UserRound size={18} />
+          )}
         </div>
 
         <div className="min-w-0">

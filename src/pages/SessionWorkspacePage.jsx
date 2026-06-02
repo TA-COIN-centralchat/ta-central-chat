@@ -22,6 +22,7 @@ import {
   getSessionById,
   sendSessionReply,
 } from '../services/sessionService';
+
 import { supabase } from '../services/supabaseClient';
 
 const SessionWorkspacePage = () => {
@@ -65,6 +66,12 @@ const SessionWorkspacePage = () => {
       email: '',
       accountId: '',
       channel: chatSession.channel || metadata.channel || 'Telegram',
+      avatarUrl:
+        metadata.photoUrl ||
+        metadata.avatarUrl ||
+        metadata.photo_url ||
+        chatSession.customers?.photo_url ||
+        '',
       status: mapTelegramStatus(chatSession.status),
       lastMessage:
         latestMessage?.content ||
@@ -426,8 +433,14 @@ const SessionWorkspacePage = () => {
                 </button>
 
                 <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
-                    {isTelegramMode ? (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
+                    {session.avatarUrl ? (
+                      <img
+                        src={session.avatarUrl}
+                        alt={session.customer}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : isTelegramMode ? (
                       <Bot size={21} />
                     ) : (
                       <MessageCircle size={21} />
