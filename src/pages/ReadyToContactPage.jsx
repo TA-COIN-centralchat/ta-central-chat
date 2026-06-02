@@ -88,10 +88,6 @@ const ReadyToContactPage = () => {
     });
   };
 
-  const telegramCount = tickets.filter(
-    (ticket) => ticket.channel?.toLowerCase() === 'telegram'
-  ).length;
-
   return (
     <DashboardLayout
       title="Ready to Contact"
@@ -99,30 +95,20 @@ const ReadyToContactPage = () => {
     >
       <div className="mx-auto max-w-7xl">
         <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
-          <div className="flex flex-col justify-between gap-4 border-b border-black/6 px-5 py-4 xl:flex-row xl:items-center">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
-                <Send size={19} />
-              </div>
-
-              <div>
-                <h2 className="text-base font-semibold text-[#1d1d1f]">
-                  Customer Follow-up Queue
-                </h2>
-
-                <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
-                  {filteredTickets.length} of {tickets.length} ready-to-contact
-                  tickets shown.
-                </p>
-              </div>
+          <div className="flex items-start gap-3 border-b border-black/6 px-5 py-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
+              <Send size={19} />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <StatusPill
-                label="Telegram"
-                value={telegramCount}
-                tone="slate"
-              />
+            <div>
+              <h2 className="text-base font-semibold text-[#1d1d1f]">
+                Customer Follow-up Queue
+              </h2>
+
+              <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
+                {filteredTickets.length} of {tickets.length} ready-to-contact
+                tickets shown.
+              </p>
             </div>
           </div>
 
@@ -299,7 +285,7 @@ const TicketPreview = ({ ticket, onOpen }) => {
         <button
           type="button"
           onClick={onOpen}
-          className="inline-flex w-fit items-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8]"
+          className="inline-flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8]"
         >
           <Eye size={16} />
           Open Ticket
@@ -349,56 +335,21 @@ const TicketPreview = ({ ticket, onOpen }) => {
         </div>
       </div>
 
-      <div className="grid gap-0 divide-y divide-black/6 border-t border-black/6 lg:grid-cols-[1fr_1fr] lg:divide-x lg:divide-y-0">
-        <div className="p-5">
-          <h4 className="text-sm font-semibold text-[#1d1d1f]">Timeline</h4>
+      <div className="border-t border-black/6 p-5">
+        <h4 className="text-sm font-semibold text-[#1d1d1f]">Timeline</h4>
 
-          <div className="mt-4 space-y-4">
-            <TimelineItem
-              title="Investigation completed"
-              description="Ticket marked as Ready to Contact Customer."
-              time={ticket.time || 'N/A'}
-            />
+        <div className="mt-4 space-y-4">
+          <TimelineItem
+            title="Investigation completed"
+            description="Ticket marked as Ready to Contact Customer."
+            time={ticket.time || 'N/A'}
+          />
 
-            <TimelineItem
-              title="Assigned for follow-up"
-              description={`Assigned to ${ticket.assignedTo || 'Unassigned'}.`}
-              time={ticket.time || 'N/A'}
-            />
-          </div>
-        </div>
-
-        <div className="p-5">
-          <h4 className="text-sm font-semibold text-[#1d1d1f]">
-            Quick Actions
-          </h4>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={onOpen}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8]"
-            >
-              <Eye size={16} />
-              Open Ticket
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.07] bg-[#f5f5f7] px-4 py-2.5 text-sm font-medium text-[#6e6e73] transition hover:bg-white hover:text-[#1d1d1f]"
-            >
-              <Send size={16} />
-              Send Follow-up
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100"
-            >
-              <CheckCircle size={16} />
-              Mark Contacted
-            </button>
-          </div>
+          <TimelineItem
+            title="Assigned for follow-up"
+            description={`Assigned to ${ticket.assignedTo || 'Unassigned'}.`}
+            time={ticket.time || 'N/A'}
+          />
         </div>
       </div>
     </article>
@@ -418,31 +369,19 @@ const PreviewSection = ({ icon: Icon, title, rows }) => {
 
       <div className="space-y-3">
         {rows.map(([label, value]) => (
-          <div key={label} className="grid grid-cols-[90px_1fr] gap-3 text-sm">
-            <span className="text-[#8e8e93]">{label}</span>
-            <span title={value} className="truncate font-medium text-[#6e6e73]">
+          <div key={label} className="min-w-0 text-sm">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">
+              {label}
+            </div>
+            <div
+              title={value}
+              className="mt-1 break-words font-medium text-[#1d1d1f]"
+            >
               {value}
-            </span>
+            </div>
           </div>
         ))}
       </div>
-    </div>
-  );
-};
-
-const StatusPill = ({ label, value, tone }) => {
-  const tones = {
-    blue: 'bg-[#eef9fd] text-[#2389b8] ring-[#43acd6]/15',
-    orange: 'bg-orange-50 text-orange-700 ring-orange-100',
-    slate: 'bg-[#f5f5f7] text-[#6e6e73] ring-black/[0.06]',
-  };
-
-  return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ${tones[tone]}`}
-    >
-      <span>{label}</span>
-      <span className="font-semibold">{value}</span>
     </div>
   );
 };

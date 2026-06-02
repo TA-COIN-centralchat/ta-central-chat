@@ -60,7 +60,7 @@ const ClosedTicketsPage = () => {
   const openTicket = (ticket) => {
     navigate(`/tickets/${ticket.dbId}`, {
       state: {
-        from: '/closed-tickets',
+        from: '/closed',
         fromLabel: 'Closed Tickets',
       },
     });

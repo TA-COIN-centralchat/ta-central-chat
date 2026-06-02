@@ -3,6 +3,7 @@ import { FolderPlus, Loader2, Plus, Search, Tags } from 'lucide-react';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
 import CreateCategoryModal from '../components/categories/CreateCategoryModal';
+import { setCategoryStatus } from '../services/ticketService';
 import { supabase } from '../services/supabaseClient';
 
 const CategoriesPage = () => {
@@ -10,7 +11,9 @@ const CategoriesPage = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
   const loadCategories = async () => {
     try {
@@ -65,6 +68,43 @@ const CategoriesPage = () => {
     });
   }, [categories, searchTerm]);
 
+  const openCreate = () => {
+    setEditingCategory(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (category) => {
+    setEditingCategory(category);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingCategory(null);
+  };
+
+  const handleToggleStatus = async (category) => {
+    const nextStatus = category.status === 'Active' ? 'Inactive' : 'Active';
+    const confirmed = window.confirm(
+      nextStatus === 'Inactive'
+        ? `Disable category "${category.name}"? It will be hidden from the ticket form until re-enabled.`
+        : `Enable category "${category.name}"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setStatusUpdatingId(category.id);
+      await setCategoryStatus(category.id, nextStatus);
+      await loadCategories();
+    } catch (error) {
+      console.error('Failed to toggle category status:', error);
+      alert('Failed to update category status. Please check console.');
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   return (
     <>
       <DashboardLayout
@@ -93,7 +133,7 @@ const CategoriesPage = () => {
 
               <button
                 type="button"
-                onClick={() => setShowCreateCategory(true)}
+                onClick={openCreate}
                 className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.22)] transition hover:bg-[#2389b8]"
               >
                 <Plus size={16} />
@@ -125,7 +165,7 @@ const CategoriesPage = () => {
                 </div>
               </div>
             ) : filteredCategories.length === 0 ? (
-              <EmptyState onCreate={() => setShowCreateCategory(true)} />
+              <EmptyState onCreate={openCreate} />
             ) : (
               <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
                 {filteredCategories.map((category) => {
@@ -177,16 +217,28 @@ const CategoriesPage = () => {
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            className="rounded-2xl border border-black/[0.07] bg-[#f5f5f7] px-3 py-2 text-xs font-medium text-[#6e6e73] transition hover:bg-white hover:text-[#1d1d1f]"
+                            onClick={() => openEdit(category)}
+                            disabled={statusUpdatingId === category.id}
+                            className="rounded-2xl border border-black/[0.07] bg-[#f5f5f7] px-3 py-2 text-xs font-medium text-[#6e6e73] transition hover:bg-white hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             Edit
                           </button>
 
                           <button
                             type="button"
-                            className="rounded-2xl border border-black/[0.07] bg-white px-3 py-2 text-xs font-medium text-[#6e6e73] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+                            onClick={() => handleToggleStatus(category)}
+                            disabled={statusUpdatingId === category.id}
+                            className={`rounded-2xl border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                              category.status === 'Active'
+                                ? 'border-black/[0.07] bg-white text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
                           >
-                            Disable
+                            {statusUpdatingId === category.id
+                              ? 'Updating...'
+                              : category.status === 'Active'
+                              ? 'Disable'
+                              : 'Enable'}
                           </button>
                         </div>
                       </div>
@@ -200,9 +252,10 @@ const CategoriesPage = () => {
       </DashboardLayout>
 
       <CreateCategoryModal
-        open={showCreateCategory}
-        onClose={() => setShowCreateCategory(false)}
-        onCreated={loadCategories}
+        open={modalOpen}
+        onClose={closeModal}
+        onSaved={loadCategories}
+        category={editingCategory}
       />
     </>
   );

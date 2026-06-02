@@ -1,9 +1,11 @@
 import { supabase } from './supabaseClient';
 
+// Allow-list of roles eligible for auto-assignment. Mirrors the chat-session
+// services — Admins are intentionally excluded; they can view and reassign
+// but never carry workload via auto-assign.
 const SUPPORT_AGENT_ROLES = [
   'Customer Service Agent',
   'Customer Support Agent',
-  'Admin',
 ];
 
 /* =========================
@@ -133,6 +135,55 @@ export const createCategory = async (formData) => {
     role: localStorage.getItem('currentUserRole') || 'Admin',
     action: 'Category Created',
     details: `New category created: ${formData.name}.`,
+  });
+
+  return data;
+};
+
+export const updateCategory = async (categoryId, formData) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .update({
+      name: formData.name,
+      description: formData.description || null,
+    })
+    .eq('id', categoryId)
+    .select()
+    .single();
+
+  if (error) {
+    logSupabaseError('Error updating category:', error);
+    throw error;
+  }
+
+  await createAuditLog({
+    userName: localStorage.getItem('currentUserName') || 'Admin',
+    role: localStorage.getItem('currentUserRole') || 'Admin',
+    action: 'Category Updated',
+    details: `Category updated: ${formData.name}.`,
+  });
+
+  return data;
+};
+
+export const setCategoryStatus = async (categoryId, status) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .update({ status })
+    .eq('id', categoryId)
+    .select()
+    .single();
+
+  if (error) {
+    logSupabaseError('Error updating category status:', error);
+    throw error;
+  }
+
+  await createAuditLog({
+    userName: localStorage.getItem('currentUserName') || 'Admin',
+    role: localStorage.getItem('currentUserRole') || 'Admin',
+    action: `Category ${status === 'Active' ? 'Enabled' : 'Disabled'}`,
+    details: `Category "${data?.name || categoryId}" set to ${status}.`,
   });
 
   return data;

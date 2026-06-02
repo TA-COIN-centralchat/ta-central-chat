@@ -21,8 +21,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import logo from '../../assets/logo.png';
 
 import { getTickets } from '../../services/ticketService';
-import { getActiveSessions } from '../../services/realtimeChat';
-import { getSessions } from '../../services/sessionService';
 import { supabase } from '../../services/supabaseClient';
 import {
   clearCurrentUser,
@@ -111,15 +109,13 @@ const buildMenuGroups = (counts) => [
         label: 'Live Chat',
         path: '/live-chat',
         icon: Headphones,
-        count: counts.liveChat,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
       {
         label: 'Telegram Sessions',
         path: '/telegram',
         icon: Send,
-        count: counts.telegram,
-        roles: ['Admin', 'Customer Service Agent'],
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
     ],
   },
@@ -168,8 +164,6 @@ const Sidebar = ({ open = false, onClose }) => {
     pendingInvestigation: 0,
     readyToContact: 0,
     closedTickets: 0,
-    liveChat: 0,
-    telegram: 0,
   });
 
   const [openGroups, setOpenGroups] = useState({
@@ -182,11 +176,7 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const [tickets, liveChatSessions, allSessions] = await Promise.all([
-          getTickets(),
-          getActiveSessions('Website Chatbot').catch(() => []),
-          getSessions().catch(() => []),
-        ]);
+        const tickets = await getTickets();
 
         setCounts({
           allTickets: tickets.length,
@@ -227,14 +217,6 @@ const Sidebar = ({ open = false, onClose }) => {
               status === 'resolved' ||
               status === 'completed'
             );
-          }).length,
-
-          liveChat: liveChatSessions.filter((session) => {
-            return session.status === 'waiting';
-          }).length,
-
-          telegram: allSessions.filter((session) => {
-            return session.channel?.toLowerCase().trim() === 'telegram';
           }).length,
         });
       } catch (error) {

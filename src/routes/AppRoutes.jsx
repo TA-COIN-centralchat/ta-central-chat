@@ -29,10 +29,6 @@ const ALL_ROLES = [
   'Customer Support Agent',
 ];
 
-const ADMIN_AND_SERVICE = ['Admin', 'Customer Service Agent'];
-
-const ADMIN_AND_SUPPORT = ['Admin', 'Customer Support Agent'];
-
 const protect = (roles, element) => (
   <ProtectedRoute allowedRoles={roles}>{element}</ProtectedRoute>
 );
@@ -122,6 +118,11 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/live-chat/:sessionId"
+          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
+        />
+
+        <Route
           path="/telegram/:sessionId"
           element={protect(ALL_ROLES, <SessionWorkspacePage />)}
         />
@@ -148,7 +149,7 @@ const AppRoutes = () => {
 
         <Route
           path="/agents"
-          element={protect(ADMIN_AND_SUPPORT, <AgentsPage />)}
+          element={protect(ADMIN, <AgentsPage />)}
         />
 
         <Route

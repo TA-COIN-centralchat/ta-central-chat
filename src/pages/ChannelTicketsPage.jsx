@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Bot,
   Eye,
   Loader2,
   MessageCircle,
@@ -10,12 +11,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
-import {
-  createTestSession,
-  getSessionsByChannel,
-} from '../services/sessionService';
-import { subscribeToChannelSessions } from '../services/realtimeChat';
-import { supabase } from '../services/supabaseClient';
+import { getSessionsByChannel } from '../services/sessionService';
+import { subscribeToAllSessions } from '../services/realtimeChat';
+import { shortId } from '../utils/format';
+import { getCurrentAgentId, getCurrentUserRole } from '../utils/authUtils';
 
 const sessionStatusOptions = [
   'All',
@@ -39,7 +38,6 @@ const ChannelTicketsPage = ({
 
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [creatingTest, setCreatingTest] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -47,6 +45,12 @@ const ChannelTicketsPage = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sessionFilter, setSessionFilter] = useState('All');
+
+  // Access scoping: Admin sees every session on the channel; agents see only
+  // sessions assigned to them.
+  const currentAgentId = getCurrentAgentId();
+  const isAdmin = getCurrentUserRole() === 'Admin';
+  const scopedAgentId = isAdmin ? null : currentAgentId;
 
   const loadChannelSessions = async (targetPage = 1, append = false) => {
     try {
@@ -56,7 +60,12 @@ const ChannelTicketsPage = ({
         setLoading(true);
       }
 
-      const data = await getSessionsByChannel(channelName, targetPage, PAGE_SIZE);
+      const data = await getSessionsByChannel(
+        channelName,
+        targetPage,
+        PAGE_SIZE,
+        scopedAgentId ? { assignedAgentId: scopedAgentId } : {},
+      );
 
       if (append) {
         setSessions((prev) => [...prev, ...(data || [])]);
@@ -74,17 +83,24 @@ const ChannelTicketsPage = ({
   };
 
   useEffect(() => {
-    setPage(1);
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
     loadChannelSessions(1, false);
 
-    const sessionSub = subscribeToChannelSessions(
-      channelName,
-      () => {
-        setPage(1);
-        loadChannelSessions(1, false);
+    const sessionSub = subscribeToAllSessions((eventType, newSession, oldSession) => {
+      // For non-admin viewers, ignore events that don't touch their sessions.
+      // We can't perfectly filter by channel without re-running the channel
+      // detection here, so we let those through to the reload — getSessionsByChannel
+      // will only return the agent's rows anyway.
+      if (!isAdmin) {
+        const wasMine = oldSession?.assigned_agent_id === scopedAgentId;
+        const isMine = newSession?.assigned_agent_id === scopedAgentId;
+        if (!wasMine && !isMine) return;
       }
-    );
+
+      setPage(1);
+      loadChannelSessions(1, false);
+    });
 
     return () => {
       sessionSub.unsubscribe();
@@ -96,26 +112,6 @@ const ChannelTicketsPage = ({
     const nextPage = page + 1;
     setPage(nextPage);
     loadChannelSessions(nextPage, true);
-  };
-
-  const handleCreateTestSession = async () => {
-    if (isTelegramChannel(channelName)) {
-      alert(
-        'Telegram sessions should be created from the Telegram bot, not from a test button.'
-      );
-      return;
-    }
-
-    try {
-      setCreatingTest(true);
-      await createTestSession(channelName);
-      await loadChannelSessions();
-    } catch (error) {
-      console.error('Failed to create test session:', error);
-      alert('Failed to create test session. Please check console.');
-    } finally {
-      setCreatingTest(false);
-    }
   };
 
   const filteredSessions = useMemo(() => {
@@ -155,20 +151,20 @@ const ChannelTicketsPage = ({
 
   return (
     <DashboardLayout title={title} description={description}>
-      <div className="mx-auto max-w-7xl">
-        <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
-          <div className="flex flex-col justify-between gap-4 border-b border-black/6 px-5 py-4 lg:flex-row lg:items-center">
+      <div className="mx-auto w-full max-w-7xl">
+        <section className="overflow-hidden rounded-2xl border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur sm:rounded-[28px]">
+          <div className="flex flex-col justify-between gap-4 border-b border-black/6 px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
                 <MessageCircle size={19} />
               </div>
 
-              <div>
-                <h2 className="text-base font-semibold text-[#1d1d1f]">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-[#1d1d1f] sm:text-lg">
                   {channelName} Session Inbox
                 </h2>
 
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-[#6e6e73]">
+                <p className="mt-1 max-w-3xl text-xs leading-6 text-[#6e6e73] sm:text-sm">
                   {isTelegramChannel(channelName)
                     ? 'Customer conversations from Telegram bot. Open a session to reply to the Telegram customer.'
                     : 'Customer conversations from this channel. Open a session first, then raise a ticket inside the session only if the customer has a real issue.'}
@@ -176,25 +172,10 @@ const ChannelTicketsPage = ({
               </div>
             </div>
 
-            {!isTelegramChannel(channelName) && (
-              <button
-                type="button"
-                onClick={handleCreateTestSession}
-                disabled={creatingTest}
-                className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-black/[0.07] bg-[#f5f5f7] px-4 py-3 text-sm font-medium text-[#6e6e73] transition hover:bg-white hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {creatingTest ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Plus size={16} />
-                )}
-                {creatingTest ? 'Creating...' : 'Create Test Session'}
-              </button>
-            )}
           </div>
 
-          <div className="border-b border-black/6 px-5 py-4">
-            <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+          <div className="border-b border-black/6 px-4 py-4 sm:px-5">
+            <div className="grid gap-3 sm:grid-cols-[1fr_180px] md:grid-cols-[1fr_220px]">
               <div className="system-input flex h-11 items-center gap-3 rounded-2xl px-4">
                 <Search size={16} className="shrink-0 text-[#8e8e93]" />
 
@@ -202,14 +183,14 @@ const ChannelTicketsPage = ({
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search customer, session, message..."
-                  className="w-full bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
+                  className="w-full min-w-0 bg-transparent text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
                 />
               </div>
 
               <select
                 value={sessionFilter}
                 onChange={(event) => setSessionFilter(event.target.value)}
-                className="system-input h-11 rounded-2xl px-4 text-sm text-[#1d1d1f] outline-none"
+                className="system-input h-11 w-full rounded-2xl px-4 text-sm text-[#1d1d1f] outline-none"
               >
                 {sessionStatusOptions.map((status) => (
                   <option key={status}>{status}</option>
@@ -219,7 +200,7 @@ const ChannelTicketsPage = ({
           </div>
 
           {loading ? (
-            <div className="flex min-h-44 items-center justify-center p-8 text-sm text-[#6e6e73]">
+            <div className="flex min-h-44 items-center justify-center p-6 text-sm text-[#6e6e73] sm:p-8">
               <div className="text-center">
                 <Loader2
                   size={24}
@@ -241,12 +222,12 @@ const ChannelTicketsPage = ({
               ))}
 
               {hasMore && (
-                <div className="flex justify-center border-t border-black/5 bg-[#fbfbfd] p-6">
+                <div className="flex justify-center border-t border-black/5 bg-[#fbfbfd] p-4 sm:p-6">
                   <button
                     type="button"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.07] bg-white px-6 py-2.5 text-sm font-semibold text-[#6e6e73] shadow-sm transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-black/[0.07] bg-white px-6 py-2.5 text-sm font-semibold text-[#6e6e73] shadow-sm transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                   >
                     {loadingMore ? (
                       <>
@@ -280,8 +261,10 @@ const SessionRow = ({ session, onOpen }) => {
   const message = session.lastMessage || 'No message yet.';
   const issueType = session.issueType || 'General Conversation';
 
+  const isTelegram = String(session.channel || '').toLowerCase().trim() === 'telegram';
+
   return (
-    <article className="grid gap-4 px-5 py-4 transition hover:bg-[#f8fafc] lg:grid-cols-[minmax(260px,1fr)_minmax(280px,1.15fr)_170px_150px] lg:items-center">
+    <article className="grid gap-4 px-4 py-4 transition hover:bg-[#f8fafc] sm:px-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_160px_120px] xl:items-center">
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
           {session.avatarUrl ? (
@@ -291,12 +274,16 @@ const SessionRow = ({ session, onOpen }) => {
               className="h-full w-full object-cover"
             />
           ) : (
-            <UserRound size={18} />
+            isTelegram ? (
+              <Bot size={20} />
+            ) : (
+              <UserRound size={18} />
+            )
           )}
         </div>
 
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <h3
               title={session.customer}
               className="truncate font-semibold text-[#1d1d1f]"
@@ -329,16 +316,16 @@ const SessionRow = ({ session, onOpen }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-1">
+      <div className="grid grid-cols-2 gap-3 text-sm xl:grid-cols-1">
         <Info label="Session" value={shortId(session.id)} />
         <Info label="Created" value={session.time} />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-stretch md:justify-end">
         <button
           type="button"
           onClick={onOpen}
-          className="inline-flex items-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8]"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] md:w-auto"
         >
           Open
           <Eye size={16} />
@@ -404,10 +391,5 @@ const EmptyState = ({ channelName }) => (
     </p>
   </div>
 );
-
-const shortId = (id) => {
-  if (!id) return 'N/A';
-  return String(id).length > 12 ? `${String(id).slice(0, 8)}...` : id;
-};
 
 export default ChannelTicketsPage;

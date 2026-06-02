@@ -113,7 +113,7 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
       const newMessage = await sendTicketMessage({
         ticketId: ticket.dbId,
         senderType: 'agent',
-        senderName: 'Agent Dara',
+        senderName: localStorage.getItem('currentUserName') || 'Agent',
         messageText: replyText.trim(),
         isInternalNote: activeMode === 'internal',
       });

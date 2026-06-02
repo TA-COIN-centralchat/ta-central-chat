@@ -19,8 +19,19 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
 
         const data = await getRawAgents();
 
-        setAgents(data);
-        setSelectedAgentId(data[0]?.id || '');
+        // Reassignment targets follow the same rule as auto-assignment:
+        // Admins never carry workload, so they're excluded from the picker.
+        // Only Customer Service / Support Agents can take a reassigned ticket.
+        const eligibleAgents = (data || []).filter((agent) => {
+          const role = String(agent.role || '').trim();
+          return (
+            role === 'Customer Service Agent' ||
+            role === 'Customer Support Agent'
+          );
+        });
+
+        setAgents(eligibleAgents);
+        setSelectedAgentId(eligibleAgents[0]?.id || '');
       } catch (error) {
         console.error('Failed to load agents:', error);
       } finally {
@@ -125,6 +136,8 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
             >
               {loadingAgents ? (
                 <option>Loading agents...</option>
+              ) : agents.length === 0 ? (
+                <option value="">No eligible agents available</option>
               ) : (
                 agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>

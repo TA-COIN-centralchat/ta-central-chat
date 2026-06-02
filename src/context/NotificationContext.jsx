@@ -81,6 +81,7 @@ const getChannelLabel = (session) => {
 const channelKey = (channel) =>
   String(channel || "").toLowerCase().trim();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const getChannelRoute = (channel, sessionId) => {
   const key = channelKey(channel);
 
@@ -96,16 +97,16 @@ export const getChannelRoute = (channel, sessionId) => {
 
   if (key === "website chatbot" || key === "chatbot") {
     return {
-      path: sessionId ? `/chatbot/${sessionId}` : "/chatbot",
-      from: "/chatbot",
-      fromLabel: "Chatbot Sessions",
+      path: sessionId ? `/live-chat/${sessionId}` : "/live-chat",
+      from: "/live-chat",
+      fromLabel: "Live Chat Sessions",
       mode: "session",
       channel: "Website Chatbot",
     };
   }
 
   return {
-    path: "/live-chat",
+    path: sessionId ? `/live-chat/${sessionId}` : "/live-chat",
     from: "/live-chat",
     fromLabel: "Live Chat",
     mode: "session",
@@ -118,6 +119,24 @@ const getCustomerName = (session) => {
     session?.metadata && typeof session.metadata === "object"
       ? session.metadata
       : {};
+
+  const channel = String(
+    session?.channel || metadata.channel || "",
+  ).toLowerCase();
+  const isTelegram = channel.includes("telegram");
+
+  // For Telegram sessions the bot has been observed writing free-form text
+  // (sometimes the customer's first message) into metadata.customerName.
+  // Trust the actual Telegram identifiers first so the dashboard shows a
+  // stable username/handle instead of whatever the customer typed.
+  if (isTelegram) {
+    if (metadata.telegramUsername) return `@${metadata.telegramUsername}`;
+    const firstName = metadata.telegramFirstName || metadata.firstName;
+    const lastName = metadata.telegramLastName || metadata.lastName;
+    const fullTelegramName = [firstName, lastName].filter(Boolean).join(" ");
+    if (fullTelegramName) return fullTelegramName;
+    if (metadata.telegramChatId) return `@${metadata.telegramChatId}`;
+  }
 
   return (
     metadata.customerName ||
@@ -205,6 +224,11 @@ export const NotificationProvider = ({ children }) => {
   const [toastNotification, setToastNotification] = useState(null);
   const [realtimeStatus, setRealtimeStatus] = useState("connecting");
   const toastTimerRef = useRef(null);
+  const notificationsRef = useRef([]);
+
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
 
   const handleSubscribeStatus = useCallback((status) => {
     if (status === "SUBSCRIBED") {
@@ -222,6 +246,7 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     if (!currentAgent?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotifications([]);
       return;
     }
@@ -249,19 +274,19 @@ export const NotificationProvider = ({ children }) => {
       ...entry,
     };
 
-    let added = false;
-    setNotifications((prev) => {
-      const existingIndex = prev.findIndex((entry) => entry.id === item.id);
-      if (existingIndex !== -1) return prev;
-      added = true;
-      return [item, ...prev].slice(0, MAX_NOTIFICATIONS);
-    });
+    const isNew = !notificationsRef.current.some((e) => e.id === item.id);
 
     // Snackbar pops for any new unread notification — not just chat messages.
     // Backfilled history (read: true) is silent so the user isn't blasted on login.
-    if (added && !item.read) {
+    if (isNew && !item.read) {
       setToastNotification(item);
     }
+
+    setNotifications((prev) => {
+      const existingIndex = prev.findIndex((entry) => entry.id === item.id);
+      if (existingIndex !== -1) return prev;
+      return [item, ...prev].slice(0, MAX_NOTIFICATIONS);
+    });
 
     return item;
   }, []);
@@ -295,6 +320,24 @@ export const NotificationProvider = ({ children }) => {
 
     const isAdmin = String(currentAgent.role || "").toLowerCase() === "admin";
 
+    // Returns true when a session event is relevant to the current viewer.
+    // - Admin sees every session event.
+    // - Non-admin sees only events for sessions assigned to them (post- or
+    //   pre-migration column).
+    // - Unassigned/waiting sessions are scoped to admin only — clicking a
+    //   notification for an unassigned session would route to a session that
+    //   ends up being someone else's anyway.
+    const isMySession = (sessionData, oldSessionData) => {
+      if (isAdmin) return true;
+      const newAssignee =
+        sessionData?.assigned_agent_id || sessionData?.agent_id || null;
+      const oldAssignee =
+        oldSessionData?.assigned_agent_id || oldSessionData?.agent_id || null;
+      return (
+        newAssignee === currentAgent.id || oldAssignee === currentAgent.id
+      );
+    };
+
     const sessionChannel = supabase
       .channel(`notifications-chat-sessions-${currentAgent.id}`)
       .on(
@@ -302,6 +345,13 @@ export const NotificationProvider = ({ children }) => {
         { event: "INSERT", schema: "public", table: "chat_sessions" },
         (payload) => {
           const sessionData = payload.new;
+
+          // Only notify the agent the session was actually assigned to at
+          // creation time. Admins get all. New unassigned (waiting) sessions
+          // notify admins only — non-admin agents will be pinged via the
+          // UPDATE handler below if/when autoAssign drops it onto them.
+          if (!isMySession(sessionData, null)) return;
+
           const channelLabel = getChannelLabel(sessionData);
           const route = getChannelRoute(channelLabel, sessionData?.id);
 
@@ -325,10 +375,15 @@ export const NotificationProvider = ({ children }) => {
         { event: "UPDATE", schema: "public", table: "chat_sessions" },
         (payload) => {
           const sessionData = payload.new;
-          const prevStatus = payload.old?.status;
+          const oldSessionData = payload.old;
+          const prevStatus = oldSessionData?.status;
           const nextStatus = sessionData?.status;
           const channelLabel = getChannelLabel(sessionData);
           const route = getChannelRoute(channelLabel, sessionData?.id);
+
+          // Same scoping rule as INSERT — admin sees all, non-admin sees only
+          // sessions that touch them (assigned to them before or after).
+          if (!isMySession(sessionData, oldSessionData)) return;
 
           if (
             prevStatus !== "active" &&
@@ -450,22 +505,32 @@ export const NotificationProvider = ({ children }) => {
                 "",
             ).toLowerCase();
 
+            // Only customer-originated messages produce a notification.
+            // Agent/admin replies, system events, and bot auto-replies are
+            // filtered out so the agent isn't pinged about their own sends.
             if (
               senderType === "agent" ||
               senderType === "admin" ||
-              senderType === "system"
+              senderType === "system" ||
+              senderType === "bot"
             ) {
               return;
             }
 
             const { data: session, error: sessionError } = await supabase
               .from("chat_sessions")
-              .select("id, assigned_agent_id, channel, metadata, user_id")
+              .select("id, assigned_agent_id, agent_id, channel, metadata, user_id")
               .eq("id", sessionId)
               .maybeSingle();
 
             if (sessionError || !session) return;
-            if (session.assigned_agent_id !== currentAgent.id) return;
+
+            // Accept either column. The dashboard writes assigned_agent_id;
+            // legacy/external producers (e.g. the Telegram bot) may still be
+            // writing the older agent_id text column.
+            const sessionAgent =
+              session.assigned_agent_id || session.agent_id || null;
+            if (sessionAgent !== currentAgent.id) return;
 
             const channelLabel = getChannelLabel(session);
             const route = getChannelRoute(channelLabel, sessionId);
@@ -497,7 +562,7 @@ export const NotificationProvider = ({ children }) => {
             });
           },
         )
-        .subscribe();
+        .subscribe(handleSubscribeStatus);
     }
 
     const autoAssignInterval = setInterval(() => {
@@ -570,6 +635,7 @@ export const NotificationProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {

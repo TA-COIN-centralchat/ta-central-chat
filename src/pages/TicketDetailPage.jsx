@@ -88,7 +88,7 @@ const TicketDetailPage = () => {
       ) : (
         <div className="mx-auto max-w-7xl space-y-5">
           <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)]">
-            <div className="flex flex-col gap-4 border-b border-[#edf1f5] px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col gap-4 border-b border-[#edf1f5] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 items-start gap-4">
                 <button
                   type="button"
@@ -174,12 +174,12 @@ const TicketDetailPage = () => {
             </div>
           </section>
 
-          <div className="grid gap-5 xl:h-[calc(100vh-305px)] xl:min-h-150 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="min-h-150 overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] xl:min-h-0">
+          <div className="grid gap-5 lg:h-[calc(100vh-305px)] lg:min-h-150 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-h-150 overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] lg:min-h-0">
               <ChatWindow ticket={ticket} onTicketUpdated={loadTicket} />
             </div>
 
-            <div className="min-h-150 overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] xl:min-h-0">
+            <div className="min-h-150 overflow-hidden rounded-[28px] border border-[#e8edf2] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.04)] lg:min-h-0">
               <TicketDetailsPanel
                 ticket={ticket}
                 onTicketUpdated={loadTicket}

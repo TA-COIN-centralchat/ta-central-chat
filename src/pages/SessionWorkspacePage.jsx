@@ -2,9 +2,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  AtSign,
   Bot,
   CheckCircle,
   Clock,
+  Hash,
+  IdCard,
+  Mail,
   MessageCircle,
   Phone,
   SendHorizontal,
@@ -12,6 +16,7 @@ import {
   Star,
   Ticket,
   UserRound,
+  X,
   XCircle,
 } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -19,11 +24,14 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   endSession,
-  getSessionById,
   sendSessionReply,
+  getSessionById,
 } from '../services/sessionService';
 
 import { supabase } from '../services/supabaseClient';
+import { shortId, formatMessageTime } from '../utils/format';
+import { getCurrentAgentId, getCurrentUserRole } from '../utils/authUtils';
+import { parseSupportForm } from '../utils/supportForm';
 
 const SessionWorkspacePage = () => {
   const { sessionId } = useParams();
@@ -42,29 +50,97 @@ const SessionWorkspacePage = () => {
   const [telegramMessages, setTelegramMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  // Client-side access guard. The list views already hide sessions an agent
+  // shouldn't see, but URLs are shareable / guessable, so we re-check here.
+  // This is a defense-in-depth check; the authoritative gate should be
+  // Supabase RLS on chat_sessions.
+  const viewerAgentId = getCurrentAgentId();
+  const viewerIsAdmin = getCurrentUserRole() === 'Admin';
+  const canAccessSession = (assignedAgentId, status) => {
+    if (viewerIsAdmin) return true;
+    if (!viewerAgentId) return false;
+    if (!assignedAgentId && String(status).toLowerCase() === 'waiting') return true;
+    return assignedAgentId === viewerAgentId;
+  };
 
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [localReplies, setLocalReplies] = useState([]);
+  // localReplies is kept as an inert empty array. The optimistic-reply UX it
+  // used to drive caused duplication once sendSessionReply started writing
+  // real chat_messages rows. Leaving the state and render block in place so
+  // it's trivial to re-enable later if the UX team wants instant feedback
+  // before the realtime echo lands.
+  const [localReplies] = useState([]);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   const mapTelegramSession = (chatSession, messages = []) => {
     const metadata = chatSession.metadata || {};
     const latestMessage = messages[messages.length - 1];
 
+    // Legacy fallback for sessions written before the widget started writing
+    // structured customer info to metadata. The pre-chat form fields lived in
+    // the first user message; parseSupportForm scans that text line-by-line.
+    const firstUserMessage = (messages || []).find(
+      (m) => m?.sender_role === 'user' || m?.sender_role === 'customer',
+    );
+    const fallback = parseSupportForm(firstUserMessage?.content || '');
+
+    // For Telegram sessions the bot has been observed writing free-form text
+    // (sometimes the customer's first message) into metadata.customerName.
+    // Prefer the real Telegram identifiers so the header / message
+    // attribution / notifications stay stable.
+    const telegramFirstName =
+      metadata.telegramFirstName || metadata.firstName || '';
+    const telegramLastName =
+      metadata.telegramLastName || metadata.lastName || '';
+    const telegramFullName = [telegramFirstName, telegramLastName]
+      .filter(Boolean)
+      .join(' ');
+    const telegramHandle = metadata.telegramUsername
+      ? `@${metadata.telegramUsername}`
+      : '';
+
     return {
       dbId: chatSession.id,
       id: chatSession.id,
       customer:
+        // Telegram-specific identifiers win over the unreliable customerName.
+        (isTelegramMode && (telegramHandle || telegramFullName)) ||
         metadata.customerName ||
         metadata.fullName ||
+        fallback.customerName ||
+        telegramHandle ||
+        telegramFullName ||
         chatSession.user_id ||
         'Telegram Customer',
-      phone: metadata.phone || '',
+      phone:
+        metadata.phone ||
+        chatSession.customers?.phone ||
+        fallback.phone ||
+        '',
       telegram: metadata.telegramUsername
         ? `@${metadata.telegramUsername}`
         : metadata.telegramChatId || chatSession.user_id || '',
-      email: '',
-      accountId: '',
+      // For Website Chatbot sessions the customer enters their email in the
+      // pre-chat form. Source-of-truth order:
+      //   1. customers row (post-restructure)
+      //   2. structured metadata.email (post-restructure widget build)
+      //   3. metadata.customerEmail (alternate key)
+      //   4. parsed from first user message (legacy sessions only)
+      email:
+        chatSession.customers?.email ||
+        metadata.email ||
+        metadata.customerEmail ||
+        fallback.email ||
+        '',
+      accountId:
+        chatSession.customers?.ta_coin_user_id ||
+        metadata.accountId ||
+        '',
       channel: chatSession.channel || metadata.channel || 'Telegram',
       avatarUrl:
         metadata.photoUrl ||
@@ -72,6 +148,10 @@ const SessionWorkspacePage = () => {
         metadata.photo_url ||
         chatSession.customers?.photo_url ||
         '',
+      // Prefer first-class columns from chat_sessions; fall back to the
+      // metadata mirror for any row written before the migration.
+      expiresAt: chatSession.expires_at || metadata.expiresAt,
+      warningSentAt: chatSession.warning_sent_at || metadata.warningSentAt,
       status: mapTelegramStatus(chatSession.status),
       lastMessage:
         latestMessage?.content ||
@@ -85,8 +165,9 @@ const SessionWorkspacePage = () => {
         ? new Date(chatSession.created_at).toLocaleString()
         : 'N/A',
       linkedTickets: [],
-      issueType: metadata.issueType || '',
-      issueDescription: metadata.issueDescription || '',
+      issueType: metadata.issueType || fallback.issueType || '',
+      issueDescription:
+        metadata.issueDescription || fallback.issueDescription || '',
       assignedAgentName:
         metadata.assignedAgentName || chatSession.agent_id || 'Unassigned',
       raw: chatSession,
@@ -105,6 +186,20 @@ const SessionWorkspacePage = () => {
 
       if (sessionError) throw sessionError;
 
+      // Accept the legacy agent_id column too — the Telegram bot may still
+      // be writing there instead of assigned_agent_id.
+      if (
+        !canAccessSession(
+          chatSession.assigned_agent_id || chatSession.agent_id,
+          chatSession.status,
+        )
+      ) {
+        setAccessDenied(true);
+        setSession(null);
+        setTelegramMessages([]);
+        return;
+      }
+
       const { data: messages, error: messageError } = await supabase
         .from('chat_messages')
         .select('*')
@@ -113,6 +208,7 @@ const SessionWorkspacePage = () => {
 
       if (messageError) throw messageError;
 
+      setAccessDenied(false);
       setTelegramMessages(messages || []);
       setSession(mapTelegramSession(chatSession, messages || []));
     } catch (error) {
@@ -128,6 +224,24 @@ const SessionWorkspacePage = () => {
       if (showLoading) setLoading(true);
 
       const data = await getSessionById(sessionId);
+
+      if (!canAccessSession(data?.assignedAgentId, data?.status)) {
+        setAccessDenied(true);
+        setSession(null);
+        setTelegramMessages([]);
+        return;
+      }
+
+      const { data: messages, error: messageError } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (messageError) throw messageError;
+
+      setAccessDenied(false);
+      setTelegramMessages(messages || []);
       setSession(data);
     } catch (error) {
       console.error('Failed to load old session workspace:', error);
@@ -149,10 +263,8 @@ const SessionWorkspacePage = () => {
   useEffect(() => {
     loadSession();
 
-    if (!isTelegramMode) return undefined;
-
     const messageSub = supabase
-      .channel(`telegram-session-messages-${sessionId}`)
+      .channel(`session-messages-${sessionId}`)
       .on(
         'postgres_changes',
         {
@@ -162,13 +274,17 @@ const SessionWorkspacePage = () => {
           filter: `session_id=eq.${sessionId}`,
         },
         () => {
-          loadTelegramSession({ showLoading: false });
+          if (isTelegramMode) {
+            loadTelegramSession({ showLoading: false });
+          } else {
+            loadOldSession({ showLoading: false });
+          }
         }
       )
       .subscribe();
 
     const sessionSub = supabase
-      .channel(`telegram-session-status-${sessionId}`)
+      .channel(`session-status-${sessionId}`)
       .on(
         'postgres_changes',
         {
@@ -178,7 +294,11 @@ const SessionWorkspacePage = () => {
           filter: `id=eq.${sessionId}`,
         },
         () => {
-          loadTelegramSession({ showLoading: false });
+          if (isTelegramMode) {
+            loadTelegramSession({ showLoading: false });
+          } else {
+            loadOldSession({ showLoading: false });
+          }
         }
       )
       .subscribe();
@@ -189,6 +309,14 @@ const SessionWorkspacePage = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, isTelegramMode]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000); // Update every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -224,41 +352,10 @@ const SessionWorkspacePage = () => {
     try {
       setEnding(true);
 
-      if (isTelegramMode) {
-        const metadata = session.raw?.metadata || {};
-        const endedMessage =
-          'This support session has ended. If you need more help, please send /start to begin a new request.';
-
-        await supabase
-          .from('chat_sessions')
-          .update({
-            status: 'closed',
-            updated_at: new Date().toISOString(),
-            metadata: {
-              ...metadata,
-              endedAt: new Date().toISOString(),
-              endedReason: 'closed_by_agent',
-            },
-          })
-          .eq('id', session.dbId);
-
-        await supabase.from('chat_messages').insert({
-          session_id: session.dbId,
-          sender_role: 'system',
-          sender_id: 'system',
-          content: endedMessage,
-          metadata: {
-            source: 'telegram',
-            type: 'agent_closed',
-          },
-        });
-
-        await sendTelegramTextOnly(endedMessage);
-        await loadTelegramSession({ showLoading: false });
-        return;
-      }
-
       await endSession(session.dbId);
+      if (isTelegramMode) {
+        await sendTelegramTextOnly('This support session has ended. If you need more help, please send /start to begin a new request.');
+      }
       await loadSession({ showLoading: false });
     } catch (error) {
       console.error('Failed to end session:', error);
@@ -288,40 +385,6 @@ const SessionWorkspacePage = () => {
     });
   };
 
-  const handleSendTelegramReply = async (messageText) => {
-    const agentId = localStorage.getItem('currentAgentId') || 'agent_dashboard';
-    const agentName = localStorage.getItem('currentUserName') || 'Agent';
-
-    const { error: messageError } = await supabase.from('chat_messages').insert({
-      session_id: session.dbId,
-      sender_role: 'agent',
-      sender_id: agentId,
-      content: messageText,
-      metadata: {
-        source: 'telegram',
-        agentName,
-      },
-    });
-
-    if (messageError) throw messageError;
-
-    await sendTelegramTextOnly(messageText);
-
-    await supabase
-      .from('chat_sessions')
-      .update({
-        updated_at: new Date().toISOString(),
-        metadata: {
-          ...(session.raw?.metadata || {}),
-          lastActivityAt: new Date().toISOString(),
-          lastAgentReplyAt: new Date().toISOString(),
-        },
-      })
-      .eq('id', session.dbId);
-
-    await loadTelegramSession({ showLoading: false });
-  };
-
   const handleSendReply = async () => {
     if (!session?.dbId) return;
 
@@ -335,28 +398,20 @@ const SessionWorkspacePage = () => {
     try {
       setSendingReply(true);
 
-      if (isTelegramMode) {
-        await handleSendTelegramReply(messageText);
-        setReplyText('');
-        return;
-      }
-
       await sendSessionReply({
         sessionId: session.dbId,
+        senderRole: 'agent',
+        senderId: localStorage.getItem('currentAgentId') || 'agent_dashboard',
         messageText,
       });
 
-      setLocalReplies((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          text: messageText,
-          time: new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        },
-      ]);
+      if (isTelegramMode) {
+        await sendTelegramTextOnly(messageText);
+      }
+      // Note: chatbot mode no longer pushes an optimistic local reply.
+      // sendSessionReply already inserts the real message into chat_messages,
+      // which loadSession + the realtime subscription pick up. Adding it to
+      // localReplies on top would render the same message twice.
 
       setReplyText('');
       await loadSession({ showLoading: false });
@@ -375,17 +430,57 @@ const SessionWorkspacePage = () => {
     }
   };
 
+  const getSessionTimerLabel = (currentSession) => {
+    const expiresAt = currentSession?.expiresAt;
+
+    if (!expiresAt || currentSession.status !== 'Active') {
+      return null;
+    }
+
+    const remainingMs = new Date(expiresAt).getTime() - currentTime;
+
+    if (remainingMs <= 0) {
+      return {
+        text: 'Expired',
+        warning: true,
+      };
+    }
+
+    const remainingMinutes = Math.ceil(remainingMs / 60000);
+    return {
+      text: `${remainingMinutes} min left`,
+      warning: remainingMinutes <= 2,
+    };
+  };
+
+  const selectedTimer = getSessionTimerLabel(session);
+
+  // Agent-side transcript hides the 2-minute inactivity warning. That message
+  // is a nudge for the customer ("you have 2 minutes to respond") — the agent
+  // can already see the countdown badge in the header, so showing it in the
+  // chat just clutters their view.
+  const isCustomerOnlySystemMessage = (message) => {
+    const metaType = message?.metadata?.type;
+    return metaType === 'timeout_warning';
+  };
+
+  const visibleTelegramMessages = telegramMessages.filter(
+    (message) => !isCustomerOnlySystemMessage(message),
+  );
+
   const conversationMessages = isTelegramMode
-    ? telegramMessages
-    : [
-        {
-          id: 'last-message',
-          sender_role: 'user',
-          content: session?.lastMessage || 'No message yet.',
-          created_at: session?.createdAt,
-          metadata: {},
-        },
-      ];
+    ? visibleTelegramMessages
+    : visibleTelegramMessages.length > 0
+      ? visibleTelegramMessages
+      : [
+          {
+            id: 'last-message',
+            sender_role: 'user',
+            content: session?.lastMessage || 'No message yet.',
+            created_at: session?.createdAt,
+            metadata: {},
+          },
+        ];
 
   return (
     <DashboardLayout
@@ -399,6 +494,25 @@ const SessionWorkspacePage = () => {
       {loading ? (
         <div className="flex min-h-72 items-center justify-center rounded-[28px] border border-black/6 bg-white/90 p-10 text-center text-sm text-[#6e6e73] shadow-[0_14px_40px_rgba(0,0,0,0.035)]">
           Loading session workspace...
+        </div>
+      ) : accessDenied ? (
+        <div className="rounded-[28px] border border-red-100 bg-red-50/60 p-10 text-center shadow-[0_14px_40px_rgba(0,0,0,0.035)]">
+          <h2 className="text-lg font-semibold text-red-700">
+            You don't have access to this session
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-red-700/80">
+            This session is assigned to another agent. Ask an admin if you need
+            to be reassigned, then reopen the link.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate(fromPath)}
+            className="mt-5 rounded-2xl bg-[#43acd6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2389b8]"
+          >
+            Back to {fromLabel}
+          </button>
         </div>
       ) : !session ? (
         <div className="rounded-[28px] border border-black/6 bg-white/90 p-10 text-center shadow-[0_14px_40px_rgba(0,0,0,0.035)]">
@@ -421,7 +535,7 @@ const SessionWorkspacePage = () => {
       ) : (
         <div className="mx-auto max-w-7xl space-y-5">
           <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
-            <div className="flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col gap-5 px-4 py-5 lg:flex-row lg:items-center lg:justify-between sm:px-5">
               <div className="flex min-w-0 items-start gap-4">
                 <button
                   type="button"
@@ -433,7 +547,12 @@ const SessionWorkspacePage = () => {
                 </button>
 
                 <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15">
+                  <button
+                    type="button"
+                    onClick={() => setProfileOpen(true)}
+                    title="View customer profile"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eef9fd] text-[#2389b8] ring-1 ring-[#43acd6]/15 transition hover:scale-105 hover:ring-2 hover:ring-[#43acd6]/30"
+                  >
                     {session.avatarUrl ? (
                       <img
                         src={session.avatarUrl}
@@ -441,25 +560,27 @@ const SessionWorkspacePage = () => {
                         className="h-full w-full object-cover"
                       />
                     ) : isTelegramMode ? (
-                      <Bot size={21} />
+                      <Bot size={20} />
                     ) : (
-                      <MessageCircle size={21} />
+                      <MessageCircle size={20} />
                     )}
-                  </div>
+                  </button>
 
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfileOpen(true)}
                         title={session.customer}
-                        className="max-w-105 truncate text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f]"
+                        className="max-w-[180px] truncate text-left text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f] transition hover:text-[#2389b8] sm:max-w-md"
                       >
                         {session.customer}
-                      </h2>
+                      </button>
 
                       <SessionBadge status={session.status} />
                     </div>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#8e8e93]">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#8e8e93]">
                       <span title={session.id}>{shortId(session.id)}</span>
                       <span>•</span>
                       <span>{session.channel}</span>
@@ -477,7 +598,20 @@ const SessionWorkspacePage = () => {
               </div>
 
               {session.status !== 'Ended' && (
-                <div className="flex flex-wrap items-center gap-2">
+                <>
+                {selectedTimer && session.status === 'Active' && (
+                  <div
+                    className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ring-1 ${
+                      selectedTimer.warning
+                        ? 'bg-amber-50 text-amber-700 ring-amber-100'
+                        : 'bg-[#f5f5f7] text-[#6e6e73] ring-black/6'
+                    }`}
+                  >
+                    <Clock size={16} />
+                    {selectedTimer.text}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-2 lg:mt-0">
                   <button
                     type="button"
                     onClick={handleRaiseTicket}
@@ -497,6 +631,7 @@ const SessionWorkspacePage = () => {
                     {ending ? 'Ending...' : 'End Session'}
                   </button>
                 </div>
+                </>
               )}
             </div>
           </section>
@@ -526,8 +661,8 @@ const SessionWorkspacePage = () => {
             </section>
           )}
 
-          <div className="grid gap-5 xl:h-[calc(100vh-280px)] xl:min-h-150 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="flex min-h-155 flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] xl:min-h-0">
+          <div className="grid gap-5 lg:h-[calc(100vh-280px)] lg:min-h-150 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <section className="flex min-h-155 flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] lg:min-h-0">
               <div className="border-b border-black/6 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
@@ -535,7 +670,7 @@ const SessionWorkspacePage = () => {
                   </div>
 
                   <div>
-                    <h3 className="text-base font-semibold text-[#1d1d1f]">
+                    <h3 className="text-sm font-semibold text-[#1d1d1f] sm:text-base">
                       Customer Conversation
                     </h3>
 
@@ -567,6 +702,23 @@ const SessionWorkspacePage = () => {
                       );
                     }
 
+                    // Image-only rendering: resolveImageAttachment checks
+                    // both attachment_url (widget) and telegram-style
+                    // metadata.photo_url / image_url etc., and verifies it's
+                    // actually an image (extension/mime/kind). Non-image
+                    // attachments (PDFs, voice notes, stickers, documents)
+                    // intentionally don't render — we just show a small hint
+                    // that something arrived so the agent can ask the
+                    // customer to resend as an image.
+                    const imageUrl = resolveImageAttachment(message);
+                    const rawAttachmentUrl = getAnyAttachmentUrl(message);
+                    const hasNonImageAttachment =
+                      !imageUrl && Boolean(rawAttachmentUrl);
+                    const isPlaceholderText =
+                      String(message.content || '').trim() === '[Image]';
+                    const showContentText =
+                      Boolean(message.content) && !isPlaceholderText;
+
                     return (
                       <div
                         key={message.id}
@@ -581,9 +733,37 @@ const SessionWorkspacePage = () => {
                               : 'bg-white text-[#1d1d1f] ring-1 ring-black/6'
                           }`}
                         >
-                          <div className="whitespace-pre-wrap text-sm leading-6">
-                            {message.content || 'No message.'}
-                          </div>
+                          {showContentText && (
+                            <div className="whitespace-pre-wrap text-sm leading-6">
+                              {message.content}
+                            </div>
+                          )}
+
+                          {imageUrl && (
+                            <img
+                              src={imageUrl}
+                              alt="Customer attachment"
+                              onClick={() => setLightboxUrl(imageUrl)}
+                              className={`max-h-64 max-w-full cursor-zoom-in rounded-2xl object-cover transition hover:opacity-90 ${
+                                showContentText ? 'mt-2' : ''
+                              }`}
+                            />
+                          )}
+
+                          {hasNonImageAttachment && (
+                            <div
+                              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                                showContentText ? 'mt-2' : ''
+                              } ${
+                                isAgent
+                                  ? 'bg-white/15 text-blue-50'
+                                  : 'bg-[#f5f5f7] text-[#6e6e73]'
+                              }`}
+                              title="Non-image attachment — ask the customer to resend as a picture"
+                            >
+                              📎 Attachment (image only — file ignored)
+                            </div>
+                          )}
 
                           <div
                             className={`mt-2 text-xs ${
@@ -593,7 +773,7 @@ const SessionWorkspacePage = () => {
                             {isAgent
                               ? message.metadata?.agentName || 'Agent'
                               : session.customer}{' '}
-                            · {formatMessageTime(message.created_at)}
+                            · {formatMessageTime(message.created_at, 'N/A')}
                           </div>
                         </div>
                       </div>
@@ -635,6 +815,8 @@ const SessionWorkspacePage = () => {
                   <div className="mx-auto max-w-4xl">
                     <div className="flex items-end gap-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
                       <textarea
+                        id="replyText"
+                        name="replyText"
                         rows="2"
                         value={replyText}
                         onChange={(event) => setReplyText(event.target.value)}
@@ -672,7 +854,7 @@ const SessionWorkspacePage = () => {
               )}
             </section>
 
-            <aside className="max-h-[calc(100vh-280px)] space-y-4 overflow-y-auto pr-1">
+            <aside className="max-h-[calc(100vh-280px)] space-y-4 overflow-y-auto pr-1 lg:max-h-full">
               <SideCard
                 title="Customer Information"
                 description="Contact details collected from the session."
@@ -690,11 +872,22 @@ const SessionWorkspacePage = () => {
                     value={session.phone || 'Not provided'}
                   />
 
-                  <SideInfo
-                    icon={Bot}
-                    label="Telegram"
-                    value={session.telegram || 'Not provided'}
-                  />
+                  {/* Telegram sessions surface the username; Website Chatbot
+                      sessions surface the email the customer entered in the
+                      pre-chat form (or 'Not provided' if they didn't). */}
+                  {isTelegramMode ? (
+                    <SideInfo
+                      icon={Bot}
+                      label="Telegram"
+                      value={session.telegram || 'Not provided'}
+                    />
+                  ) : (
+                    <SideInfo
+                      icon={Mail}
+                      label="Email"
+                      value={session.email || 'Not provided'}
+                    />
+                  )}
                 </div>
               </SideCard>
 
@@ -773,7 +966,244 @@ const SessionWorkspacePage = () => {
           </div>
         </div>
       )}
+
+      {profileOpen && session && (
+        <CustomerProfileModal
+          session={session}
+          isTelegram={isTelegramMode}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
+
+      {/* Fullscreen lightbox for customer image attachments. Click anywhere to dismiss. */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Attachment full size"
+            className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain"
+          />
+        </div>
+      )}
     </DashboardLayout>
+  );
+};
+
+const CustomerProfileModal = ({ session, isTelegram, onClose }) => {
+  const raw = session.raw || {};
+  const meta = raw.metadata || {};
+  const customer = raw.customers || {};
+
+  const telegramHandle =
+    meta.telegramUsername ||
+    meta.telegram_username ||
+    customer.telegram_username ||
+    null;
+
+  const telegramChatId =
+    meta.telegramChatId ||
+    meta.telegram_chat_id ||
+    meta.telegram_user_id ||
+    raw.user_id ||
+    null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md overflow-hidden rounded-[28px] border border-black/6 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]"
+      >
+        <div className="relative bg-gradient-to-br from-[#43acd6] to-[#2389b8] px-6 py-8 text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full p-1.5 text-white/80 transition hover:bg-white/15 hover:text-white"
+            aria-label="Close profile"
+          >
+            <X size={18} />
+          </button>
+
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/15 ring-2 ring-white/30">
+              {session.avatarUrl ? (
+                <img
+                  src={session.avatarUrl}
+                  alt={session.customer}
+                  className="h-full w-full object-cover"
+                />
+              ) : isTelegram ? (
+                <Bot size={36} />
+              ) : (
+                <UserRound size={36} />
+              )}
+            </div>
+
+            <div className="text-center">
+              <div className="text-lg font-semibold tracking-[-0.01em]">
+                {session.customer || 'Unknown customer'}
+              </div>
+              {telegramHandle && (
+                <div className="mt-1 text-sm text-white/85">
+                  @{String(telegramHandle).replace(/^@/, '')}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-5">
+          {telegramHandle && (
+            <ProfileRow icon={AtSign} label="Telegram" value={`@${String(telegramHandle).replace(/^@/, '')}`} />
+          )}
+          {telegramChatId && (
+            <ProfileRow icon={Hash} label="Telegram Chat ID" value={String(telegramChatId)} />
+          )}
+          {session.phone && (
+            <ProfileRow icon={Phone} label="Phone" value={session.phone} />
+          )}
+          {(customer.email || meta.email) && (
+            <ProfileRow icon={Mail} label="Email" value={customer.email || meta.email} />
+          )}
+          {(customer.ta_coin_user_id || meta.accountId) && (
+            <ProfileRow icon={IdCard} label="T.A Coin ID" value={customer.ta_coin_user_id || meta.accountId} />
+          )}
+          {!telegramHandle && !telegramChatId && !session.phone && !customer.email && (
+            <p className="rounded-2xl bg-[#f5f5f7] p-3 text-center text-sm text-[#6e6e73]">
+              No additional profile details provided.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ProfileRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-[#fbfbfd] px-4 py-3">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eef9fd] text-[#2389b8]">
+      <Icon size={16} />
+    </div>
+    <div className="min-w-0 flex-1">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">
+        {label}
+      </div>
+      <div title={value} className="mt-0.5 truncate text-sm font-medium text-[#1d1d1f]">
+        {value}
+      </div>
+    </div>
+  </div>
+);
+
+// Resolve a renderable image URL from a chat_messages row, regardless of
+// which producer wrote it. The widget puts it on `attachment_url`; the
+// Telegram bot often puts it on metadata.photo_url / metadata.image_url etc.
+// Then verify the candidate is actually an image — we explicitly want to
+// IGNORE non-image attachments (PDFs, voice notes, stickers, documents) so
+// they don't get rendered with a broken <img> tag. Caller can still surface
+// a "non-image attachment" hint by checking the raw URL separately.
+
+const resolveImageAttachment = (message) => {
+  if (!message) return null;
+
+  // DEBUG: Print exactly what the database row looks like
+  console.log('Inspecting message from DB:', { 
+    content: message.content, 
+    attachment_url: message.attachment_url, 
+    metadata: message.metadata 
+  });
+
+  const meta =
+    message.metadata && typeof message.metadata === 'object'
+      ? message.metadata
+      : {};
+
+  const url =
+    message.attachment_url ||
+    meta.attachment_url ||
+    meta.photo_url ||
+    meta.photoUrl ||
+    meta.image_url ||
+    meta.imageUrl ||
+    meta.file_url ||
+    meta.fileUrl ||
+    meta.url ||
+    null;
+
+  if (!url) return null;
+
+  const mimeType = String(
+    meta.mime_type || meta.mimeType || meta.contentType || '',
+  ).toLowerCase();
+  
+  const kind = String(
+    meta.attachment_type || meta.attachmentType || meta.type || meta.kind || '',
+  ).toLowerCase();
+
+  const fileName = String(
+    meta.file_name || meta.fileName || meta.name || ''
+  ).toLowerCase();
+
+  // If we have a MIME type and it's definitively NOT an image, reject immediately.
+  // (octet-stream is a common generic fallback, so we allow it to pass through to the other checks)
+  if (mimeType && !mimeType.startsWith('image/') && mimeType !== 'application/octet-stream') {
+    return null;
+  }
+
+  // Explicitly reject known unsupported image/video types even if they slipped through
+  if (/\.(gif|webp|bmp|svg|mp4|mov|avi|pdf|doc|docx|zip|rar|mp3|wav|ogg)(?:\?|#|$)/i.test(url) || /\.(gif|webp|bmp|svg|mp4|mov|avi|pdf|doc|docx|zip|rar|mp3|wav|ogg)$/i.test(fileName)) {
+    return null;
+  }
+  if (/^image\/(gif|webp|bmp|svg\+xml)$/i.test(mimeType)) {
+    return null;
+  }
+
+  // 1. Check for explicit PNG or JPG markers in URL
+  if (/\.(png|jpe?g)(?:\?|#|$)/i.test(url)) return url;
+  // 2. Check for explicit PNG or JPG in original filename (often present for uncompressed Telegram documents)
+  if (/\.(png|jpe?g)$/i.test(fileName)) return url;
+  // 3. Check MIME type (accommodate image/jpg as well as image/jpeg)
+  if (/^image\/(png|jpeg|jpg)$/i.test(mimeType)) return url;
+
+  // 4. Fallback: Telegram's "photo" array attachments are natively JPEG compressed by Telegram.
+  // If it arrived explicitly as a photo or image, it is safe to render.
+  const isImageKind = ['photo', 'image', 'picture', 'img'].some((token) => kind.includes(token));
+  if (isImageKind) {
+    return url;
+  }
+
+  // 5. Last Resort: If it has NO file extension at all (common for Supabase storage uploads) 
+  // and isn't explicitly flagged as a document/video/audio, assume it's a valid image.
+  const hasNoExtension = !/\.[a-zA-Z0-9]{2,5}(?:\?|#|$)/.test(url) && !/\.[a-zA-Z0-9]{2,5}$/.test(fileName);
+  const isExplicitDocument = ['document', 'file', 'audio', 'voice', 'video'].some((token) => kind.includes(token));
+  if (hasNoExtension && !isExplicitDocument) {
+    return url;
+  }
+
+  return null;
+};
+
+// Returns the raw (possibly non-image) attachment URL so we can still surface
+// a small "Customer sent a file" badge instead of silently dropping the
+// signal. Image attachments fall through resolveImageAttachment first.
+const getAnyAttachmentUrl = (message) => {
+  if (!message) return null;
+  const meta =
+    message.metadata && typeof message.metadata === 'object'
+      ? message.metadata
+      : {};
+  return (
+    message.attachment_url ||
+    meta.attachment_url ||
+    meta.file_url ||
+    meta.fileUrl ||
+    meta.url ||
+    null
   );
 };
 
@@ -850,20 +1280,5 @@ const SideInfo = ({ icon: Icon, label, value }) => (
     </div>
   </div>
 );
-
-const formatMessageTime = (dateStr) => {
-  if (!dateStr) return 'N/A';
-
-  return new Date(dateStr).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
-const shortId = (id) => {
-  if (!id) return 'N/A';
-
-  return String(id).length > 12 ? `${String(id).slice(0, 8)}...` : id;
-};
 
 export default SessionWorkspacePage;

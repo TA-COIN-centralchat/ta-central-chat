@@ -366,28 +366,38 @@ const DashboardLayout = ({ title, description, children }) => {
             openNotificationSession(toastNotification);
             dismissToast();
           }}
-          className="fixed bottom-6 right-6 z-50 w-80 rounded-3xl border border-[#d8eef7] bg-white p-4 text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(15,23,42,0.22)] sm:w-96"
+          className="fixed bottom-6 right-6 z-50 w-[calc(100vw-3rem)] max-w-sm rounded-3xl border border-[#d8eef7] bg-white p-4 text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(15,23,42,0.22)] sm:w-96"
         >
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
-              {toastNotification.customerName?.charAt(0)?.toUpperCase() || toastNotification.title?.charAt(0)?.toUpperCase() ||
-                'N'}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eef9fd] text-sm font-semibold text-[#2389b8] ring-1 ring-[#43acd6]/15">
+              {(toastNotification.customerName || toastNotification.title || 'N')
+                .charAt(0)
+                .toUpperCase()}
             </div>
 
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-[#1d1d1f]">
-                {toastNotification.title || "New notification"}
-              </div>
-
-              {toastNotification.customerName && (
-                <div className="mt-1 truncate text-sm font-medium text-[#2389b8]">
-                  {toastNotification.customerName}
+            <div className="min-w-0 flex-1">
+              {/* Channel chip is only present on chat-message notifications. */}
+              {toastNotification.channel && (
+                <div className="mb-1 inline-flex items-center gap-1 rounded-full bg-[#eef9fd] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#2389b8] ring-1 ring-[#43acd6]/15">
+                  {toastNotification.channel}
                 </div>
               )}
 
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6e6e73]">
+              {/* Customer name (or generic notification title) — never duplicate. */}
+              <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+                {toastNotification.customerName ||
+                  toastNotification.title ||
+                  'New notification'}
+              </div>
+
+              {/* Message body / notification description. */}
+              <p className="mt-1 line-clamp-3 text-sm leading-5 text-[#6e6e73]">
                 {toastNotification.body || toastNotification.message}
               </p>
+
+              <div className="mt-2 text-[11px] font-medium text-[#2389b8]">
+                Click to open session
+              </div>
             </div>
           </div>
         </button>

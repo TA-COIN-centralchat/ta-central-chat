@@ -1,4 +1,6 @@
 import { supabase } from "./supabaseClient";
+import { buildSessionTimerWrite } from "./sessionService";
+import { matchesChannel } from "../utils/channel";
 
 /**
  * Supabase Realtime Chat Service
@@ -7,41 +9,26 @@ import { supabase } from "./supabaseClient";
  * - chat_messages  (id, session_id, sender_role, sender_id, content, created_at, metadata)
  */
 
-const SESSION_DURATION_MINUTES = 20;
 const WARNING_MINUTES_BEFORE_END = 2;
+
+// Cross-channel cap: an agent can be assigned to at most this many *active*
+// chat sessions across Telegram + Website Chatbot combined. Once they hit the
+// cap, new sessions fall into the waiting queue until one of theirs closes.
 const MAX_ACTIVE_SESSIONS_PER_AGENT = 5;
+
+// Allow-list of roles eligible for auto-assignment. Admins are intentionally
+// excluded — they have view-all access but never carry a session load. Any
+// agent with a role outside this list (or a NULL role) is also skipped.
+const SUPPORT_AGENT_ROLES = [
+  "Customer Service Agent",
+  "Customer Support Agent",
+];
 
 const WARNING_MESSAGE =
   "Dear customer, do you have any other questions? This chat session will automatically end in 2 minutes if there is no response.";
 
 const AUTO_END_MESSAGE =
   "This chat session has ended due to inactivity. If you need more help, please start a new chat.";
-
-const getCurrentUserRole = () => {
-  return localStorage.getItem("currentUserRole");
-};
-
-const getCurrentAgentId = () => {
-  return localStorage.getItem("currentAgentId");
-};
-
-const isAdmin = () => {
-  return getCurrentUserRole() === "Admin";
-};
-
-const isCustomerServiceAgent = () => {
-  return getCurrentUserRole() === "Customer Service Agent";
-};
-
-const isCustomerSupportAgent = () => {
-  return getCurrentUserRole() === "Customer Support Agent";
-};
-
-const getExpiryIso = () => {
-  return new Date(
-    Date.now() + SESSION_DURATION_MINUTES * 60 * 1000,
-  ).toISOString();
-};
 
 // eslint-disable-next-line no-unused-vars
 const normalizeStatus = (status = "") => {
@@ -73,21 +60,13 @@ const getSessionMetadata = (session) => {
     : {};
 };
 
-const refreshSessionTimerMetadata = (sessionMetadata = {}) => {
-  return {
-    ...sessionMetadata,
-    expiresAt: getExpiryIso(),
-    warningSentAt: null,
-    lastActivityAt: new Date().toISOString(),
-  };
-};
 
 const findAvailableAgentForSession = async () => {
   const { data: agents, error: agentError } = await supabase
     .from("agents")
     .select("id, full_name, email, role, status")
     .eq("status", "Available")
-    .neq("role", "Admin");
+    .in("role", SUPPORT_AGENT_ROLES);
 
   if (agentError) {
     logSupabaseError("Error finding available live chat agent:", agentError);
@@ -98,6 +77,8 @@ const findAvailableAgentForSession = async () => {
     return null;
   }
 
+  // Counts every active session regardless of channel, so Telegram + Live Chat
+  // share the same MAX_ACTIVE_SESSIONS_PER_AGENT bucket.
   const { data: activeSessions, error: sessionError } = await supabase
     .from("chat_sessions")
     .select("id, assigned_agent_id, status")
@@ -163,7 +144,7 @@ export async function autoAssignWaitingChatSessions() {
     .from("agents")
     .select("id, full_name, email, role, status")
     .eq("status", "Available")
-    .neq("role", "Admin");
+    .in("role", SUPPORT_AGENT_ROLES);
 
   if (agentError) {
     logSupabaseError("Error loading available agents for chats:", agentError);
@@ -228,8 +209,10 @@ export async function autoAssignWaitingChatSessions() {
       .update({
         status: "active",
         assigned_agent_id: selectedAgent.id,
+        assigned_agent_name: selectedAgent.full_name,
         updated_at: new Date().toISOString(),
-        metadata: refreshSessionTimerMetadata({
+        // Stamp the timer on both the real columns and the metadata mirror.
+        ...buildSessionTimerWrite({
           ...existingMetadata,
           autoAssigned: true,
           assignedAgentName: selectedAgent.full_name,
@@ -286,15 +269,19 @@ export async function autoAssignWaitingChatSessions() {
 export async function createChatSession(userId, metadata = {}) {
   const selectedAgent = await findAvailableAgentForSession();
 
-  const sessionMetadata = {
+  const baseMetadata = {
     ...metadata,
     autoAssigned: Boolean(selectedAgent),
     assignedAgentName: selectedAgent?.full_name || null,
     assignedAgentEmail: selectedAgent?.email || null,
-    expiresAt: selectedAgent ? getExpiryIso() : null,
-    warningSentAt: null,
-    lastActivityAt: new Date().toISOString(),
   };
+
+  // Waiting sessions have no timer until an agent picks them up; active
+  // sessions get the standard 20-minute window written to both the real
+  // expires_at column and metadata.expiresAt mirror.
+  const timerWrite = selectedAgent
+    ? buildSessionTimerWrite(baseMetadata)
+    : { expires_at: null, warning_sent_at: null, metadata: baseMetadata };
 
   const { data, error } = await supabase
     .from("chat_sessions")
@@ -302,7 +289,8 @@ export async function createChatSession(userId, metadata = {}) {
       user_id: userId,
       status: selectedAgent ? "active" : "waiting",
       assigned_agent_id: selectedAgent?.id || null,
-      metadata: sessionMetadata,
+      assigned_agent_name: selectedAgent?.full_name || null,
+      ...timerWrite,
     })
     .select()
     .single();
@@ -371,57 +359,37 @@ export async function closeSession(sessionId) {
 }
 
 /**
- * Get all waiting/active sessions.
- * Admin sees all.
- * Customer Service Agent sees waiting + own active sessions.
- * Other agents see own sessions only.
+ * Get waiting/active/closed sessions, optionally scoped to one agent.
+ *
+ * `assignedAgentId` is the access-control knob:
+ *   - omitted / null  → return everything (admin view)
+ *   - a UUID          → return only sessions where assigned_agent_id matches
+ *
+ * Pass the current agent's id for non-admin callers so they only see their
+ * own sessions. Channel filtering still happens client-side because some
+ * legacy rows have channel=null with only metadata signals.
  */
-export async function getActiveSessions(channel = null) {
-  const { data, error } = await supabase
+export async function getActiveSessions(channel = null, { assignedAgentId } = {}) {
+  let query = supabase
     .from("chat_sessions")
     .select("*")
-    .in("status", ["waiting", "active"])
+    .in("status", ["waiting", "active", "closed"])
     .order("created_at", { ascending: true });
+
+  if (assignedAgentId) {
+    // Match either the new assigned_agent_id column or the legacy agent_id
+    // text column — the Telegram bot may still be writing to the legacy one.
+    query = query.or(
+      `assigned_agent_id.eq.${assignedAgentId},agent_id.eq.${assignedAgentId}`,
+    );
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   if (!channel) return data || [];
 
   return (data || []).filter((session) => matchesChannel(session, channel));
-}
-
-function matchesChannel(session, channel) {
-  const target = String(channel || "").toLowerCase().trim();
-  const sessionChannel = String(session.channel || "").toLowerCase().trim();
-  const metadataChannel = String(
-    session.metadata?.channel || "",
-  ).toLowerCase().trim();
-
-  const metadata = session.metadata || {};
-  const hasTelegramSignal =
-    Boolean(metadata.telegramUsername) ||
-    Boolean(metadata.telegramChatId) ||
-    Boolean(metadata.telegram_username) ||
-    Boolean(metadata.telegram_chat_id);
-
-  if (target === "telegram") {
-    return (
-      sessionChannel === "telegram" ||
-      metadataChannel === "telegram" ||
-      hasTelegramSignal
-    );
-  }
-
-  if (target === "website chatbot") {
-    // Anything that isn't clearly telegram belongs to Website Chatbot.
-    return (
-      sessionChannel !== "telegram" &&
-      metadataChannel !== "telegram" &&
-      !hasTelegramSignal
-    );
-  }
-
-  // Exact match for any other channel name.
-  return sessionChannel === target || metadataChannel === target;
 }
 
 /**
@@ -477,16 +445,29 @@ export async function sendMessage(
 
   if (!sessionReadError && existingSession) {
     const existingMetadata = getSessionMetadata(existingSession);
+    const nowIso = new Date().toISOString();
 
-    const updatedMetadata = shouldRefreshTimer
-      ? refreshSessionTimerMetadata(existingMetadata)
-      : existingMetadata;
+    // Refresh timer on real columns + metadata when a customer or agent
+    // sends a message. System messages don't refresh the inactivity timer.
+    const timerWrite = shouldRefreshTimer
+      ? buildSessionTimerWrite(existingMetadata)
+      : { metadata: existingMetadata };
+
+    // Stamp the side-specific activity column so reporting/analytics can
+    // distinguish customer vs agent activity without scanning chat_messages.
+    const sideStamp = {};
+    if (senderRole === "user" || senderRole === "customer") {
+      sideStamp.last_customer_message_at = nowIso;
+    } else if (senderRole === "agent") {
+      sideStamp.last_agent_message_at = nowIso;
+    }
 
     await supabase
       .from("chat_sessions")
       .update({
-        updated_at: new Date().toISOString(),
-        metadata: updatedMetadata,
+        updated_at: nowIso,
+        ...timerWrite,
+        ...sideStamp,
       })
       .eq("id", sessionId);
   } else {
@@ -532,7 +513,9 @@ export async function processChatSessionTimeouts() {
 
   for (const session of sessions || []) {
     const metadata = getSessionMetadata(session);
-    const expiresAtValue = metadata.expiresAt;
+    // Prefer the first-class expires_at column; fall back to metadata for
+    // any pre-migration rows whose real column is still null.
+    const expiresAtValue = session.expires_at || metadata.expiresAt;
 
     if (!expiresAtValue) continue;
 
@@ -546,19 +529,20 @@ export async function processChatSessionTimeouts() {
         endedReason: "inactivity_timeout",
       };
 
-      // Atomic close: only mark closed if expiresAt is still in the past at
+      // Atomic close: only mark closed if expires_at is still in the past at
       // write time. If the customer or agent just sent a message and refreshed
-      // expiresAt, the row won't match and we skip the close.
+      // the timer, the row won't match and we skip the close.
       const { data: closedRows, error: closeError } = await supabase
         .from("chat_sessions")
         .update({
           status: "closed",
+          ended_at: now.toISOString(),
           updated_at: now.toISOString(),
           metadata: endedMetadata,
         })
         .eq("id", session.id)
         .eq("status", "active")
-        .lte("metadata->>expiresAt", now.toISOString())
+        .lte("expires_at", now.toISOString())
         .select("id");
 
       if (closeError) {
@@ -567,7 +551,7 @@ export async function processChatSessionTimeouts() {
       }
 
       if (!closedRows || closedRows.length === 0) {
-        // Another writer refreshed expiresAt — session is still active.
+        // Another writer refreshed expires_at — session is still active.
         continue;
       }
 
@@ -585,19 +569,29 @@ export async function processChatSessionTimeouts() {
     }
 
     const warningThresholdMs = WARNING_MINUTES_BEFORE_END * 60 * 1000;
-    const warningAlreadySent = Boolean(metadata.warningSentAt);
+    // Prefer real column, fall back to metadata mirror.
+    const warningAlreadySent = Boolean(
+      session.warning_sent_at || metadata.warningSentAt,
+    );
 
     if (remainingMs <= warningThresholdMs && !warningAlreadySent) {
       const warningWindowEnd = new Date(
         now.getTime() + warningThresholdMs,
       ).toISOString();
 
-      // Only mark warning sent if expiresAt is still in our warning window
-      // and warning hasn't been sent. Avoids overwriting fresh metadata if
-      // sendMessage just refreshed the timer.
+      // Atomic mark-as-warned. Conditions:
+      //   - status still 'active' (someone may have closed it in flight)
+      //   - real warning_sent_at column is still null
+      //   - metadata.warningSentAt mirror is still null (catches transitional
+      //     rows where the real column was never populated pre-migration)
+      //   - expires_at is still inside the warning window
+      // Postgres serializes concurrent UPDATEs on the same row, so even with
+      // multiple sweeper instances running across tabs, only one wins and
+      // the others get 0 rows returned.
       const { data: warnedRows, error: warningUpdateError } = await supabase
         .from("chat_sessions")
         .update({
+          warning_sent_at: now.toISOString(),
           updated_at: now.toISOString(),
           metadata: {
             ...metadata,
@@ -605,8 +599,10 @@ export async function processChatSessionTimeouts() {
           },
         })
         .eq("id", session.id)
+        .eq("status", "active")
+        .is("warning_sent_at", null)
         .is("metadata->>warningSentAt", null)
-        .lte("metadata->>expiresAt", warningWindowEnd)
+        .lte("expires_at", warningWindowEnd)
         .select("id");
 
       if (warningUpdateError) {

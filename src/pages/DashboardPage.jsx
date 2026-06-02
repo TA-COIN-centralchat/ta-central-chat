@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getAgents, getTickets } from '../services/ticketService';
 import { supabase } from '../services/supabaseClient';
+import { getCurrentUserRole } from '../utils/authUtils';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ const DashboardPage = () => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDashboard();
   }, [loadDashboard]);
 
@@ -119,7 +121,8 @@ const DashboardPage = () => {
     ).length;
 
     const availableAgents = agents.filter(
-      (agent) => agent.status === 'Available'
+      (agent) =>
+        agent.status === 'Available' && agent.role !== 'Admin'
     ).length;
 
     return {
@@ -134,64 +137,97 @@ const DashboardPage = () => {
     };
   }, [tickets, agents]);
 
-  const dashboardCards = [
-    {
-      title: 'All Tickets',
-      value: stats.totalTickets,
-      description: 'All support records',
-      icon: Inbox,
-      path: '/tickets',
-      sparkline: true,
-    },
-    {
-      title: 'Waiting Queue',
-      value: stats.waitingQueue,
-      description: 'Waiting assignment',
-      icon: Clock,
-      path: '/waiting-queue',
-      accent: 'yellow',
-    },
-    {
-      title: 'Pending Investigation',
-      value: stats.pendingInvestigation,
-      description: 'Internal follow-up',
-      icon: AlertTriangle,
-      path: '/pending-investigation',
-      accent: 'orange',
-    },
-    {
-      title: 'Closed / Resolved',
-      value: stats.closedTickets,
-      description: 'Completed records',
-      icon: CheckCircle,
-      path: '/closed-tickets',
-      accent: 'green',
-    },
-    {
-      title: 'Telegram',
-      value: stats.telegramTickets,
-      description: 'Telegram channel',
-      icon: Send,
-      path: '/telegram',
-      accent: 'blue',
-    },
-    {
-      title: 'Website Chatbot',
-      value: stats.chatbotTickets,
-      description: 'Website channel',
-      icon: MessageCircle,
-      path: '/chatbot',
-      accent: 'blue',
-    },
-    {
-      title: 'Agents',
-      value: stats.totalAgents,
-      description: `${stats.availableAgents} available`,
-      icon: Users,
-      path: '/agents',
-      accent: 'slate',
-    },
-  ];
+  // Role-driven card visibility. Per product spec:
+  //   Admin  → All Tickets, Waiting Queue, Pending Investigation, Agents,
+  //            Agent Status panel
+  //   Agent  → All Tickets, Pending Investigation, Closed/Resolved, Telegram,
+  //            Website Chatbot
+  // Routes here must match AppRoutes.
+  const isAdmin = getCurrentUserRole() === 'Admin';
+
+  const cardAllTickets = {
+    title: 'All Tickets',
+    value: stats.totalTickets,
+    description: 'All support records',
+    icon: Inbox,
+    path: '/tickets',
+    sparkline: true,
+  };
+
+  const cardWaitingQueue = {
+    title: 'Waiting Queue',
+    value: stats.waitingQueue,
+    description: 'Waiting assignment',
+    icon: Clock,
+    path: '/waiting-queue',
+    accent: 'yellow',
+  };
+
+  const cardPendingInvestigation = {
+    title: 'Pending Investigation',
+    value: stats.pendingInvestigation,
+    description: 'Internal follow-up',
+    icon: AlertTriangle,
+    path: '/investigation',
+    accent: 'orange',
+  };
+
+  const cardClosed = {
+    title: 'Closed / Resolved',
+    value: stats.closedTickets,
+    description: 'Completed records',
+    icon: CheckCircle,
+    path: '/closed',
+    accent: 'green',
+  };
+
+  const cardTelegram = {
+    title: 'Telegram',
+    value: stats.telegramTickets,
+    description: 'Telegram channel',
+    icon: Send,
+    path: '/telegram',
+    accent: 'blue',
+  };
+
+  const cardChatbot = {
+    title: 'Website Chatbot',
+    value: stats.chatbotTickets,
+    description: 'Website channel',
+    icon: MessageCircle,
+    path: '/live-chat',
+    accent: 'blue',
+  };
+
+  const cardAgents = {
+    title: 'Agents',
+    value: stats.totalAgents,
+    description: `${stats.availableAgents} available`,
+    icon: Users,
+    path: '/agents',
+    accent: 'slate',
+  };
+
+  // Admin: ticket counters + Agents folded into one 4-card row so the Agents
+  // card isn't stranded on its own row at full width. Agents have no admin
+  // metric to display, so their channel row holds Telegram + Website Chatbot.
+  const metricCards = isAdmin
+    ? [cardAllTickets, cardWaitingQueue, cardPendingInvestigation, cardAgents]
+    : [cardAllTickets, cardPendingInvestigation, cardClosed];
+
+  const channelCards = isAdmin ? [] : [cardTelegram, cardChatbot];
+
+  const metricGridClass =
+    metricCards.length >= 4
+      ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-4'
+      : metricCards.length === 3
+      ? 'grid gap-4 md:grid-cols-2 lg:grid-cols-3'
+      : 'grid gap-4 md:grid-cols-2';
+
+  const channelGridClass =
+    channelCards.length >= 2
+      ? 'grid gap-4 md:grid-cols-2'
+      : 'grid gap-4';
 
   const recentTickets = tickets.slice(0, 5);
 
@@ -212,8 +248,8 @@ const DashboardPage = () => {
         </div>
       ) : (
         <div className="mx-auto max-w-7xl space-y-5">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {dashboardCards.slice(0, 4).map((card) => (
+          <section className={metricGridClass}>
+            {metricCards.map((card) => (
               <DashboardMetricCard
                 key={card.title}
                 card={card}
@@ -222,17 +258,19 @@ const DashboardPage = () => {
             ))}
           </section>
 
-          <section className="grid gap-4 md:grid-cols-3">
-            {dashboardCards.slice(4).map((card) => (
-              <ChannelCard
-                key={card.title}
-                card={card}
-                onClick={() => navigate(card.path)}
-              />
-            ))}
-          </section>
+          {channelCards.length > 0 && (
+            <section className={channelGridClass}>
+              {channelCards.map((card) => (
+                <ChannelCard
+                  key={card.title}
+                  card={card}
+                  onClick={() => navigate(card.path)}
+                />
+              ))}
+            </section>
+          )}
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className={isAdmin ? 'grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]' : 'grid gap-5'}>
             <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.3)] transition-all duration-200 hover:border-[#d8eef7] dark:hover:border-[#43acd6]/30">
               <div className="flex items-center justify-between gap-4 border-b border-[#edf1f5] dark:border-white/10 px-5 py-4">
                 <div>
@@ -337,6 +375,7 @@ const DashboardPage = () => {
               )}
             </section>
 
+            {isAdmin && (
             <section className="overflow-hidden rounded-[28px] border border-[#e8edf2] dark:border-white/10 bg-white dark:bg-white/5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.3)] transition-all duration-200 hover:border-[#d8eef7] dark:hover:border-[#43acd6]/30">
               <div className="border-b border-[#edf1f5] dark:border-white/10 px-5 py-4">
                 <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
@@ -399,6 +438,7 @@ const DashboardPage = () => {
                 </button>
               </div>
             </section>
+            )}
           </div>
         </div>
       )}

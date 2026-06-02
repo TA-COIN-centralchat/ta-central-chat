@@ -214,7 +214,7 @@ const LoginPage = () => {
 
             <form onSubmit={handleLogin} className="mt-8 space-y-5">
               <div>
-                <label className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
+                <label htmlFor="email" className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
                   Email
                 </label>
 
@@ -222,6 +222,8 @@ const LoginPage = () => {
                   <Mail size={18} className="shrink-0 text-[#8e8e93] dark:text-[#a1a1a6]" />
 
                   <input
+                    id="email"
+                    name="email"
                     type="email"
                     value={formData.email}
                     onChange={(event) =>
@@ -235,7 +237,7 @@ const LoginPage = () => {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
+                <label htmlFor="password" className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">
                   Password
                 </label>
 
@@ -243,6 +245,8 @@ const LoginPage = () => {
                   <Lock size={18} className="shrink-0 text-[#8e8e93] dark:text-[#a1a1a6]" />
 
                   <input
+                    id="password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(event) =>
