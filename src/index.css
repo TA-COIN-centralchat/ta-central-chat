@@ -128,3 +128,72 @@ select {
 .system-muted-text {
   color: var(--mac-subtext);
 }
+
+/* =========================
+   Standardized select / dropdown
+   - One class, used everywhere
+   - Native arrow replaced with a clean chevron SVG
+   - Same height (44px), padding, radius, focus state as inputs
+========================= */
+
+.system-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  height: 44px;
+  padding: 0 40px 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--mac-border);
+  background-color: #f8fafc;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px 14px;
+  color: var(--mac-text);
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.system-select:hover {
+  background-color: #f1f5f9;
+}
+
+.system-select:focus,
+.system-select:focus-visible {
+  outline: none;
+  border-color: rgba(67, 172, 214, 0.6);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(67, 172, 214, 0.12);
+}
+
+.system-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background-color: #f5f5f7;
+}
+
+.system-select option {
+  color: var(--mac-text);
+  background-color: #ffffff;
+  padding: 6px 8px;
+}
+
+/* Slim variant — same look, lower height. Used inside dense filter rows. */
+.system-select--sm {
+  height: 38px;
+  font-size: 13px;
+  padding: 0 36px 0 14px;
+  background-position: right 12px center;
+  background-size: 12px 12px;
+}
+
+/* Large variant — for modal forms where adjacent inputs are 48px tall. */
+.system-select--lg {
+  height: 48px;
+  border-radius: 16px;
+  padding: 0 44px 0 16px;
+}

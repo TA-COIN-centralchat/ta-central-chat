@@ -14,7 +14,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import ChatWindow from '../components/tickets/ChatWindow';
 import TicketDetailsPanel from '../components/tickets/TicketDetailsPanel';
-import { getTickets } from '../services/ticketService';
+import { getTicketById } from '../services/ticketService';
 
 const TicketDetailPage = () => {
   const { ticketId } = useParams();
@@ -31,12 +31,11 @@ const TicketDetailPage = () => {
     try {
       setLoading(true);
 
-      const tickets = await getTickets();
-      const foundTicket = tickets.find((item) => item.dbId === ticketId);
-
+      const foundTicket = await getTicketById(ticketId);
       setTicket(foundTicket || null);
     } catch (error) {
       console.error('Failed to load ticket detail:', error);
+      setTicket(null);
     } finally {
       setLoading(false);
     }

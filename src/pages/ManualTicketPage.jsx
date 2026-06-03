@@ -312,7 +312,7 @@ const ManualTicketPage = () => {
                       handleChange('issueType', event.target.value)
                     }
                     disabled={loadingCategories || categories.length === 0}
-                    className="system-input mt-2 w-full rounded-2xl px-4 py-3 text-sm text-[#1d1d1f] outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    className="system-select mt-2"
                   >
                     {loadingCategories ? (
                       <option>Loading categories...</option>
@@ -525,7 +525,7 @@ const Select = ({
         name={selectId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="system-input mt-2 w-full rounded-2xl px-4 py-3 text-sm text-[#1d1d1f] outline-none"
+        className="system-select mt-2"
       >
         {options.map((option) => (
           <option key={option} value={option}>

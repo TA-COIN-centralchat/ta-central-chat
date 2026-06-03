@@ -132,7 +132,7 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
               value={selectedAgentId}
               onChange={(event) => setSelectedAgentId(event.target.value)}
               disabled={loadingAgents || loading}
-              className="mt-2 w-full rounded-[18px] border border-[#e8edf2] dark:border-white/10 bg-[#f8fafc] dark:bg-white/5 px-4 py-3 text-sm text-[#1d1d1f] dark:text-[#f5f5f7] outline-none transition focus:border-[#43acd6] dark:focus:border-[#43acd6] focus:bg-white dark:focus:bg-white/10 focus:ring-4 focus:ring-[#43acd6]/10 disabled:cursor-not-allowed disabled:opacity-60"
+              className="system-select system-select--lg mt-2"
             >
               {loadingAgents ? (
                 <option>Loading agents...</option>
@@ -191,12 +191,12 @@ const ReassignTicketModal = ({ open, onClose, ticket, onUpdated }) => {
           </div>
         </div>
 
-        <div className="flex flex-col-reverse justify-end gap-3 border-t border-[#edf1f5] dark:border-white/10 bg-[#fbfbfd] dark:bg-[#151515] px-6 py-4 sm:flex-row">
+        <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-[#edf1f5] dark:border-white/10 bg-[#fbfbfd] dark:bg-[#151515] px-6 py-4 sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="rounded-2xl border border-[#e5e7eb] dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-[#6e6e73] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl border border-[#e5e7eb] dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-[#6e6e73] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7] disabled:cursor-not-allowed disabled:opacity-60 sm:mr-auto"
           >
             Cancel
           </button>

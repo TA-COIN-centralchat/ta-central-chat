@@ -209,7 +209,7 @@ export const getTickets = async () => {
       ta_coin_user_id,
       source_channel
     ),
-    agents (
+    agents!assigned_agent_id (
       id,
       full_name,
       email,
@@ -279,7 +279,7 @@ export const getTicketById = async (ticketId) => {
         ta_coin_user_id,
         source_channel
       ),
-      agents (
+      agents!assigned_agent_id (
         id,
         full_name,
         email,

@@ -190,7 +190,7 @@ const ChannelTicketsPage = ({
               <select
                 value={sessionFilter}
                 onChange={(event) => setSessionFilter(event.target.value)}
-                className="system-input h-11 w-full rounded-2xl px-4 text-sm text-[#1d1d1f] outline-none"
+                className="system-select"
               >
                 {sessionStatusOptions.map((status) => (
                   <option key={status}>{status}</option>

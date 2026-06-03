@@ -268,7 +268,7 @@ const AllTicketsPage = () => {
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value)}
-                className="system-input rounded-2xl px-4 py-3 text-sm text-[#1d1d1f] outline-none"
+                className="system-select"
               >
                 {statusOptions.map((status) => (
                   <option key={status}>{status}</option>
@@ -278,7 +278,7 @@ const AllTicketsPage = () => {
               <select
                 value={channelFilter}
                 onChange={(event) => setChannelFilter(event.target.value)}
-                className="system-input rounded-2xl px-4 py-3 text-sm text-[#1d1d1f] outline-none"
+                className="system-select"
               >
                 {channelOptions.map((channel) => (
                   <option key={channel}>{channel}</option>

@@ -316,7 +316,7 @@ const AgentsPage = () => {
                     onChange={(event) =>
                       handleChange('role', event.target.value)
                     }
-                    className="system-input mt-2 w-full rounded-2xl px-4 py-3 text-sm text-[#1d1d1f] outline-none"
+                    className="system-select mt-2"
                   >
                     {roleOptions.map((role) => (
                       <option key={role} value={role}>

@@ -166,7 +166,7 @@ const AuditLogsPage = () => {
               <select
                 value={actionFilter}
                 onChange={(event) => setActionFilter(event.target.value)}
-                className="system-input h-11 rounded-2xl px-4 text-sm text-[#1d1d1f] outline-none"
+                className="system-select"
               >
                 {actionFilters.map((action) => (
                   <option key={action}>{action}</option>
