@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   AtSign,
@@ -10,11 +10,16 @@ import {
   IdCard,
   Mail,
   MessageCircle,
+  Mic,
+  Pause,
   Phone,
+  Play,
   SendHorizontal,
   ShieldCheck,
+  Square,
   Star,
   Ticket,
+  Trash2,
   UserRound,
   X,
   XCircle,
@@ -25,6 +30,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   endSession,
   sendSessionReply,
+  sendAgentVoiceReply,
   getSessionById,
 } from '../services/sessionService';
 
@@ -67,6 +73,18 @@ const SessionWorkspacePage = () => {
 
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+
+  // Voice recording state (Telegram mode only). The MediaRecorder instance and
+  // collected chunks live in refs so re-renders don't tear down the in-progress
+  // recording.
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const recordingStartedAtRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [sendingVoice, setSendingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const recordingTimerRef = useRef(null);
   // localReplies is kept as an inert empty array. The optimistic-reply UX it
   // used to drive caused duplication once sendSessionReply started writing
   // real chat_messages rows. Leaving the state and render block in place so
@@ -423,6 +441,136 @@ const SessionWorkspacePage = () => {
     }
   };
 
+  const stopRecordingStream = () => {
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  // Prefer OGG/Opus so the Telegram bridge can use sendVoice (native voice-note
+  // UI). Fall back to webm/opus, which is what Chrome ships by default — the
+  // edge function will then send it via sendAudio.
+  const pickRecorderMimeType = () => {
+    if (typeof MediaRecorder === 'undefined') return null;
+    const candidates = [
+      'audio/ogg;codecs=opus',
+      'audio/webm;codecs=opus',
+      'audio/webm',
+    ];
+    return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  };
+
+  const handleStartRecording = async () => {
+    if (!isTelegramMode || session?.status === 'Ended') return;
+    if (isRecording || sendingVoice) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+
+      const mimeType = pickRecorderMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const chunks = recordedChunksRef.current;
+        recordedChunksRef.current = [];
+        const startedAt = recordingStartedAtRef.current;
+        const durationSeconds = startedAt
+          ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+          : null;
+        stopRecordingStream();
+        setIsRecording(false);
+        setRecordingSeconds(0);
+
+        if (!chunks.length || !session?.dbId) return;
+
+        const blobType = recorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: blobType });
+
+        try {
+          setSendingVoice(true);
+          await sendAgentVoiceReply({
+            sessionId: session.dbId,
+            agentId: localStorage.getItem('currentAgentId') || null,
+            agentName: localStorage.getItem('currentUserName') || 'Agent',
+            blob,
+            mimeType: blobType,
+            durationSeconds,
+          });
+          await loadSession({ showLoading: false });
+        } catch (error) {
+          console.error('Failed to send voice reply:', error);
+          alert(error?.message || 'Failed to send voice message.');
+        } finally {
+          setSendingVoice(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recordingStartedAtRef.current = Date.now();
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => {
+        const startedAt = recordingStartedAtRef.current;
+        if (startedAt) {
+          setRecordingSeconds(Math.floor((Date.now() - startedAt) / 1000));
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Microphone access failed:', error);
+      stopRecordingStream();
+      setIsRecording(false);
+      alert('Microphone access was denied or unavailable.');
+    }
+  };
+
+  const handleStopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+  };
+
+  const handleCancelRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+    // Tell the onstop handler to discard by clearing the chunks first.
+    recordedChunksRef.current = [];
+    if (recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        try {
+          recorder.stop();
+        } catch {
+          // ignore
+        }
+      }
+      stopRecordingStream();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleReplyKeyDown = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -711,11 +859,15 @@ const SessionWorkspacePage = () => {
                     // that something arrived so the agent can ask the
                     // customer to resend as an image.
                     const imageUrl = resolveImageAttachment(message);
+                    const voiceAttachment = resolveVoiceAttachment(message);
                     const rawAttachmentUrl = getAnyAttachmentUrl(message);
                     const hasNonImageAttachment =
-                      !imageUrl && Boolean(rawAttachmentUrl);
+                      !imageUrl && !voiceAttachment && Boolean(rawAttachmentUrl);
+                    const placeholderText = String(message.content || '').trim();
                     const isPlaceholderText =
-                      String(message.content || '').trim() === '[Image]';
+                      placeholderText === '[Image]' ||
+                      placeholderText === '[Voice message]' ||
+                      placeholderText === '[Audio]';
                     const showContentText =
                       Boolean(message.content) && !isPlaceholderText;
 
@@ -748,6 +900,16 @@ const SessionWorkspacePage = () => {
                                 showContentText ? 'mt-2' : ''
                               }`}
                             />
+                          )}
+
+                          {voiceAttachment && (
+                            <div className={showContentText ? 'mt-2' : ''}>
+                              <VoiceMessageBubble
+                                url={voiceAttachment.url}
+                                durationSec={voiceAttachment.durationSec}
+                                variant={isAgent ? 'agent' : 'customer'}
+                              />
+                            </div>
                           )}
 
                           {hasNonImageAttachment && (
@@ -814,25 +976,77 @@ const SessionWorkspacePage = () => {
                 <div className="border-t border-black/6 bg-white px-4 py-4">
                   <div className="mx-auto max-w-4xl">
                     <div className="flex items-end gap-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
-                      <textarea
-                        id="replyText"
-                        name="replyText"
-                        rows="2"
-                        value={replyText}
-                        onChange={(event) => setReplyText(event.target.value)}
-                        onKeyDown={handleReplyKeyDown}
-                        placeholder={
-                          isTelegramMode
-                            ? 'Type your Telegram reply to the customer...'
-                            : 'Type your reply to the customer...'
-                        }
-                        className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
-                      />
+                      {isRecording ? (
+                        <div className="flex h-11 flex-1 items-center gap-3 rounded-2xl bg-white px-3 ring-1 ring-red-100">
+                          <span className="relative flex h-2.5 w-2.5 shrink-0">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                          </span>
+
+                          <div className="flex flex-1 items-center gap-[3px]">
+                            {Array.from({ length: 22 }).map((_, i) => (
+                              <span
+                                key={i}
+                                className="w-[2.5px] animate-pulse rounded-full bg-red-400"
+                                style={{
+                                  height: `${30 + ((i * 47) % 60)}%`,
+                                  animationDelay: `${i * 70}ms`,
+                                  animationDuration: '900ms',
+                                }}
+                              />
+                            ))}
+                          </div>
+
+                          <span className="shrink-0 text-xs font-medium tabular-nums text-red-600">
+                            {formatVoiceDuration(recordingSeconds)}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={handleCancelRecording}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#8e8e93] transition hover:bg-red-50 hover:text-red-600"
+                            title="Cancel recording"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ) : (
+                        <textarea
+                          id="replyText"
+                          name="replyText"
+                          rows="2"
+                          value={replyText}
+                          onChange={(event) => setReplyText(event.target.value)}
+                          onKeyDown={handleReplyKeyDown}
+                          placeholder={
+                            isTelegramMode
+                              ? 'Type your Telegram reply to the customer...'
+                              : 'Type your reply to the customer...'
+                          }
+                          className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
+                        />
+                      )}
+
+                      {isTelegramMode && (
+                        <button
+                          type="button"
+                          onClick={isRecording ? handleStopRecording : handleStartRecording}
+                          disabled={sendingVoice}
+                          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            isRecording
+                              ? 'bg-red-500 text-white shadow-[0_14px_28px_rgba(239,68,68,0.25)] hover:bg-red-600'
+                              : 'bg-white text-[#1d1d1f] ring-1 ring-black/6 hover:bg-[#fafafa] hover:text-[#43acd6]'
+                          }`}
+                          title={isRecording ? 'Stop and send voice' : 'Record voice message'}
+                        >
+                          {isRecording ? <Square size={14} fill="currentColor" /> : <Mic size={18} />}
+                        </button>
+                      )}
 
                       <button
                         type="button"
                         onClick={handleSendReply}
-                        disabled={sendingReply || !replyText.trim()}
+                        disabled={sendingReply || sendingVoice || isRecording || !replyText.trim()}
                         className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#43acd6] text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
                         title="Send reply"
                       >
@@ -841,8 +1055,12 @@ const SessionWorkspacePage = () => {
                     </div>
 
                     <p className="mt-2 text-xs text-[#8e8e93]">
-                      {isTelegramMode
-                        ? 'Message will be saved in the dashboard and sent to the customer on Telegram.'
+                      {isRecording
+                        ? `Recording… ${formatVoiceDuration(recordingSeconds)}. Tap the stop button to send.`
+                        : sendingVoice
+                        ? 'Sending voice message…'
+                        : isTelegramMode
+                        ? 'Type a reply, or tap the mic to send a voice note. Messages are delivered on Telegram.'
                         : 'Press Enter to send. Shift + Enter for a new line.'}
                     </p>
                   </div>
@@ -1186,6 +1404,227 @@ const resolveImageAttachment = (message) => {
   }
 
   return null;
+};
+
+const formatVoiceDuration = (totalSeconds) => {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+// Deterministic pseudo-waveform from a URL hash, so the same voice message
+// always renders the same bar pattern across re-mounts (no jitter on rerender).
+// Decoding the real audio would be more faithful but adds a heavy AudioContext
+// per bubble — every social-media client uses a fake/pre-baked waveform.
+const VOICE_BAR_COUNT = 34;
+
+const generateWaveformHeights = (seed = '') => {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  const heights = [];
+  for (let i = 0; i < VOICE_BAR_COUNT; i++) {
+    const x = Math.sin((hash >>> 0) + i * 12.9898) * 43758.5453;
+    const frac = x - Math.floor(x);
+    // Bias toward a "talking" envelope: ramp up, body, taper off.
+    const t = i / (VOICE_BAR_COUNT - 1);
+    const envelope = Math.sin(Math.PI * t) * 0.6 + 0.4;
+    const value = 0.25 + Math.abs(frac) * 0.75 * envelope;
+    heights.push(Math.max(0.2, Math.min(1, value)));
+  }
+  return heights;
+};
+
+// Standardised voice-message bubble. Mirrors WhatsApp / Telegram / Messenger:
+// circular play/pause, pseudo-waveform bars that fill as playback advances,
+// click-to-seek along the waveform, and a tabular-numeric timer that shows
+// elapsed time while playing and the total duration when stopped.
+const VoiceMessageBubble = ({ url, durationSec, variant = 'customer' }) => {
+  const audioRef = useRef(null);
+  const waveRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(
+    Number.isFinite(durationSec) && durationSec > 0 ? Number(durationSec) : 0,
+  );
+
+  const heights = useMemo(() => generateWaveformHeights(url || ''), [url]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+
+    const onLoaded = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+      setIsLoading(false);
+    };
+    const onTime = () => setCurrentTime(audio.currentTime);
+    const onEnd = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      audio.currentTime = 0;
+    };
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onWaiting = () => setIsLoading(true);
+    const onPlaying = () => setIsLoading(false);
+
+    audio.addEventListener('loadedmetadata', onLoaded);
+    audio.addEventListener('durationchange', onLoaded);
+    audio.addEventListener('timeupdate', onTime);
+    audio.addEventListener('ended', onEnd);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('waiting', onWaiting);
+    audio.addEventListener('playing', onPlaying);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', onLoaded);
+      audio.removeEventListener('durationchange', onLoaded);
+      audio.removeEventListener('timeupdate', onTime);
+      audio.removeEventListener('ended', onEnd);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('waiting', onWaiting);
+      audio.removeEventListener('playing', onPlaying);
+    };
+  }, [url]);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => setIsPlaying(false));
+      }
+    } else {
+      audio.pause();
+    }
+  };
+
+  const handleSeek = (event) => {
+    const audio = audioRef.current;
+    const wave = waveRef.current;
+    if (!audio || !wave || !duration) return;
+    const rect = wave.getBoundingClientRect();
+    const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    audio.currentTime = ratio * duration;
+    setCurrentTime(audio.currentTime);
+  };
+
+  const isAgentBubble = variant === 'agent';
+  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+  const timerText = formatVoiceDuration(
+    isPlaying || currentTime > 0 ? currentTime : duration,
+  );
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-2xl px-2.5 py-2 min-w-[230px] max-w-[320px] ${
+        isAgentBubble ? 'bg-white/15' : 'bg-[#f0f4f8]'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={togglePlay}
+        title={isPlaying ? 'Pause' : 'Play'}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+          isAgentBubble
+            ? 'bg-white text-[#2389b8] hover:bg-white/90'
+            : 'bg-[#43acd6] text-white hover:bg-[#2389b8]'
+        }`}
+      >
+        {isLoading ? (
+          <span
+            className={`h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent`}
+          />
+        ) : isPlaying ? (
+          <Pause size={15} fill="currentColor" />
+        ) : (
+          <Play size={15} fill="currentColor" className="translate-x-px" />
+        )}
+      </button>
+
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div
+          ref={waveRef}
+          onClick={handleSeek}
+          className="flex h-8 flex-1 cursor-pointer items-center gap-[2px]"
+          role="slider"
+          aria-label="Voice message progress"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration) || 0}
+          aria-valuenow={Math.round(currentTime)}
+        >
+          {heights.map((h, i) => {
+            const barPosition = (i + 0.5) / VOICE_BAR_COUNT;
+            const isActive = barPosition <= progress;
+            const activeColor = isAgentBubble ? 'bg-white' : 'bg-[#43acd6]';
+            const idleColor = isAgentBubble
+              ? 'bg-white/45'
+              : 'bg-[#43acd6]/30';
+            return (
+              <span
+                key={i}
+                className={`w-[2.5px] rounded-full transition-colors duration-150 ${
+                  isActive ? activeColor : idleColor
+                }`}
+                style={{ height: `${Math.round(h * 100)}%` }}
+              />
+            );
+          })}
+        </div>
+
+        <span
+          className={`shrink-0 text-[11px] font-medium tabular-nums ${
+            isAgentBubble ? 'text-blue-50' : 'text-[#6e6e73]'
+          }`}
+        >
+          {timerText}
+        </span>
+      </div>
+
+      <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
+    </div>
+  );
+};
+
+// Voice / audio resolver. Returns { url, mimeType, durationSec } when the
+// message carries a playable audio attachment, else null. Telegram voice notes
+// arrive with metadata.kind === 'voice' (ogg/opus); agent-recorded voice from
+// the dashboard arrives with kind === 'voice' and webm or ogg mime type.
+const resolveVoiceAttachment = (message) => {
+  if (!message) return null;
+  const meta =
+    message.metadata && typeof message.metadata === 'object'
+      ? message.metadata
+      : {};
+
+  const url = message.attachment_url || meta.attachment_url || meta.voice_url || null;
+  if (!url) return null;
+
+  const mimeType = String(meta.mimeType || meta.mime_type || '').toLowerCase();
+  const kind = String(meta.kind || meta.attachment_type || meta.type || '').toLowerCase();
+
+  const isVoiceKind = ['voice', 'audio'].some((token) => kind.includes(token));
+  const isAudioMime = mimeType.startsWith('audio/');
+  const isAudioByExt = /\.(ogg|oga|mp3|m4a|wav|webm)(\?|#|$)/i.test(url);
+
+  if (!isVoiceKind && !isAudioMime && !isAudioByExt) return null;
+
+  return {
+    url,
+    mimeType: mimeType || 'audio/ogg',
+    durationSec: Number(meta.duration) || null,
+  };
 };
 
 // Returns the raw (possibly non-image) attachment URL so we can still surface

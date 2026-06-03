@@ -3,6 +3,7 @@ import { Loader2, Search, Users } from 'lucide-react';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { supabase } from '../services/supabaseClient';
+import { getTickets } from '../services/ticketService';
 
 const CustomersPage = () => {
   const [customers, setCustomers] = useState([]);
@@ -12,33 +13,39 @@ const CustomersPage = () => {
 
   useEffect(() => {
     const loadCustomers = async () => {
-      try {
-        setLoading(true);
+      setLoading(true);
 
+      // Customers and ticket counts load independently so a failure on one
+      // doesn't blank out the other. Before, an error inside getTickets()
+      // would bubble out of the shared try block and leave customers as [],
+      // which looked like the database had been wiped.
+      try {
         const { data: customerData, error: customerError } = await supabase
           .from('customers')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (customerError) {
-          throw customerError;
-        }
-
-        const { data: ticketData, error: ticketError } = await supabase
-          .from('tickets')
-          .select('id, customer_id, status');
-
-        if (ticketError) {
-          throw ticketError;
-        }
-
+        if (customerError) throw customerError;
         setCustomers(customerData || []);
-        setTickets(ticketData || []);
       } catch (error) {
         console.error('Failed to load customers:', error);
-      } finally {
-        setLoading(false);
       }
+
+      try {
+        const ticketData = await getTickets();
+        setTickets(
+          (ticketData || []).map((ticket) => ({
+            id: ticket.dbId,
+            customer_id: ticket.customerId,
+            status: ticket.status,
+          })),
+        );
+      } catch (error) {
+        console.error('Failed to load ticket counts for customers:', error);
+        setTickets([]);
+      }
+
+      setLoading(false);
     };
 
     loadCustomers();
@@ -99,10 +106,6 @@ const CustomersPage = () => {
               </div>
             </div>
 
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-[#f5f5f7] px-3 py-2 text-sm font-medium text-[#6e6e73] ring-1 ring-black/6">
-              <span className="h-2 w-2 rounded-full bg-[#43acd6]" />
-              Customer database
-            </div>
           </div>
 
           <div className="border-b border-black/6 px-5 py-4">

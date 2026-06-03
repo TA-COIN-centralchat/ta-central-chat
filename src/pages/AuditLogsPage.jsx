@@ -148,10 +148,6 @@ const AuditLogsPage = () => {
               </div>
             </div>
 
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-[#f5f5f7] px-3 py-1.5 text-xs font-medium text-[#6e6e73] ring-1 ring-black/6">
-              <span className="h-2 w-2 rounded-full bg-[#43acd6]" />
-              Live tracking
-            </div>
           </div>
 
           <div className="border-b border-black/6 px-5 py-4">

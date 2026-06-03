@@ -147,7 +147,7 @@ const getCustomerName = (session) => {
   );
 };
 
-const backfillRecentActivity = async (existing) => {
+const backfillRecentActivity = async (existing, currentAgent) => {
   try {
     const since = new Date(
       Date.now() - BACKFILL_HOURS * 60 * 60 * 1000,
@@ -161,12 +161,24 @@ const backfillRecentActivity = async (existing) => {
         .gte("created_at", since)
         .order("created_at", { ascending: false })
         .limit(MAX_NOTIFICATIONS),
-      supabase
-        .from("tickets")
-        .select("id, ticket_number, status, created_at")
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(MAX_NOTIFICATIONS),
+      // Backfill scope mirrors the live realtime rule: admin sees every
+      // ticket; non-admin agents see only tickets assigned to them OR
+      // created by them. RLS enforces the same on the server.
+      (() => {
+        let q = supabase
+          .from("tickets")
+          .select("id, ticket_number, status, created_at, assigned_agent_id, created_by_agent_id")
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(MAX_NOTIFICATIONS);
+        const role = String(currentAgent?.role || "").toLowerCase();
+        if (role !== "admin" && currentAgent?.id) {
+          q = q.or(
+            `assigned_agent_id.eq.${currentAgent.id},created_by_agent_id.eq.${currentAgent.id}`,
+          );
+        }
+        return q;
+      })(),
     ]);
 
     const synthesized = [];
@@ -254,10 +266,14 @@ export const NotificationProvider = ({ children }) => {
     const persisted = loadPersistedNotifications();
     setNotifications(persisted);
 
-    backfillRecentActivity(persisted).then((extras) => {
+    backfillRecentActivity(persisted, currentAgent).then((extras) => {
       if (extras.length === 0) return;
       setNotifications((prev) => mergeNotifications(prev, extras));
     });
+    // `currentAgent` identity churns on every re-render, but the only thing we
+    // care about for re-running the backfill is the agent identity (id+role).
+    // The role can't change without a re-login, which also changes the id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAgent?.id]);
 
   useEffect(() => {
@@ -424,6 +440,24 @@ export const NotificationProvider = ({ children }) => {
       )
       .subscribe(handleSubscribeStatus);
 
+    // Mirrors isMySession for tickets: admin sees every ticket event; a
+    // non-admin agent sees only tickets they're assigned to or that they
+    // created (now or, for an UPDATE, before the change — so reassignment
+    // events still reach the agent losing the ticket).
+    const isMyTicket = (ticketData, oldTicketData) => {
+      if (isAdmin) return true;
+      const newAssignee = ticketData?.assigned_agent_id || null;
+      const oldAssignee = oldTicketData?.assigned_agent_id || null;
+      const newCreator = ticketData?.created_by_agent_id || null;
+      const oldCreator = oldTicketData?.created_by_agent_id || null;
+      return (
+        newAssignee === currentAgent.id ||
+        oldAssignee === currentAgent.id ||
+        newCreator === currentAgent.id ||
+        oldCreator === currentAgent.id
+      );
+    };
+
     const ticketChannel = supabase
       .channel(`notifications-tickets-${currentAgent.id}`)
       .on(
@@ -431,6 +465,7 @@ export const NotificationProvider = ({ children }) => {
         { event: "INSERT", schema: "public", table: "tickets" },
         (payload) => {
           const ticket = payload.new;
+          if (!isMyTicket(ticket, null)) return;
           pushNotification({
             kind: "ticket",
             severity: "info",
@@ -444,6 +479,7 @@ export const NotificationProvider = ({ children }) => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "tickets" },
         (payload) => {
+          if (!isMyTicket(payload.new, payload.old)) return;
           const oldStatus = payload.old?.status;
           const newStatus = payload.new?.status;
           const oldAssignedTo = payload.old?.assigned_to;

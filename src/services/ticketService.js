@@ -194,28 +194,68 @@ export const setCategoryStatus = async (categoryId, status) => {
 ========================= */
 
 export const getTickets = async () => {
-  const { data, error } = await supabase
-    .from('tickets')
-    .select(`
-      *,
-      customers (
-        id,
-        full_name,
-        phone,
-        email,
-        telegram_username,
-        ta_coin_user_id,
-        source_channel
-      ),
-      agents (
-        id,
-        full_name,
-        email,
-        role,
-        status
-      )
-    `)
-    .order('created_at', { ascending: false });
+  // Admin sees everything; non-admin agents see only tickets they're assigned
+  // to OR tickets they created themselves. RLS enforces the same rule on the
+  // server — this client-side filter just shortens the round-trip and keeps
+  // the query plan small.
+  const SELECT_GRAPH = `
+    *,
+    customers (
+      id,
+      full_name,
+      phone,
+      email,
+      telegram_username,
+      ta_coin_user_id,
+      source_channel
+    ),
+    agents (
+      id,
+      full_name,
+      email,
+      role,
+      status
+    )
+  `;
+
+  const buildQuery = ({ includeCreatedBy }) => {
+    let q = supabase
+      .from('tickets')
+      .select(SELECT_GRAPH)
+      .order('created_at', { ascending: false });
+
+    if (!isAdmin()) {
+      const me = getCurrentAgentId();
+      if (!me) return null;
+      q = includeCreatedBy
+        ? q.or(`assigned_agent_id.eq.${me},created_by_agent_id.eq.${me}`)
+        : q.eq('assigned_agent_id', me);
+    }
+    return q;
+  };
+
+  let query = buildQuery({ includeCreatedBy: true });
+  if (query === null) return [];
+
+  let { data, error } = await query;
+
+  // Graceful fallback: if the SQL migration that adds created_by_agent_id
+  // hasn't been applied yet, Postgres returns 42703 (undefined column). Retry
+  // without the created_by clause so the dashboard isn't blank in the
+  // meantime. RLS, when configured, still enforces the full rule server-side.
+  if (
+    error &&
+    (error.code === '42703' ||
+      /created_by_agent_id/i.test(error.message || ''))
+  ) {
+    console.warn(
+      'tickets.created_by_agent_id missing — falling back to assigned_agent_id-only scope. Run the RBAC migration to enable the full rule.',
+    );
+    const retryQuery = buildQuery({ includeCreatedBy: false });
+    if (retryQuery !== null) {
+      ({ data, error } = await retryQuery);
+    }
+  }
 
   if (error) {
     logSupabaseError('Error fetching tickets:', error);
@@ -253,6 +293,22 @@ export const getTicketById = async (ticketId) => {
   if (error) {
     logSupabaseError('Error fetching ticket by ID:', error);
     throw error;
+  }
+
+  // Defense-in-depth: re-check access on the client. RLS will usually return
+  // no row at all for non-admins, but URLs are shareable and this gives a
+  // clearer error than "row not found". If the new created_by_agent_id
+  // column hasn't been added yet (migration not run), treat its absence as
+  // "no claim" so legacy schemas still work — only assignment grants access.
+  if (!isAdmin()) {
+    const me = getCurrentAgentId();
+    const createdByMatch =
+      Object.prototype.hasOwnProperty.call(data || {}, 'created_by_agent_id') &&
+      data.created_by_agent_id === me;
+    const isMine = data?.assigned_agent_id === me || createdByMatch;
+    if (!isMine) {
+      throw new Error('You do not have permission to view this ticket.');
+    }
   }
 
   return mapTicket(data);
@@ -305,6 +361,7 @@ export const createTicketWithAutoAssign = async (formData) => {
   }
 
   const ticketNumber = `TAC-${Date.now()}`;
+  const creatorAgentId = getCurrentAgentId() || null;
 
   const { data: ticket, error: ticketError } = await supabase
     .from('tickets')
@@ -312,6 +369,7 @@ export const createTicketWithAutoAssign = async (formData) => {
       ticket_number: ticketNumber,
       customer_id: customer.id,
       assigned_agent_id: selectedAgent?.id || null,
+      created_by_agent_id: creatorAgentId,
       channel: formData.channel,
       issue_type: formData.issueType,
       sub_category: formData.subCategory || null,

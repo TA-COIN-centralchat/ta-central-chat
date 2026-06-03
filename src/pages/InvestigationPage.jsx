@@ -24,7 +24,6 @@ const InvestigationPage = () => {
 
           return (
             status === 'pending investigation' ||
-            status === 'pending' ||
             status === 'pending review'
           );
         });
@@ -97,10 +96,6 @@ const InvestigationPage = () => {
               </div>
             </div>
 
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-orange-50 px-3 py-2 text-sm font-medium text-orange-700 ring-1 ring-orange-100">
-              <span className="h-2 w-2 rounded-full bg-orange-500" />
-              {tickets.length} Pending
-            </div>
           </div>
 
           <div className="border-b border-black/6 px-5 py-4">
@@ -298,8 +293,8 @@ const EmptyState = () => {
       </h3>
 
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#6e6e73]">
-        No tickets currently have Pending, Pending Review, or Pending
-        Investigation status.
+        No tickets currently have Pending Review or Pending Investigation
+        status.
       </p>
     </div>
   );

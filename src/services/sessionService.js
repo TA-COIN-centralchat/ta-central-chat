@@ -682,6 +682,131 @@ export const sendSessionReply = async (args = {}) => {
   return data;
 };
 
+// Telegram-only: upload an agent-recorded voice blob to the voice-messages
+// bucket, insert a chat_messages row, refresh the timer, then ask the
+// send-telegram-reply Edge Function to deliver it to the customer on Telegram
+// via sendVoice/sendAudio.
+const VOICE_BUCKET = 'voice-messages';
+
+export const sendAgentVoiceReply = async ({
+  sessionId,
+  agentId,
+  agentName,
+  blob,
+  mimeType,
+  durationSeconds,
+}) => {
+  if (!sessionId) throw new Error('sendAgentVoiceReply: sessionId is required');
+  if (!blob) throw new Error('sendAgentVoiceReply: blob is required');
+
+  const isOgg = String(mimeType || blob.type || '').toLowerCase().includes('ogg');
+  const extension = isOgg ? 'oga' : 'webm';
+  const fileName = `agent_${Date.now()}.${extension}`;
+  const storagePath = `dashboard/${sessionId}/${fileName}`;
+  const contentType = mimeType || blob.type || (isOgg ? 'audio/ogg' : 'audio/webm');
+
+  const { error: uploadError } = await supabase.storage
+    .from(VOICE_BUCKET)
+    .upload(storagePath, blob, { contentType, upsert: false });
+
+  if (uploadError) {
+    logSupabaseError('Error uploading agent voice message:', uploadError);
+    throw uploadError;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(VOICE_BUCKET)
+    .getPublicUrl(storagePath);
+
+  const voiceUrl = publicUrlData.publicUrl;
+
+  const messageMetadata = {
+    source: 'dashboard',
+    kind: 'voice',
+    attachment_url: voiceUrl,
+    mimeType: contentType,
+    fileName,
+    ...(agentName ? { agentName } : {}),
+    ...(durationSeconds ? { duration: Math.round(durationSeconds) } : {}),
+  };
+
+  const { error: messageError } = await supabase.from('chat_messages').insert({
+    session_id: sessionId,
+    sender_role: 'agent',
+    sender_id: agentId || null,
+    content: '[Voice message]',
+    attachment_url: voiceUrl,
+    metadata: messageMetadata,
+  });
+
+  if (messageError) {
+    logSupabaseError('Error inserting agent voice message:', messageError);
+    throw messageError;
+  }
+
+  const { data: existingSession } = await supabase
+    .from('chat_sessions')
+    .select('metadata, status')
+    .eq('id', sessionId)
+    .single();
+
+  const existingMetadata =
+    existingSession?.metadata && typeof existingSession.metadata === 'object'
+      ? existingSession.metadata
+      : {};
+
+  const nowIso = new Date().toISOString();
+  const sessionUpdate = {
+    last_message: '[Voice message]',
+    last_agent_message_at: nowIso,
+    updated_at: nowIso,
+    ...buildSessionTimerWrite(existingMetadata),
+  };
+
+  if (existingSession?.status !== 'closed') {
+    sessionUpdate.status = 'active';
+  }
+
+  const { error: sessionError } = await supabase
+    .from('chat_sessions')
+    .update(sessionUpdate)
+    .eq('id', sessionId);
+
+  if (sessionError) {
+    logSupabaseError('Error updating session after voice reply:', sessionError);
+    throw sessionError;
+  }
+
+  const { data: relayData, error: relayError } = await supabase.functions.invoke(
+    'send-telegram-reply',
+    {
+      body: {
+        sessionId,
+        voiceUrl,
+        mimeType: contentType,
+        duration: durationSeconds ? Math.round(durationSeconds) : undefined,
+      },
+    },
+  );
+
+  if (relayError) {
+    logSupabaseError('Error relaying agent voice to Telegram:', relayError);
+    throw relayError;
+  }
+  if (relayData?.ok === false) {
+    throw new Error(relayData?.error || 'Failed to deliver voice to Telegram.');
+  }
+
+  await createAuditLog({
+    userName: getCurrentUserName(),
+    role: getCurrentUserRole() || 'Agent',
+    action: 'Session Voice Reply Sent',
+    details: 'Agent sent a voice message in a Telegram session.',
+  });
+
+  return { voiceUrl };
+};
+
 export const submitSessionRating = async ({
   sessionId,
   rating,
