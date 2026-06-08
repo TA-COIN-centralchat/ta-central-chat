@@ -196,7 +196,6 @@ const Sidebar = ({ open = false, onClose }) => {
 
             return (
               status === 'pending investigation' ||
-              status === 'pending' ||
               status === 'pending review' ||
               status === 'investigation' ||
               status === 'under investigation'

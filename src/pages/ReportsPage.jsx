@@ -238,7 +238,7 @@ const ReportsPage = () => {
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
-                  className="h-11 rounded-2xl border border-[#e8edf2] bg-[#f8fafc] px-4 text-sm text-[#1d1d1f] outline-none transition focus:border-[#43acd6] focus:bg-white focus:ring-4 focus:ring-[#43acd6]/10 md:w-56"
+                  className="system-select"
                 >
                   {statusOptions.map((status) => (
                     <option key={status}>{status}</option>
@@ -248,7 +248,7 @@ const ReportsPage = () => {
                 <select
                   value={channelFilter}
                   onChange={(event) => setChannelFilter(event.target.value)}
-                  className="h-11 rounded-2xl border border-[#e8edf2] bg-[#f8fafc] px-4 text-sm text-[#1d1d1f] outline-none transition focus:border-[#43acd6] focus:bg-white focus:ring-4 focus:ring-[#43acd6]/10 md:w-56"
+                  className="system-select"
                 >
                   {channelOptions.map((channel) => (
                     <option key={channel}>{channel}</option>

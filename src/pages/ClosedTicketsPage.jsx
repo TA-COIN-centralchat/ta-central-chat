@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Archive, Eye, Loader2, Search } from 'lucide-react';
+import { CheckCircle, Eye, Loader2, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -69,19 +69,19 @@ const ClosedTicketsPage = () => {
   return (
     <DashboardLayout
       title="Closed Tickets"
-      description="View resolved and archived customer support tickets."
+      description="View resolved and closed customer support tickets."
     >
       <div className="mx-auto max-w-7xl">
         <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
           <div className="flex flex-col justify-between gap-4 border-b border-black/6 px-5 py-4 lg:flex-row lg:items-center">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-                <Archive size={19} />
+                <CheckCircle size={19} />
               </div>
 
               <div>
                 <h2 className="text-base font-semibold text-[#1d1d1f]">
-                  Closed Ticket Archive
+                  Closed Tickets
                 </h2>
 
                 <p className="mt-1 text-sm leading-6 text-[#6e6e73]">
@@ -91,10 +91,6 @@ const ClosedTicketsPage = () => {
               </div>
             </div>
 
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Archive
-            </div>
           </div>
 
           <div className="border-b border-black/6 px-5 py-4">
@@ -277,7 +273,7 @@ const EmptyState = () => {
   return (
     <div className="p-10 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-        <Archive size={22} />
+        <CheckCircle size={22} />
       </div>
 
       <h3 className="mt-4 font-semibold text-[#1d1d1f]">

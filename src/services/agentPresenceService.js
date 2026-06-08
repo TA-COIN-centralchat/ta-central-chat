@@ -41,6 +41,12 @@ export const markAgentOnline = async ({
     throw error;
   }
 
+  // Sync agents table status for auto-assignment filtering
+  await supabase
+    .from('agents')
+    .update({ status: 'Available' })
+    .eq('id', agentId);
+
   return data;
 };
 
@@ -90,6 +96,11 @@ export const markAgentOffline = async (agentId) => {
     return null;
   }
 
+  await supabase
+    .from('agents')
+    .update({ status: 'Offline' })
+    .eq('id', agentId);
+
   return data;
 };
 
@@ -131,6 +142,11 @@ export const setAgentAvailability = async (agentId, status) => {
     console.error('Failed to update agent availability:', error);
     throw error;
   }
+
+  await supabase
+    .from('agents')
+    .update({ status })
+    .eq('id', agentId);
 
   return data;
 };

@@ -38,10 +38,6 @@ const SettingsPage = () => {
               </div>
             </div>
 
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-[#eef9fd] px-3 py-2 text-sm font-medium text-[#2389b8] ring-1 ring-[#43acd6]/15">
-              <span className="h-2 w-2 rounded-full bg-[#43acd6]" />
-              Configuration
-            </div>
           </div>
         </section>
 

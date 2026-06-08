@@ -128,11 +128,6 @@ const WaitingQueuePage = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#fffbea] px-3 py-1.5 text-xs font-medium text-[#8a6d00] ring-1 ring-[#ffe88a]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#ffd84d]" />
-                {waitingTickets.length} Waiting
-              </span>
-
               <button
                 type="button"
                 onClick={handleAutoAssign}

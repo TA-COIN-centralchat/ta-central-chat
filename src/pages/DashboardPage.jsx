@@ -25,21 +25,29 @@ const DashboardPage = () => {
   const refreshTimerRef = useRef(null);
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
+    if (!silent) setLoading(true);
 
-      const [ticketData, agentData] = await Promise.all([
-        getTickets(),
-        getAgents(),
-      ]);
+    // Fetch tickets and agents independently so one failure doesn't blank
+    // the entire dashboard. Using allSettled lets each state update from
+    // its own resolved value instead of throwing out of Promise.all.
+    const [ticketResult, agentResult] = await Promise.allSettled([
+      getTickets(),
+      getAgents(),
+    ]);
 
-      setTickets(ticketData);
-      setAgents(agentData);
-    } catch (error) {
-      console.error('Failed to load dashboard:', error);
-    } finally {
-      if (!silent) setLoading(false);
+    if (ticketResult.status === 'fulfilled') {
+      setTickets(ticketResult.value);
+    } else {
+      console.error('Failed to load dashboard tickets:', ticketResult.reason);
     }
+
+    if (agentResult.status === 'fulfilled') {
+      setAgents(agentResult.value);
+    } else {
+      console.error('Failed to load dashboard agents:', agentResult.reason);
+    }
+
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {

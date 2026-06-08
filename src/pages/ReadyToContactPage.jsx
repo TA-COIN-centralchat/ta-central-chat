@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getTickets } from '../services/ticketService';
 
+
 const ReadyToContactPage = () => {
   const navigate = useNavigate();
 
