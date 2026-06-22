@@ -376,7 +376,7 @@ const PreviewSection = ({ icon: Icon, title, rows }) => {
             </div>
             <div
               title={value}
-              className="mt-1 break-words font-medium text-[#1d1d1f]"
+              className="mt-1 wrap-break-word font-medium text-[#1d1d1f]"
             >
               {value}
             </div>
