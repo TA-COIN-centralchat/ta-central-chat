@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
+import { convertVoiceToOgg } from '../utils/convertVoiceToOgg';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -38,6 +39,98 @@ import { supabase } from '../services/supabaseClient';
 import { shortId, formatMessageTime } from '../utils/format';
 import { getCurrentAgentId, getCurrentUserRole } from '../utils/authUtils';
 import { parseSupportForm } from '../utils/supportForm';
+
+const resolveVoiceAttachment = (message) => {
+  if (!message) return null;
+
+  const meta =
+    message.metadata && typeof message.metadata === 'object'
+      ? message.metadata
+      : {};
+
+  const url =
+    message.attachment_url ||
+    meta.attachment_url ||
+    meta.voice_url ||
+    meta.voiceUrl ||
+    null;
+
+  const bucket =
+    meta.bucket ||
+    meta.storageBucket ||
+    meta.storage_bucket ||
+    'voice-messages';
+
+  const storagePath =
+    meta.storagePath ||
+    meta.storage_path ||
+    null;
+
+  if (!url && !storagePath) {
+    return null;
+  }
+
+  const mimeType = String(
+    meta.mimeType ||
+      meta.mime_type ||
+      meta.contentType ||
+      '',
+  ).toLowerCase();
+
+  const kind = String(
+    meta.kind ||
+      meta.attachment_type ||
+      meta.attachmentType ||
+      meta.type ||
+      '',
+  ).toLowerCase();
+
+  const fileName = String(
+    meta.fileName ||
+      meta.file_name ||
+      meta.name ||
+      '',
+  ).toLowerCase();
+
+  const audioReference =
+    url ||
+    storagePath ||
+    fileName ||
+    '';
+
+  const isVoiceKind = [
+    'voice',
+    'audio',
+  ].some((token) =>
+    kind.includes(token),
+  );
+
+  const isAudioMime =
+    mimeType.startsWith('audio/');
+
+  const isAudioByExtension =
+    /\.(ogg|oga|opus|mp3|m4a|wav|webm)(\?|#|$)/i.test(
+      audioReference,
+    );
+
+  if (
+    !isVoiceKind &&
+    !isAudioMime &&
+    !isAudioByExtension
+  ) {
+    return null;
+  }
+
+  return {
+    url,
+    bucket,
+    storagePath,
+    mimeType:
+      mimeType || 'audio/webm',
+    durationSec:
+      Number(meta.duration) || null,
+  };
+};
 
 const SessionWorkspacePage = () => {
   const { sessionId } = useParams();
@@ -498,26 +591,62 @@ const SessionWorkspacePage = () => {
 
         if (!chunks.length || !session?.dbId) return;
 
-        const blobType = recorder.mimeType || mimeType || 'audio/webm';
-        const blob = new Blob(chunks, { type: blobType });
+              const blobType =
+        recorder.mimeType ||
+        mimeType ||
+        'audio/webm';
 
-        try {
-          setSendingVoice(true);
-          await sendAgentVoiceReply({
-            sessionId: session.dbId,
-            agentId: localStorage.getItem('currentAgentId') || null,
-            agentName: localStorage.getItem('currentUserName') || 'Agent',
-            blob,
-            mimeType: blobType,
-            durationSeconds,
-          });
-          await loadSession({ showLoading: false });
-        } catch (error) {
-          console.error('Failed to send voice reply:', error);
-          alert(error?.message || 'Failed to send voice message.');
-        } finally {
-          setSendingVoice(false);
-        }
+      const recordedBlob = new Blob(
+        chunks,
+        {
+          type: blobType,
+        },
+      );
+
+      try {
+        setSendingVoice(true);
+
+        const convertedBlob =
+          await convertVoiceToOgg(
+            recordedBlob,
+          );
+
+        await sendAgentVoiceReply({
+          sessionId: session.dbId,
+
+          agentId:
+            localStorage.getItem(
+              'currentAgentId',
+            ) || null,
+
+          agentName:
+            localStorage.getItem(
+              'currentUserName',
+            ) || 'Agent',
+
+          blob: convertedBlob,
+
+          mimeType: 'audio/ogg',
+
+          durationSeconds,
+        });
+
+        await loadSession({
+          showLoading: false,
+        });
+      } catch (error) {
+        console.error(
+          'Failed to convert or send voice reply:',
+          error,
+        );
+
+        alert(
+          error?.message ||
+            'Failed to send voice message.',
+        );
+      } finally {
+        setSendingVoice(false);
+      }
       };
 
       mediaRecorderRef.current = recorder;
@@ -568,7 +697,6 @@ const SessionWorkspacePage = () => {
       }
       stopRecordingStream();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleReplyKeyDown = (event) => {
@@ -580,7 +708,6 @@ const SessionWorkspacePage = () => {
 
   const getSessionTimerLabel = (currentSession) => {
     const expiresAt = currentSession?.expiresAt;
-
     if (!expiresAt || currentSession.status !== 'Active') {
       return null;
     }
@@ -720,7 +847,7 @@ const SessionWorkspacePage = () => {
                         type="button"
                         onClick={() => setProfileOpen(true)}
                         title={session.customer}
-                        className="max-w-[180px] truncate text-left text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f] transition hover:text-[#2389b8] sm:max-w-md"
+                        className="max-w-45 truncate text-left text-lg font-semibold tracking-[-0.02em] text-[#1d1d1f] transition hover:text-[#2389b8] sm:max-w-md"
                       >
                         {session.customer}
                       </button>
@@ -905,10 +1032,12 @@ const SessionWorkspacePage = () => {
                           {voiceAttachment && (
                             <div className={showContentText ? 'mt-2' : ''}>
                               <VoiceMessageBubble
-                                url={voiceAttachment.url}
-                                durationSec={voiceAttachment.durationSec}
-                                variant={isAgent ? 'agent' : 'customer'}
-                              />
+                            url={voiceAttachment.url}
+                            bucket={voiceAttachment.bucket}
+                            storagePath={voiceAttachment.storagePath}
+                            durationSec={voiceAttachment.durationSec}
+                            variant={isAgent ? 'agent' : 'customer'}
+                          />
                             </div>
                           )}
 
@@ -983,7 +1112,7 @@ const SessionWorkspacePage = () => {
                             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
                           </span>
 
-                          <div className="flex flex-1 items-center gap-[3px]">
+                          <div className="flex flex-1 items-center gap-0.75">
                             {Array.from({ length: 22 }).map((_, i) => (
                               <span
                                 key={i}
@@ -1237,7 +1366,7 @@ const CustomerProfileModal = ({ session, isTelegram, onClose }) => {
         onClick={(event) => event.stopPropagation()}
         className="w-full max-w-md overflow-hidden rounded-[28px] border border-black/6 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]"
       >
-        <div className="relative bg-gradient-to-br from-[#43acd6] to-[#2389b8] px-6 py-8 text-white">
+        <div className="relative bg-linear-to-br from-[#43acd6] to-[#2389b8] px-6 py-8 text-white">
           <button
             type="button"
             onClick={onClose}
@@ -1303,7 +1432,7 @@ const CustomerProfileModal = ({ session, isTelegram, onClose }) => {
 };
 
 const ProfileRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-[#fbfbfd] px-4 py-3">
+  <div className="flex items-center gap-3 rounded-2xl border border-black/6 bg-[#fbfbfd] px-4 py-3">
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eef9fd] text-[#2389b8]">
       <Icon size={16} />
     </div>
@@ -1442,38 +1571,116 @@ const generateWaveformHeights = (seed = '') => {
 // circular play/pause, pseudo-waveform bars that fill as playback advances,
 // click-to-seek along the waveform, and a tabular-numeric timer that shows
 // elapsed time while playing and the total duration when stopped.
-const VoiceMessageBubble = ({ url, durationSec, variant = 'customer' }) => {
+const VoiceMessageBubble = ({
+  url,
+  bucket,
+  storagePath,
+  durationSec,
+  variant = 'customer',
+}) => {
   const audioRef = useRef(null);
   const waveRef = useRef(null);
+
+  const [playableUrl, setPlayableUrl] = useState(url || '');
+  const [urlLoading, setUrlLoading] = useState(Boolean(storagePath));
+  const [urlError, setUrlError] = useState('');
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+
   const [duration, setDuration] = useState(
-    Number.isFinite(durationSec) && durationSec > 0 ? Number(durationSec) : 0,
+    Number.isFinite(durationSec) && durationSec > 0
+      ? Number(durationSec)
+      : 0,
   );
 
-  const heights = useMemo(() => generateWaveformHeights(url || ''), [url]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolvePlayableUrl = async () => {
+      setUrlError('');
+
+      if (!storagePath) {
+        setPlayableUrl(url || '');
+        setUrlLoading(false);
+        return;
+      }
+
+      try {
+        setUrlLoading(true);
+
+        const { data, error } = await supabase.storage
+          .from(bucket || 'voice-messages')
+          .createSignedUrl(storagePath, 3600);
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setPlayableUrl(data?.signedUrl || '');
+        }
+      } catch (error) {
+        console.error('Failed to create signed voice URL:', error);
+
+        if (!cancelled) {
+          setPlayableUrl('');
+          setUrlError('Voice message is unavailable.');
+        }
+      } finally {
+        if (!cancelled) {
+          setUrlLoading(false);
+        }
+      }
+    };
+
+    resolvePlayableUrl();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bucket, storagePath, url]);
+
+  const heights = useMemo(
+    () =>
+      generateWaveformHeights(
+        storagePath || playableUrl || url || '',
+      ),
+    [storagePath, playableUrl, url],
+  );
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return undefined;
+
+    if (!audio || !playableUrl) return undefined;
 
     const onLoaded = () => {
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
       }
+
       setIsLoading(false);
     };
-    const onTime = () => setCurrentTime(audio.currentTime);
+
+    const onTime = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
     const onEnd = () => {
       setIsPlaying(false);
       setCurrentTime(0);
       audio.currentTime = 0;
     };
+
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onWaiting = () => setIsLoading(true);
     const onPlaying = () => setIsLoading(false);
+
+    const onError = () => {
+      setIsLoading(false);
+      setIsPlaying(false);
+      setUrlError('Unable to play this voice message.');
+    };
 
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('durationchange', onLoaded);
@@ -1483,6 +1690,7 @@ const VoiceMessageBubble = ({ url, durationSec, variant = 'customer' }) => {
     audio.addEventListener('pause', onPause);
     audio.addEventListener('waiting', onWaiting);
     audio.addEventListener('playing', onPlaying);
+    audio.addEventListener('error', onError);
 
     return () => {
       audio.removeEventListener('loadedmetadata', onLoaded);
@@ -1493,63 +1701,106 @@ const VoiceMessageBubble = ({ url, durationSec, variant = 'customer' }) => {
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('waiting', onWaiting);
       audio.removeEventListener('playing', onPlaying);
+      audio.removeEventListener('error', onError);
     };
-  }, [url]);
+  }, [playableUrl]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      const playPromise = audio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => setIsPlaying(false));
+
+    if (!audio || !playableUrl || urlLoading) return;
+
+    try {
+      if (audio.paused) {
+        await audio.play();
+      } else {
+        audio.pause();
       }
-    } else {
-      audio.pause();
+    } catch (error) {
+      console.error('Failed to play voice message:', error);
+      setIsPlaying(false);
+      setUrlError('Unable to play this voice message.');
     }
   };
 
   const handleSeek = (event) => {
     const audio = audioRef.current;
     const wave = waveRef.current;
+
     if (!audio || !wave || !duration) return;
+
     const rect = wave.getBoundingClientRect();
-    const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+
+    const clientX =
+      event.clientX ??
+      event.touches?.[0]?.clientX ??
+      0;
+
+    const ratio = Math.max(
+      0,
+      Math.min(1, (clientX - rect.left) / rect.width),
+    );
+
     audio.currentTime = ratio * duration;
     setCurrentTime(audio.currentTime);
   };
 
   const isAgentBubble = variant === 'agent';
-  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+
+  const progress =
+    duration > 0
+      ? Math.min(1, currentTime / duration)
+      : 0;
+
   const timerText = formatVoiceDuration(
-    isPlaying || currentTime > 0 ? currentTime : duration,
+    isPlaying || currentTime > 0
+      ? currentTime
+      : duration,
   );
+
+  if (urlError) {
+    return (
+      <div
+        className={`rounded-2xl px-3 py-2 text-xs ${
+          isAgentBubble
+            ? 'bg-white/15 text-blue-50'
+            : 'bg-red-50 text-red-700'
+        }`}
+      >
+        {urlError}
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-2xl px-2.5 py-2 min-w-[230px] max-w-[320px] ${
-        isAgentBubble ? 'bg-white/15' : 'bg-[#f0f4f8]'
+      className={`flex min-w-57.5 max-w-[320px] items-center gap-3 rounded-2xl px-2.5 py-2 ${
+        isAgentBubble
+          ? 'bg-white/15'
+          : 'bg-[#f0f4f8]'
       }`}
     >
       <button
         type="button"
         onClick={togglePlay}
+        disabled={urlLoading || !playableUrl}
         title={isPlaying ? 'Pause' : 'Play'}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
           isAgentBubble
             ? 'bg-white text-[#2389b8] hover:bg-white/90'
             : 'bg-[#43acd6] text-white hover:bg-[#2389b8]'
         }`}
       >
-        {isLoading ? (
-          <span
-            className={`h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent`}
-          />
+        {urlLoading || isLoading ? (
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
         ) : isPlaying ? (
           <Pause size={15} fill="currentColor" />
         ) : (
-          <Play size={15} fill="currentColor" className="translate-x-px" />
+          <Play
+            size={15}
+            fill="currentColor"
+            className="translate-x-px"
+          />
         )}
       </button>
 
@@ -1557,27 +1808,38 @@ const VoiceMessageBubble = ({ url, durationSec, variant = 'customer' }) => {
         <div
           ref={waveRef}
           onClick={handleSeek}
-          className="flex h-8 flex-1 cursor-pointer items-center gap-[2px]"
+          className="flex h-8 flex-1 cursor-pointer items-center gap-0.5"
           role="slider"
+          tabIndex={0}
           aria-label="Voice message progress"
           aria-valuemin={0}
           aria-valuemax={Math.round(duration) || 0}
           aria-valuenow={Math.round(currentTime)}
         >
-          {heights.map((h, i) => {
-            const barPosition = (i + 0.5) / VOICE_BAR_COUNT;
-            const isActive = barPosition <= progress;
-            const activeColor = isAgentBubble ? 'bg-white' : 'bg-[#43acd6]';
+          {heights.map((height, index) => {
+            const barPosition =
+              (index + 0.5) / VOICE_BAR_COUNT;
+
+            const isActive =
+              barPosition <= progress;
+
+            const activeColor = isAgentBubble
+              ? 'bg-white'
+              : 'bg-[#43acd6]';
+
             const idleColor = isAgentBubble
               ? 'bg-white/45'
               : 'bg-[#43acd6]/30';
+
             return (
               <span
-                key={i}
+                key={index}
                 className={`w-[2.5px] rounded-full transition-colors duration-150 ${
                   isActive ? activeColor : idleColor
                 }`}
-                style={{ height: `${Math.round(h * 100)}%` }}
+                style={{
+                  height: `${Math.round(height * 100)}%`,
+                }}
               />
             );
           })}
@@ -1585,46 +1847,26 @@ const VoiceMessageBubble = ({ url, durationSec, variant = 'customer' }) => {
 
         <span
           className={`shrink-0 text-[11px] font-medium tabular-nums ${
-            isAgentBubble ? 'text-blue-50' : 'text-[#6e6e73]'
+            isAgentBubble
+              ? 'text-blue-50'
+              : 'text-[#6e6e73]'
           }`}
         >
           {timerText}
         </span>
       </div>
 
-      <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
+      {playableUrl && (
+        <audio
+          key={playableUrl}
+          ref={audioRef}
+          src={playableUrl}
+          preload="metadata"
+          className="hidden"
+        />
+      )}
     </div>
   );
-};
-
-// Voice / audio resolver. Returns { url, mimeType, durationSec } when the
-// message carries a playable audio attachment, else null. Telegram voice notes
-// arrive with metadata.kind === 'voice' (ogg/opus); agent-recorded voice from
-// the dashboard arrives with kind === 'voice' and webm or ogg mime type.
-const resolveVoiceAttachment = (message) => {
-  if (!message) return null;
-  const meta =
-    message.metadata && typeof message.metadata === 'object'
-      ? message.metadata
-      : {};
-
-  const url = message.attachment_url || meta.attachment_url || meta.voice_url || null;
-  if (!url) return null;
-
-  const mimeType = String(meta.mimeType || meta.mime_type || '').toLowerCase();
-  const kind = String(meta.kind || meta.attachment_type || meta.type || '').toLowerCase();
-
-  const isVoiceKind = ['voice', 'audio'].some((token) => kind.includes(token));
-  const isAudioMime = mimeType.startsWith('audio/');
-  const isAudioByExt = /\.(ogg|oga|mp3|m4a|wav|webm)(\?|#|$)/i.test(url);
-
-  if (!isVoiceKind && !isAudioMime && !isAudioByExt) return null;
-
-  return {
-    url,
-    mimeType: mimeType || 'audio/ogg',
-    durationSec: Number(meta.duration) || null,
-  };
 };
 
 // Returns the raw (possibly non-image) attachment URL so we can still surface
