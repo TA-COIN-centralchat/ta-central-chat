@@ -145,6 +145,17 @@ const SessionWorkspacePage = () => {
   const isTelegramMode =
     mode === 'telegram-chat' || location.pathname.startsWith('/telegram');
 
+  const isWhatsAppMode =
+    mode === 'whatsapp-chat' || location.pathname.startsWith('/whatsapp');
+
+  // "Relay" channels are external messaging platforms (Telegram, WhatsApp)
+  // whose conversations live in chat_messages and whose agent replies must be
+  // pushed back out through an Edge Function. Website Chatbot is NOT a relay
+  // channel — it relies purely on the realtime chat_messages stream, so it
+  // keeps using the legacy session loader. Voice notes stay Telegram-only.
+  const isRelayMode = isTelegramMode || isWhatsAppMode;
+  const relayChannelLabel = isWhatsAppMode ? 'WhatsApp' : 'Telegram';
+
   const [session, setSession] = useState(null);
   const [telegramMessages, setTelegramMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -363,7 +374,7 @@ const SessionWorkspacePage = () => {
   };
 
   const loadSession = async ({ showLoading = true } = {}) => {
-    if (isTelegramMode) {
+    if (isRelayMode) {
       await loadTelegramSession({ showLoading });
       return;
     }
@@ -385,7 +396,7 @@ const SessionWorkspacePage = () => {
           filter: `session_id=eq.${sessionId}`,
         },
         () => {
-          if (isTelegramMode) {
+          if (isRelayMode) {
             loadTelegramSession({ showLoading: false });
           } else {
             loadOldSession({ showLoading: false });
@@ -405,7 +416,7 @@ const SessionWorkspacePage = () => {
           filter: `id=eq.${sessionId}`,
         },
         () => {
-          if (isTelegramMode) {
+          if (isRelayMode) {
             loadTelegramSession({ showLoading: false });
           } else {
             loadOldSession({ showLoading: false });
@@ -419,7 +430,7 @@ const SessionWorkspacePage = () => {
       sessionSub.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, isTelegramMode]);
+  }, [sessionId, isRelayMode]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -451,6 +462,36 @@ const SessionWorkspacePage = () => {
     }
   };
 
+  const sendWhatsAppTextOnly = async (text) => {
+    const { data, error } = await supabase.functions.invoke(
+      'send-whatsapp-reply',
+      {
+        body: {
+          sessionId: session.dbId,
+          text,
+        },
+      }
+    );
+
+    if (error) throw error;
+
+    if (data?.ok === false) {
+      throw new Error(data?.error || 'Failed to send message to WhatsApp.');
+    }
+  };
+
+  // Dispatch an outbound text to whichever relay platform this session belongs
+  // to. Website Chatbot sessions never call this — their replies are delivered
+  // purely through the realtime chat_messages insert in sendSessionReply.
+  const sendRelayTextOnly = async (text) => {
+    if (isWhatsAppMode) {
+      await sendWhatsAppTextOnly(text);
+      return;
+    }
+
+    await sendTelegramTextOnly(text);
+  };
+
   const handleEndSession = async () => {
     if (!session?.dbId) return;
 
@@ -464,8 +505,12 @@ const SessionWorkspacePage = () => {
       setEnding(true);
 
       await endSession(session.dbId);
-      if (isTelegramMode) {
-        await sendTelegramTextOnly('This support session has ended. If you need more help, please send /start to begin a new request.');
+      if (isRelayMode) {
+        await sendRelayTextOnly(
+          isWhatsAppMode
+            ? 'This support session has ended. If you need more help, just send us a new message to start again.'
+            : 'This support session has ended. If you need more help, please send /start to begin a new request.'
+        );
       }
       await loadSession({ showLoading: false });
     } catch (error) {
@@ -516,8 +561,8 @@ const SessionWorkspacePage = () => {
         messageText,
       });
 
-      if (isTelegramMode) {
-        await sendTelegramTextOnly(messageText);
+      if (isRelayMode) {
+        await sendRelayTextOnly(messageText);
       }
       // Note: chatbot mode no longer pushes an optimistic local reply.
       // sendSessionReply already inserts the real message into chat_messages,
@@ -743,7 +788,7 @@ const SessionWorkspacePage = () => {
     (message) => !isCustomerOnlySystemMessage(message),
   );
 
-  const conversationMessages = isTelegramMode
+  const conversationMessages = isRelayMode
     ? visibleTelegramMessages
     : visibleTelegramMessages.length > 0
       ? visibleTelegramMessages
@@ -759,10 +804,10 @@ const SessionWorkspacePage = () => {
 
   return (
     <DashboardLayout
-      title={isTelegramMode ? 'Telegram Session Workspace' : 'Session Workspace'}
+      title={isRelayMode ? `${relayChannelLabel} Session Workspace` : 'Session Workspace'}
       description={
-        isTelegramMode
-          ? 'Manage Telegram customer conversations and reply directly from the support dashboard.'
+        isRelayMode
+          ? `Manage ${relayChannelLabel} customer conversations and reply directly from the support dashboard.`
           : 'Chat with the customer, then raise a ticket only when a real issue needs tracking.'
       }
     >
@@ -911,14 +956,14 @@ const SessionWorkspacePage = () => {
             </div>
           </section>
 
-          {isTelegramMode && session.status === 'Active' && (
+          {isRelayMode && session.status === 'Active' && (
             <section className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">
               <div className="flex items-start gap-3">
                 <CheckCircle size={17} className="mt-0.5 shrink-0" />
                 <p>
-                  This Telegram session is active. Replies sent here will be
-                  saved in the dashboard and delivered to the customer in
-                  Telegram.
+                  This {relayChannelLabel} session is active. Replies sent here
+                  will be saved in the dashboard and delivered to the customer on{' '}
+                  {relayChannelLabel}.
                 </p>
               </div>
             </section>
@@ -950,8 +995,8 @@ const SessionWorkspacePage = () => {
                     </h3>
 
                     <p className="mt-0.5 text-xs text-[#6e6e73]">
-                      {isTelegramMode
-                        ? 'Reply directly to the Telegram customer from here.'
+                      {isRelayMode
+                        ? `Reply directly to the ${relayChannelLabel} customer from here.`
                         : 'Replies update the session latest message only.'}
                     </p>
                   </div>
@@ -1148,8 +1193,8 @@ const SessionWorkspacePage = () => {
                           onChange={(event) => setReplyText(event.target.value)}
                           onKeyDown={handleReplyKeyDown}
                           placeholder={
-                            isTelegramMode
-                              ? 'Type your Telegram reply to the customer...'
+                            isRelayMode
+                              ? `Type your ${relayChannelLabel} reply to the customer...`
                               : 'Type your reply to the customer...'
                           }
                           className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[#1d1d1f] outline-none placeholder:text-[#8e8e93]"
@@ -1190,6 +1235,8 @@ const SessionWorkspacePage = () => {
                         ? 'Sending voice message…'
                         : isTelegramMode
                         ? 'Type a reply, or tap the mic to send a voice note. Messages are delivered on Telegram.'
+                        : isWhatsAppMode
+                        ? 'Type a reply. Messages are delivered to the customer on WhatsApp.'
                         : 'Press Enter to send. Shift + Enter for a new line.'}
                     </p>
                   </div>
