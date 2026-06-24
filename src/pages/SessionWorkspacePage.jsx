@@ -1,5 +1,4 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { convertVoiceToOgg } from '../utils/convertVoiceToOgg';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -651,6 +650,15 @@ const SessionWorkspacePage = () => {
 
       try {
         setSendingVoice(true);
+
+        // Lazy-load the ffmpeg/wasm converter only when an agent actually
+        // sends a voice note. Importing it at module top-level pulled the
+        // heavy @ffmpeg bundle into every route (including /login) and a
+        // load failure there white-screened the whole app before the error
+        // boundary could render.
+        const { convertVoiceToOgg } = await import(
+          '../utils/convertVoiceToOgg'
+        );
 
         const convertedBlob =
           await convertVoiceToOgg(
