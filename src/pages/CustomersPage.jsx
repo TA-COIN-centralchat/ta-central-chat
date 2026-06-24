@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Search, Users } from 'lucide-react';
+import { Loader2, MessageCircle, Search, Users } from 'lucide-react';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { supabase } from '../services/supabaseClient';
 import { getTickets } from '../services/ticketService';
+import { buildWhatsAppDeeplink } from '../utils/whatsapp';
 
 const CustomersPage = () => {
   const [customers, setCustomers] = useState([]);
@@ -200,12 +201,22 @@ const CustomersPage = () => {
                         </td>
 
                         <td className="px-5 py-3.5">
-                          <div
-                            title={customer.phone || 'N/A'}
-                            className="truncate text-[#6e6e73]"
-                          >
-                            {customer.phone || 'N/A'}
-                          </div>
+                          {customer.phone ? (
+                            <a
+                              href={buildWhatsAppDeeplink({
+                                phone: customer.phone,
+                              })}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Open ${customer.phone} in WhatsApp`}
+                              className="inline-flex max-w-full items-center gap-1.5 truncate font-medium text-emerald-700 transition hover:text-emerald-800 hover:underline"
+                            >
+                              <MessageCircle size={14} className="shrink-0" />
+                              <span className="truncate">{customer.phone}</span>
+                            </a>
+                          ) : (
+                            <div className="truncate text-[#6e6e73]">N/A</div>
+                          )}
                         </td>
 
                         <td className="px-5 py-3.5">

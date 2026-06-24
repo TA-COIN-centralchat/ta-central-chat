@@ -38,6 +38,7 @@ import {
 import { supabase } from '../services/supabaseClient';
 import { shortId, formatMessageTime } from '../utils/format';
 import { getCurrentAgentId, getCurrentUserRole } from '../utils/authUtils';
+import { buildWhatsAppDeeplink } from '../utils/whatsapp';
 import { parseSupportForm } from '../utils/supportForm';
 
 const resolveVoiceAttachment = (message) => {
@@ -1281,6 +1282,22 @@ const SessionWorkspacePage = () => {
                       label="Email"
                       value={session.email || 'Not provided'}
                     />
+                  )}
+
+                  {/* Agent-side click-to-chat: opens WhatsApp on the agent's
+                      device to message the customer's number directly. For a
+                      WhatsApp session the wa_id IS the phone, so the thread the
+                      agent lands in is the same conversation. */}
+                  {session.phone && (
+                    <a
+                      href={buildWhatsAppDeeplink({ phone: session.phone })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      <MessageCircle size={16} />
+                      Open in WhatsApp
+                    </a>
                   )}
                 </div>
               </SideCard>
