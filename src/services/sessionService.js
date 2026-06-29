@@ -1081,6 +1081,16 @@ export const sendSessionReply =
 const VOICE_BUCKET =
   'voice-messages';
 
+const ATTACHMENT_BUCKET = 'attachments';
+
+// Map a session channel to the Edge Function that relays an agent reply out to
+// the customer's platform. Telegram and WhatsApp each have their own relay.
+const relayFunctionFor = (channel) => {
+  const normalized = String(channel || '').toLowerCase();
+  if (normalized === 'whatsapp') return 'send-whatsapp-reply';
+  return 'send-telegram-reply';
+};
+
 export const sendAgentVoiceReply =
   async ({
     sessionId,
@@ -1089,6 +1099,7 @@ export const sendAgentVoiceReply =
     blob,
     mimeType,
     durationSeconds,
+    channel,
   }) => {
     if (!sessionId) {
       throw new Error(
@@ -1313,7 +1324,7 @@ export const sendAgentVoiceReply =
       data: relayData,
       error: relayError,
     } = await supabase.functions.invoke(
-      'send-telegram-reply',
+      relayFunctionFor(channel),
       {
         body: {
           sessionId,
@@ -1328,6 +1339,8 @@ export const sendAgentVoiceReply =
           mimeType:
             contentType,
 
+          kind: 'voice',
+
           duration:
             durationSeconds
               ? Math.round(
@@ -1340,7 +1353,7 @@ export const sendAgentVoiceReply =
 
     if (relayError) {
       logSupabaseError(
-        'Error relaying agent voice to Telegram:',
+        'Error relaying agent voice reply:',
         relayError,
       );
 
@@ -1352,7 +1365,7 @@ export const sendAgentVoiceReply =
     ) {
       throw new Error(
         relayData?.error ||
-          'Failed to deliver voice to Telegram.',
+          'Failed to deliver voice message to the customer.',
       );
     }
 
@@ -1368,7 +1381,7 @@ export const sendAgentVoiceReply =
         'Session Voice Reply Sent',
 
       details:
-        'Agent sent a voice message in a Telegram session.',
+        'Agent sent a voice message to the customer.',
     });
 
     return {
@@ -1376,6 +1389,146 @@ export const sendAgentVoiceReply =
       storagePath,
     };
   };
+
+// Upload an agent-picked image to the public `attachments` bucket, insert an
+// agent chat_messages row (kind: image) so the dashboard renders it, refresh
+// the session timer, then relay it to the customer's platform via the matching
+// Edge Function. Mirrors sendAgentVoiceReply.
+export const sendAgentImageReply = async ({
+  sessionId,
+  agentId,
+  agentName,
+  file,
+  caption = '',
+  channel,
+}) => {
+  if (!sessionId) {
+    throw new Error('sendAgentImageReply: sessionId is required');
+  }
+  if (!file) {
+    throw new Error('sendAgentImageReply: file is required');
+  }
+
+  const contentType = file.type || 'image/jpeg';
+  const extension = (contentType.split('/')[1] || 'jpg')
+    .split(';')[0]
+    .replace('jpeg', 'jpg');
+  const fileName = `agent_${Date.now()}.${extension}`;
+  const storagePath = `dashboard/${sessionId}/${fileName}`;
+  const trimmedCaption = String(caption || '').trim();
+
+  const { error: uploadError } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .upload(storagePath, file, { contentType, upsert: false });
+
+  if (uploadError) {
+    logSupabaseError('Error uploading agent image:', uploadError);
+    throw uploadError;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .getPublicUrl(storagePath);
+  const imageUrl = publicUrlData.publicUrl;
+
+  const messageMetadata = {
+    source: 'dashboard',
+    kind: 'image',
+    attachment_url: imageUrl,
+    bucket: ATTACHMENT_BUCKET,
+    storagePath,
+    mimeType: contentType,
+    fileName,
+    ...(trimmedCaption ? { caption: trimmedCaption } : {}),
+    ...(agentName ? { agentName } : {}),
+  };
+
+  const { error: messageError } = await supabase.from('chat_messages').insert({
+    session_id: sessionId,
+    sender_role: 'agent',
+    sender_id: agentId || null,
+    content: trimmedCaption || '[Image]',
+    attachment_url: imageUrl,
+    metadata: messageMetadata,
+  });
+
+  if (messageError) {
+    logSupabaseError('Error inserting agent image message:', messageError);
+    throw messageError;
+  }
+
+  const { data: existingSession, error: existingSessionError } = await supabase
+    .from('chat_sessions')
+    .select('metadata, status')
+    .eq('id', sessionId)
+    .single();
+
+  if (existingSessionError) {
+    logSupabaseError(
+      'Error loading session before image reply:',
+      existingSessionError,
+    );
+    throw existingSessionError;
+  }
+
+  const existingMetadata =
+    existingSession?.metadata && typeof existingSession.metadata === 'object'
+      ? existingSession.metadata
+      : {};
+
+  const nowIso = new Date().toISOString();
+  const sessionUpdate = {
+    last_message: trimmedCaption || '[Image]',
+    last_agent_message_at: nowIso,
+    updated_at: nowIso,
+    ...buildSessionTimerWrite(existingMetadata),
+  };
+  if (existingSession?.status !== 'closed') {
+    sessionUpdate.status = 'active';
+  }
+
+  const { error: sessionError } = await supabase
+    .from('chat_sessions')
+    .update(sessionUpdate)
+    .eq('id', sessionId);
+
+  if (sessionError) {
+    logSupabaseError('Error updating session after image reply:', sessionError);
+    throw sessionError;
+  }
+
+  const { data: relayData, error: relayError } =
+    await supabase.functions.invoke(relayFunctionFor(channel), {
+      body: {
+        sessionId,
+        bucket: ATTACHMENT_BUCKET,
+        storagePath,
+        fileName,
+        mimeType: contentType,
+        kind: 'image',
+        caption: trimmedCaption,
+      },
+    });
+
+  if (relayError) {
+    logSupabaseError('Error relaying agent image:', relayError);
+    throw relayError;
+  }
+  if (relayData?.ok === false) {
+    throw new Error(
+      relayData?.error || 'Failed to deliver image to the customer.',
+    );
+  }
+
+  await createAuditLog({
+    userName: getCurrentUserName(),
+    role: getCurrentUserRole() || 'Agent',
+    action: 'Session Image Reply Sent',
+    details: 'Agent sent an image to the customer.',
+  });
+
+  return { imageUrl, storagePath };
+};
 
 export const submitSessionRating =
   async ({
