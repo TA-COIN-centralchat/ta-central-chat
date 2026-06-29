@@ -10,7 +10,6 @@ import {
   IdCard,
   Mail,
   MessageCircle,
-  ImagePlus,
   Mic,
   Pause,
   Phone,
@@ -32,7 +31,6 @@ import {
   endSession,
   sendSessionReply,
   sendAgentVoiceReply,
-  sendAgentImageReply,
   getSessionById,
 } from '../services/sessionService';
 
@@ -147,16 +145,11 @@ const SessionWorkspacePage = () => {
   const isTelegramMode =
     mode === 'telegram-chat' || location.pathname.startsWith('/telegram');
 
-  const isWhatsAppMode =
-    mode === 'whatsapp-chat' || location.pathname.startsWith('/whatsapp');
-
-  // "Relay" channels are external messaging platforms (Telegram, WhatsApp)
-  // whose conversations live in chat_messages and whose agent replies must be
-  // pushed back out through an Edge Function. Website Chatbot is NOT a relay
-  // channel — it relies purely on the realtime chat_messages stream, so it
-  // keeps using the legacy session loader. Voice notes stay Telegram-only.
-  const isRelayMode = isTelegramMode || isWhatsAppMode;
-  const relayChannelLabel = isWhatsAppMode ? 'WhatsApp' : 'Telegram';
+  // Telegram is the only "relay" channel this page serves — WhatsApp has its
+  // own WhatsAppSessionWorkspacePage. Kept as named constants so the shared JSX
+  // reads the same as the dedicated pages.
+  const isRelayMode = isTelegramMode;
+  const relayChannelLabel = 'Telegram';
 
   const [session, setSession] = useState(null);
   const [telegramMessages, setTelegramMessages] = useState([]);
@@ -189,8 +182,6 @@ const SessionWorkspacePage = () => {
   const recordingStreamRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
   const [sendingVoice, setSendingVoice] = useState(false);
-  const [sendingImage, setSendingImage] = useState(false);
-  const imageInputRef = useRef(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingTimerRef = useRef(null);
   // localReplies is kept as an inert empty array. The optimistic-reply UX it
@@ -466,36 +457,6 @@ const SessionWorkspacePage = () => {
     }
   };
 
-  const sendWhatsAppTextOnly = async (text) => {
-    const { data, error } = await supabase.functions.invoke(
-      'send-whatsapp-reply',
-      {
-        body: {
-          sessionId: session.dbId,
-          text,
-        },
-      }
-    );
-
-    if (error) throw error;
-
-    if (data?.ok === false) {
-      throw new Error(data?.error || 'Failed to send message to WhatsApp.');
-    }
-  };
-
-  // Dispatch an outbound text to whichever relay platform this session belongs
-  // to. Website Chatbot sessions never call this — their replies are delivered
-  // purely through the realtime chat_messages insert in sendSessionReply.
-  const sendRelayTextOnly = async (text) => {
-    if (isWhatsAppMode) {
-      await sendWhatsAppTextOnly(text);
-      return;
-    }
-
-    await sendTelegramTextOnly(text);
-  };
-
   const handleEndSession = async () => {
     if (!session?.dbId) return;
 
@@ -510,10 +471,8 @@ const SessionWorkspacePage = () => {
 
       await endSession(session.dbId);
       if (isRelayMode) {
-        await sendRelayTextOnly(
-          isWhatsAppMode
-            ? 'This support session has ended. If you need more help, just send us a new message to start again.'
-            : 'This support session has ended. If you need more help, please send /start to begin a new request.'
+        await sendTelegramTextOnly(
+          'This support session has ended. If you need more help, please send /start to begin a new request.'
         );
       }
       await loadSession({ showLoading: false });
@@ -566,7 +525,7 @@ const SessionWorkspacePage = () => {
       });
 
       if (isRelayMode) {
-        await sendRelayTextOnly(messageText);
+        await sendTelegramTextOnly(messageText);
       }
       // Note: chatbot mode no longer pushes an optimistic local reply.
       // sendSessionReply already inserts the real message into chat_messages,
@@ -687,8 +646,6 @@ const SessionWorkspacePage = () => {
           mimeType: 'audio/ogg',
 
           durationSeconds,
-
-          channel: isWhatsAppMode ? 'WhatsApp' : 'Telegram',
         });
 
         await loadSession({
@@ -725,34 +682,6 @@ const SessionWorkspacePage = () => {
       stopRecordingStream();
       setIsRecording(false);
       alert('Microphone access was denied or unavailable.');
-    }
-  };
-
-  const handleImageSelected = async (event) => {
-    const file = event.target.files?.[0];
-    // Reset so picking the same file again still fires onChange.
-    event.target.value = '';
-    if (!file || !session?.dbId) return;
-    if (!file.type?.startsWith('image/')) {
-      alert('Please choose an image file.');
-      return;
-    }
-
-    try {
-      setSendingImage(true);
-      await sendAgentImageReply({
-        sessionId: session.dbId,
-        agentId: localStorage.getItem('currentAgentId') || null,
-        agentName: localStorage.getItem('currentUserName') || 'Agent',
-        file,
-        channel: isWhatsAppMode ? 'WhatsApp' : 'Telegram',
-      });
-      await loadSession({ showLoading: false });
-    } catch (error) {
-      console.error('Failed to send image reply:', error);
-      alert(error?.message || 'Failed to send image.');
-    } finally {
-      setSendingImage(false);
     }
   };
 
@@ -1244,32 +1173,11 @@ const SessionWorkspacePage = () => {
                         />
                       )}
 
-                      {isWhatsAppMode && (
-                        <>
-                          <input
-                            ref={imageInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleImageSelected}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => imageInputRef.current?.click()}
-                            disabled={sendingImage || isRecording || sendingVoice}
-                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1d1d1f] ring-1 ring-black/6 transition hover:bg-[#fafafa] hover:text-[#43acd6] disabled:cursor-not-allowed disabled:opacity-60"
-                            title="Send an image"
-                          >
-                            <ImagePlus size={18} />
-                          </button>
-                        </>
-                      )}
-
                       {isRelayMode && (
                         <button
                           type="button"
                           onClick={isRecording ? handleStopRecording : handleStartRecording}
-                          disabled={sendingVoice || sendingImage}
+                          disabled={sendingVoice}
                           className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
                             isRecording
                               ? 'bg-red-500 text-white shadow-[0_14px_28px_rgba(239,68,68,0.25)] hover:bg-red-600'
@@ -1284,7 +1192,7 @@ const SessionWorkspacePage = () => {
                       <button
                         type="button"
                         onClick={handleSendReply}
-                        disabled={sendingReply || sendingVoice || sendingImage || isRecording || !replyText.trim()}
+                        disabled={sendingReply || sendingVoice || isRecording || !replyText.trim()}
                         className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#43acd6] text-white shadow-[0_14px_28px_rgba(67,172,214,0.18)] transition hover:bg-[#2389b8] disabled:cursor-not-allowed disabled:opacity-60"
                         title="Send reply"
                       >
@@ -1297,12 +1205,8 @@ const SessionWorkspacePage = () => {
                         ? `Recording… ${formatVoiceDuration(recordingSeconds)}. Tap the stop button to send.`
                         : sendingVoice
                         ? 'Sending voice message…'
-                        : sendingImage
-                        ? 'Sending image…'
                         : isTelegramMode
                         ? 'Type a reply, or tap the mic to send a voice note. Messages are delivered on Telegram.'
-                        : isWhatsAppMode
-                        ? 'Type a reply, attach an image, or record a voice note. Messages are delivered on WhatsApp.'
                         : 'Press Enter to send. Shift + Enter for a new line.'}
                     </p>
                   </div>
