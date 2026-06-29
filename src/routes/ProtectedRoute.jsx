@@ -21,6 +21,7 @@ const routeAccess = {
     '/live-chat',
     '/telegram',
     '/facebook',
+    '/whatsapp',
     '/customers',
     '/agents',
     '/categories',
@@ -37,6 +38,7 @@ const routeAccess = {
     '/live-chat',
     '/telegram',
     '/facebook',
+    '/whatsapp',
     '/customers',
   ],
 
@@ -50,6 +52,7 @@ const routeAccess = {
     '/live-chat',
     '/telegram',
     '/facebook',
+    '/whatsapp',
     '/customers',
   ],
 };
