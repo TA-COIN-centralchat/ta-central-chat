@@ -42,17 +42,52 @@ export const hasTelegramSignal = (session) => {
   );
 };
 
+// WhatsApp Cloud API sessions are created by the whatsapp-webhook Edge Function,
+// which always stamps channel='WhatsApp' plus the customer's wa_id (phone) into
+// metadata / the customers row. We only rely on those explicit markers — unlike
+// Telegram we deliberately avoid sniffing a numeric user_id, because a WhatsApp
+// wa_id is a bare phone number that would collide with other numeric ids.
+export const hasWhatsAppSignal = (session) => {
+  if (!session) return false;
+
+  const sessionChannel = String(session.channel || '').toLowerCase().trim();
+  const metadataChannel = String(session.metadata?.channel || '')
+    .toLowerCase()
+    .trim();
+  const customerSource = String(session.customers?.source_channel || '')
+    .toLowerCase()
+    .trim();
+  const meta = session.metadata || {};
+
+  return (
+    Boolean(meta.whatsappWaId) ||
+    Boolean(meta.whatsapp_wa_id) ||
+    Boolean(meta.whatsappPhoneNumberId) ||
+    Boolean(meta.whatsapp_phone_number_id) ||
+    Boolean(meta.whatsapp) ||
+    Boolean(session.customers?.whatsapp_wa_id) ||
+    sessionChannel.includes('whatsapp') ||
+    sessionChannel === 'wa' ||
+    metadataChannel.includes('whatsapp') ||
+    customerSource.includes('whatsapp')
+  );
+};
+
 export const isLiveChatSession = (session) => {
   if (!session) return false;
-  return !hasTelegramSignal(session);
+  return !hasTelegramSignal(session) && !hasWhatsAppSignal(session);
 };
 
 export const matchesChannel = (session, channel) => {
   const target = String(channel || '').toLowerCase().trim();
   const telegramish = hasTelegramSignal(session);
+  const whatsappish = hasWhatsAppSignal(session);
 
   if (target === 'telegram') return telegramish;
-  if (target === 'website chatbot') return !telegramish;
+  if (target === 'whatsapp') return whatsappish;
+  // Website Chatbot is the catch-all for first-party web sessions: anything
+  // that isn't routed through an external relay channel (Telegram / WhatsApp).
+  if (target === 'website chatbot') return !telegramish && !whatsappish;
 
   const sessionChannel = String(session.channel || '').toLowerCase().trim();
   const metadataChannel = String(session.metadata?.channel || '')

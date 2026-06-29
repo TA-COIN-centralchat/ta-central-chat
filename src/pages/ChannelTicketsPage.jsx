@@ -28,6 +28,17 @@ const isTelegramChannel = (channelName) => {
   return channelName?.toLowerCase() === 'telegram';
 };
 
+// External relay channels (Telegram, WhatsApp) open in the relay workspace mode
+// so SessionWorkspacePage loads the chat_messages transcript and relays agent
+// replies back out through the matching Edge Function. Everything else opens in
+// the plain 'session' mode used by the Website Chatbot inbox.
+const channelToWorkspaceMode = (channelName) => {
+  const normalized = channelName?.toLowerCase();
+  if (normalized === 'telegram') return 'telegram-chat';
+  if (normalized === 'whatsapp') return 'whatsapp-chat';
+  return 'session';
+};
+
 const ChannelTicketsPage = ({
   channelName,
   title,
@@ -143,7 +154,7 @@ const ChannelTicketsPage = ({
       state: {
         from: workspaceBasePath,
         fromLabel: title,
-        mode: isTelegramChannel(channelName) ? 'telegram-chat' : 'session',
+        mode: channelToWorkspaceMode(channelName),
         channel: channelName,
       },
     });

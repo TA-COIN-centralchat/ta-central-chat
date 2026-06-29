@@ -160,6 +160,12 @@ const buildMenuGroups = (counts) => [
           'Customer Support Agent',
         ],
       },
+      {
+        label: 'WhatsApp Sessions',
+        path: '/whatsapp',
+        icon: MessageCircle,
+        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+      },
     ],
   },
   {

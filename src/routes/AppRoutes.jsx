@@ -172,6 +172,19 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/whatsapp"
+          element={protect(
+            ALL_ROLES,
+            <ChannelTicketsPage
+              channelName="WhatsApp"
+              title="WhatsApp Sessions"
+              description="Customer conversations from WhatsApp (Cloud API)."
+              workspaceBasePath="/whatsapp"
+            />
+          )}
+        />
+
+        <Route
           path="/chatbot/:sessionId"
           element={protect(
             ALL_ROLES,
@@ -201,6 +214,11 @@ const AppRoutes = () => {
             ALL_ROLES,
             <FacebookSessionWorkspacePage />,
           )}
+        />
+
+        <Route
+          path="/whatsapp/:sessionId"
+          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
         />
 
         <Route
