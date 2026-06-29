@@ -1,5 +1,11 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { getCurrentUserRole } from '../utils/authUtils';
+import {
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
+
+import {
+  getCurrentUserRole,
+} from '../utils/authUtils';
 
 const routeAccess = {
   Admin: [
@@ -14,6 +20,7 @@ const routeAccess = {
     '/manual-ticket',
     '/live-chat',
     '/telegram',
+    '/facebook',
     '/customers',
     '/agents',
     '/categories',
@@ -29,6 +36,7 @@ const routeAccess = {
     '/manual-ticket',
     '/live-chat',
     '/telegram',
+    '/facebook',
     '/customers',
   ],
 
@@ -39,26 +47,54 @@ const routeAccess = {
     '/ready-to-contact',
     '/closed',
     '/manual-ticket',
+    '/live-chat',
+    '/telegram',
+    '/facebook',
     '/customers',
   ],
 };
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({
+  children,
+}) => {
   const location = useLocation();
-  const currentUserRole = getCurrentUserRole();
+
+  const currentUserRole =
+    getCurrentUserRole();
 
   if (!currentUserRole) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{
+          from: location.pathname,
+        }}
+      />
+    );
   }
 
-  const allowedRoutes = routeAccess[currentUserRole] || [];
+  const allowedRoutes =
+    routeAccess[currentUserRole] ||
+    [];
 
-  const canAccess = allowedRoutes.some((route) => {
-    return location.pathname === route || location.pathname.startsWith(`${route}/`);
-  });
+  const canAccess =
+    allowedRoutes.some(
+      (route) =>
+        location.pathname ===
+          route ||
+        location.pathname.startsWith(
+          `${route}/`,
+        ),
+    );
 
   if (!canAccess) {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
   }
 
   return children;

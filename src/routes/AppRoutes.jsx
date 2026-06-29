@@ -1,4 +1,9 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
 
 import DashboardPage from '../pages/DashboardPage';
 import AllTicketsPage from '../pages/AllTicketsPage';
@@ -17,6 +22,7 @@ import AuditLogsPage from '../pages/AuditLogsPage';
 import CustomersPage from '../pages/CustomersPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
 import SessionWorkspacePage from '../pages/SessionWorkspacePage';
+import FacebookSessionWorkspacePage from '../pages/FacebookSessionWorkspacePage';
 import LiveChatPage from '../pages/LiveChatPage';
 
 import ProtectedRoute from './ProtectedRoute';
@@ -30,60 +36,100 @@ const ALL_ROLES = [
 ];
 
 const protect = (roles, element) => (
-  <ProtectedRoute allowedRoles={roles}>{element}</ProtectedRoute>
+  <ProtectedRoute allowedRoles={roles}>
+    {element}
+  </ProtectedRoute>
 );
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
 
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/"
+          element={
+            <Navigate
+              to="/dashboard"
+              replace
+            />
+          }
+        />
 
         <Route
           path="/dashboard"
-          element={protect(ALL_ROLES, <DashboardPage />)}
+          element={protect(
+            ALL_ROLES,
+            <DashboardPage />,
+          )}
         />
 
         <Route
           path="/tickets"
-          element={protect(ALL_ROLES, <AllTicketsPage />)}
+          element={protect(
+            ALL_ROLES,
+            <AllTicketsPage />,
+          )}
         />
 
         <Route
           path="/tickets/:ticketId"
-          element={protect(ALL_ROLES, <TicketDetailPage />)}
+          element={protect(
+            ALL_ROLES,
+            <TicketDetailPage />,
+          )}
         />
 
         <Route
           path="/waiting-queue"
-          element={protect(ALL_ROLES, <WaitingQueuePage />)}
+          element={protect(
+            ALL_ROLES,
+            <WaitingQueuePage />,
+          )}
         />
 
         <Route
           path="/investigation"
-          element={protect(ALL_ROLES, <InvestigationPage />)}
+          element={protect(
+            ALL_ROLES,
+            <InvestigationPage />,
+          )}
         />
 
         <Route
           path="/ready-to-contact"
-          element={protect(ALL_ROLES, <ReadyToContactPage />)}
+          element={protect(
+            ALL_ROLES,
+            <ReadyToContactPage />,
+          )}
         />
 
         <Route
           path="/closed"
-          element={protect(ALL_ROLES, <ClosedTicketsPage />)}
+          element={protect(
+            ALL_ROLES,
+            <ClosedTicketsPage />,
+          )}
         />
 
         <Route
           path="/manual-ticket"
-          element={protect(ALL_ROLES, <ManualTicketPage />)}
+          element={protect(
+            ALL_ROLES,
+            <ManualTicketPage />,
+          )}
         />
 
         <Route
           path="/live-chat"
-          element={protect(ALL_ROLES, <LiveChatPage />)}
+          element={protect(
+            ALL_ROLES,
+            <LiveChatPage />,
+          )}
         />
 
         <Route
@@ -95,7 +141,7 @@ const AppRoutes = () => {
               title="Chatbot Sessions"
               description="Customer conversations from the website chatbot."
               workspaceBasePath="/chatbot"
-            />
+            />,
           )}
         />
 
@@ -108,56 +154,112 @@ const AppRoutes = () => {
               title="Telegram Sessions"
               description="Customer conversations from the Telegram bot."
               workspaceBasePath="/telegram"
-            />
+            />,
+          )}
+        />
+
+        <Route
+          path="/facebook"
+          element={protect(
+            ALL_ROLES,
+            <ChannelTicketsPage
+              channelName="Facebook"
+              title="Facebook Sessions"
+              description="Customer conversations from Facebook Messenger."
+              workspaceBasePath="/facebook"
+            />,
           )}
         />
 
         <Route
           path="/chatbot/:sessionId"
-          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
+          element={protect(
+            ALL_ROLES,
+            <SessionWorkspacePage />,
+          )}
         />
 
         <Route
           path="/live-chat/:sessionId"
-          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
+          element={protect(
+            ALL_ROLES,
+            <SessionWorkspacePage />,
+          )}
         />
 
         <Route
           path="/telegram/:sessionId"
-          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
+          element={protect(
+            ALL_ROLES,
+            <SessionWorkspacePage />,
+          )}
+        />
+
+        <Route
+          path="/facebook/:sessionId"
+          element={protect(
+            ALL_ROLES,
+            <FacebookSessionWorkspacePage />,
+          )}
         />
 
         <Route
           path="/customers"
-          element={protect(ALL_ROLES, <CustomersPage />)}
+          element={protect(
+            ALL_ROLES,
+            <CustomersPage />,
+          )}
         />
 
         <Route
           path="/categories"
-          element={protect(ADMIN, <CategoriesPage />)}
+          element={protect(
+            ADMIN,
+            <CategoriesPage />,
+          )}
         />
 
         <Route
           path="/reports"
-          element={protect(ADMIN, <ReportsPage />)}
+          element={protect(
+            ADMIN,
+            <ReportsPage />,
+          )}
         />
 
         <Route
           path="/audit-logs"
-          element={protect(ADMIN, <AuditLogsPage />)}
+          element={protect(
+            ADMIN,
+            <AuditLogsPage />,
+          )}
         />
 
         <Route
           path="/agents"
-          element={protect(ADMIN, <AgentsPage />)}
+          element={protect(
+            ADMIN,
+            <AgentsPage />,
+          )}
         />
 
         <Route
           path="/settings"
-          element={protect(ADMIN, <SettingsPage />)}
+          element={protect(
+            ADMIN,
+            <SettingsPage />,
+          )}
         />
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to="/dashboard"
+              replace
+            />
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

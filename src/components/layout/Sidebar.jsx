@@ -9,6 +9,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Send,
   Settings,
   ShieldCheck,
@@ -38,7 +39,11 @@ const buildMenuGroups = (counts) => [
         label: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Reports',
@@ -63,7 +68,11 @@ const buildMenuGroups = (counts) => [
         path: '/tickets',
         icon: Inbox,
         count: counts.allTickets,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Waiting Queue',
@@ -77,27 +86,43 @@ const buildMenuGroups = (counts) => [
         path: '/investigation',
         icon: ShieldCheck,
         count: counts.pendingInvestigation,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Ready to Contact',
         path: '/ready-to-contact',
         icon: Send,
         count: counts.readyToContact,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Closed Tickets',
         path: '/closed',
         icon: CheckCircle,
         count: counts.closedTickets,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Walk-in / Manual',
         path: '/manual-ticket',
         icon: ClipboardList,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
     ],
   },
@@ -109,13 +134,31 @@ const buildMenuGroups = (counts) => [
         label: 'Live Chat',
         path: '/live-chat',
         icon: Headphones,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Telegram Sessions',
         path: '/telegram',
         icon: Send,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
+      },
+      {
+        label: 'Facebook Sessions',
+        path: '/facebook',
+        icon: MessageCircle,
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
     ],
   },
@@ -127,7 +170,11 @@ const buildMenuGroups = (counts) => [
         label: 'Customers',
         path: '/customers',
         icon: Users,
-        roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
+        roles: [
+          'Admin',
+          'Customer Service Agent',
+          'Customer Support Agent',
+        ],
       },
       {
         label: 'Agents',
@@ -151,22 +198,34 @@ const buildMenuGroups = (counts) => [
   },
 ];
 
-const Sidebar = ({ open = false, onClose }) => {
+const Sidebar = ({
+  open = false,
+  onClose,
+}) => {
   const navigate = useNavigate();
 
-  const currentUserRole = getCurrentUserRole();
-  const currentUserName = getCurrentUserName();
-  const currentAgentId = getCurrentAgentId();
+  const currentUserRole =
+    getCurrentUserRole();
 
-  const [counts, setCounts] = useState({
-    allTickets: 0,
-    waitingQueue: 0,
-    pendingInvestigation: 0,
-    readyToContact: 0,
-    closedTickets: 0,
-  });
+  const currentUserName =
+    getCurrentUserName();
 
-  const [openGroups, setOpenGroups] = useState({
+  const currentAgentId =
+    getCurrentAgentId();
+
+  const [counts, setCounts] =
+    useState({
+      allTickets: 0,
+      waitingQueue: 0,
+      pendingInvestigation: 0,
+      readyToContact: 0,
+      closedTickets: 0,
+    });
+
+  const [
+    openGroups,
+    setOpenGroups,
+  ] = useState({
     Overview: true,
     Tickets: true,
     Channels: false,
@@ -176,73 +235,130 @@ const Sidebar = ({ open = false, onClose }) => {
   useEffect(() => {
     const loadCounts = async () => {
       try {
-        const tickets = await getTickets();
+        const tickets =
+          await getTickets();
 
         setCounts({
-          allTickets: tickets.length,
+          allTickets:
+            tickets.length,
 
-          waitingQueue: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
+          waitingQueue:
+            tickets.filter(
+              (ticket) => {
+                const status =
+                  ticket.status
+                    ?.toLowerCase()
+                    .trim();
 
-            return (
-              status === 'new' ||
-              status === 'waiting queue' ||
-              ticket.assignedTo === 'Unassigned'
-            );
-          }).length,
+                return (
+                  status === 'new' ||
+                  status ===
+                    'waiting queue' ||
+                  ticket.assignedTo ===
+                    'Unassigned'
+                );
+              },
+            ).length,
 
-          pendingInvestigation: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
+          pendingInvestigation:
+            tickets.filter(
+              (ticket) => {
+                const status =
+                  ticket.status
+                    ?.toLowerCase()
+                    .trim();
 
-            return (
-              status === 'pending investigation' ||
-              status === 'pending review' ||
-              status === 'investigation' ||
-              status === 'under investigation'
-            );
-          }).length,
+                return (
+                  status ===
+                    'pending investigation' ||
+                  status ===
+                    'pending review' ||
+                  status ===
+                    'investigation' ||
+                  status ===
+                    'under investigation'
+                );
+              },
+            ).length,
 
-          readyToContact: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
+          readyToContact:
+            tickets.filter(
+              (ticket) => {
+                const status =
+                  ticket.status
+                    ?.toLowerCase()
+                    .trim();
 
-            return status === 'ready to contact' || status === 'ready-to-contact';
-          }).length,
+                return (
+                  status ===
+                    'ready to contact' ||
+                  status ===
+                    'ready-to-contact'
+                );
+              },
+            ).length,
 
-          closedTickets: tickets.filter((ticket) => {
-            const status = ticket.status?.toLowerCase().trim();
+          closedTickets:
+            tickets.filter(
+              (ticket) => {
+                const status =
+                  ticket.status
+                    ?.toLowerCase()
+                    .trim();
 
-            return (
-              status === 'closed' ||
-              status === 'resolved' ||
-              status === 'completed'
-            );
-          }).length,
+                return (
+                  status ===
+                    'closed' ||
+                  status ===
+                    'resolved' ||
+                  status ===
+                    'completed'
+                );
+              },
+            ).length,
         });
       } catch (error) {
-        console.error('Failed to load sidebar counts:', error);
+        console.error(
+          'Failed to load sidebar counts:',
+          error,
+        );
       }
     };
 
     loadCounts();
 
-    // Real-time updates for sidebar notifications
-    const ticketsSub = supabase
-      .channel('sidebar-tickets-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tickets' },
-        () => loadCounts(),
-      )
-      .subscribe();
+    const ticketsSub =
+      supabase
+        .channel(
+          'sidebar-tickets-realtime',
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tickets',
+          },
+          () => loadCounts(),
+        )
+        .subscribe();
 
-    const sessionsSub = supabase
-      .channel('sidebar-sessions-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_sessions' },
-        () => loadCounts(),
-      )
-      .subscribe();
+    const sessionsSub =
+      supabase
+        .channel(
+          'sidebar-sessions-realtime',
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table:
+              'chat_sessions',
+          },
+          () => loadCounts(),
+        )
+        .subscribe();
 
     return () => {
       ticketsSub.unsubscribe();
@@ -250,18 +366,34 @@ const Sidebar = ({ open = false, onClose }) => {
     };
   }, []);
 
-  const canAccess = (allowedRoles) => {
-    return allowedRoles.includes(currentUserRole);
+  const canAccess = (
+    allowedRoles,
+  ) => {
+    return allowedRoles.includes(
+      currentUserRole,
+    );
   };
 
-  const menuGroups = buildMenuGroups(counts)
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => canAccess(item.roles)),
-    }))
-    .filter((group) => group.items.length > 0);
+  const menuGroups =
+    buildMenuGroups(counts)
+      .map((group) => ({
+        ...group,
+        items:
+          group.items.filter(
+            (item) =>
+              canAccess(
+                item.roles,
+              ),
+          ),
+      }))
+      .filter(
+        (group) =>
+          group.items.length > 0,
+      );
 
-  const toggleGroup = (title) => {
+  const toggleGroup = (
+    title,
+  ) => {
     setOpenGroups((prev) => ({
       ...prev,
       [title]: !prev[title],
@@ -274,26 +406,41 @@ const Sidebar = ({ open = false, onClose }) => {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      if (currentAgentId) {
-        await supabase
-          .from('agents')
-          .update({ status: 'Offline' })
-          .eq('id', currentAgentId);
+  const handleLogout =
+    async () => {
+      try {
+        if (currentAgentId) {
+          await supabase
+            .from('agents')
+            .update({
+              status: 'Offline',
+            })
+            .eq(
+              'id',
+              currentAgentId,
+            );
+        }
+
+        await supabase.auth.signOut();
+
+        clearCurrentUser();
+
+        navigate('/login', {
+          replace: true,
+        });
+      } catch (error) {
+        console.error(
+          'Logout failed:',
+          error,
+        );
+
+        clearCurrentUser();
+
+        navigate('/login', {
+          replace: true,
+        });
       }
-
-      await supabase.auth.signOut();
-      clearCurrentUser();
-
-      navigate('/login', { replace: true });
-    } catch (error) {
-      console.error('Logout failed:', error);
-
-      clearCurrentUser();
-      navigate('/login', { replace: true });
-    }
-  };
+    };
 
   return (
     <>
@@ -308,7 +455,9 @@ const Sidebar = ({ open = false, onClose }) => {
 
       <aside
         className={`fixed left-0 top-0 z-50 h-screen w-72 border-r border-black/6 dark:border-white/10 bg-white/88 dark:bg-[#1d1d1f]/88 text-[#1d1d1f] dark:text-[#f5f5f7] shadow-[18px_0_60px_rgba(0,0,0,0.06)] dark:shadow-[18px_0_60px_rgba(0,0,0,0.3)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
-          open ? 'translate-x-0' : '-translate-x-full'
+          open
+            ? 'translate-x-0'
+            : '-translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
@@ -338,7 +487,10 @@ const Sidebar = ({ open = false, onClose }) => {
                 className="flex h-9 w-9 items-center justify-center rounded-2xl text-[#8e8e93] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-white lg:hidden"
                 aria-label="Close sidebar"
               >
-                <X size={18} strokeWidth={1.8} />
+                <X
+                  size={18}
+                  strokeWidth={1.8}
+                />
               </button>
             </div>
           </div>
@@ -350,84 +502,136 @@ const Sidebar = ({ open = false, onClose }) => {
               </div>
 
               <div className="mt-1 truncate text-sm font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
-                {currentUserRole || 'No role'}
+                {currentUserRole ||
+                  'No role'}
               </div>
             </div>
 
             <div className="space-y-4">
-              {menuGroups.map((group) => (
-                <div key={group.title}>
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.title)}
-                    className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e8e93] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-white"
+              {menuGroups.map(
+                (group) => (
+                  <div
+                    key={
+                      group.title
+                    }
                   >
-                    <span>{group.title}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleGroup(
+                          group.title,
+                        )
+                      }
+                      className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e8e93] dark:text-[#a1a1a6] transition hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-white"
+                    >
+                      <span>
+                        {
+                          group.title
+                        }
+                      </span>
 
-                    <ChevronDown
-                      size={15}
-                      strokeWidth={1.8}
-                      className={`transition-transform ${
-                        openGroups[group.title] ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
+                      <ChevronDown
+                        size={15}
+                        strokeWidth={
+                          1.8
+                        }
+                        className={`transition-transform ${
+                          openGroups[
+                            group
+                              .title
+                          ]
+                            ? 'rotate-180'
+                            : ''
+                        }`}
+                      />
+                    </button>
 
-                  {openGroups[group.title] && (
-                    <div className="mt-1 space-y-1">
-                      {group.items.map((item) => {
-                        const Icon = item.icon;
+                    {openGroups[
+                      group.title
+                    ] && (
+                      <div className="mt-1 space-y-1">
+                        {group.items.map(
+                          (item) => {
+                            const Icon =
+                              item.icon;
 
-                        return (
-                          <NavLink
-                            key={item.path}
-                            to={item.path}
-                            onClick={handleNavClick}
-                            className={({ isActive }) =>
-                              `group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
-                                isActive
-                                  ? 'bg-[#43acd6] text-white shadow-[0_12px_28px_rgba(67,172,214,0.24)]'
-                                  : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'
-                              }`
-                            }
-                          >
-                            {({ isActive }) => (
-                              <>
-                                <span className="flex min-w-0 items-center gap-3">
-                                  <span
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
-                                      isActive
-                                        ? 'bg-white/18 text-white'
-                                        : 'bg-white dark:bg-white/10 text-[#8e8e93] dark:text-[#a1a1a6] ring-1 ring-black/6 dark:ring-white/10 group-hover:text-[#1d1d1f] dark:group-hover:text-[#f5f5f7]'
-                                    }`}
-                                  >
-                                    <Icon size={17} strokeWidth={1.8} />
-                                  </span>
+                            return (
+                              <NavLink
+                                key={
+                                  item.path
+                                }
+                                to={
+                                  item.path
+                                }
+                                onClick={
+                                  handleNavClick
+                                }
+                                className={({
+                                  isActive,
+                                }) =>
+                                  `group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
+                                    isActive
+                                      ? 'bg-[#43acd6] text-white shadow-[0_12px_28px_rgba(67,172,214,0.24)]'
+                                      : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'
+                                  }`
+                                }
+                              >
+                                {({
+                                  isActive,
+                                }) => (
+                                  <>
+                                    <span className="flex min-w-0 items-center gap-3">
+                                      <span
+                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
+                                          isActive
+                                            ? 'bg-white/18 text-white'
+                                            : 'bg-white dark:bg-white/10 text-[#8e8e93] dark:text-[#a1a1a6] ring-1 ring-black/6 dark:ring-white/10 group-hover:text-[#1d1d1f] dark:group-hover:text-[#f5f5f7]'
+                                        }`}
+                                      >
+                                        <Icon
+                                          size={
+                                            17
+                                          }
+                                          strokeWidth={
+                                            1.8
+                                          }
+                                        />
+                                      </span>
 
-                                  <span className="truncate">{item.label}</span>
-                                </span>
+                                      <span className="truncate">
+                                        {
+                                          item.label
+                                        }
+                                      </span>
+                                    </span>
 
-                                {typeof item.count === 'number' &&
-                                item.count > 0 ? (
-                                  <span
-                                    className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                      isActive
-                                        ? 'bg-white/20 text-white'
-                                        : 'bg-[#eef9fd] dark:bg-[#43acd6]/20 text-[#2389b8] dark:text-[#43acd6]'
-                                    }`}
-                                  >
-                                    {item.count}
-                                  </span>
-                                ) : null}
-                              </>
-                            )}
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
+                                    {typeof item.count ===
+                                      'number' &&
+                                    item.count >
+                                      0 ? (
+                                      <span
+                                        className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                          isActive
+                                            ? 'bg-white/20 text-white'
+                                            : 'bg-[#eef9fd] dark:bg-[#43acd6]/20 text-[#2389b8] dark:text-[#43acd6]'
+                                        }`}
+                                      >
+                                        {
+                                          item.count
+                                        }
+                                      </span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </NavLink>
+                            );
+                          },
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           </nav>
 
@@ -435,16 +639,21 @@ const Sidebar = ({ open = false, onClose }) => {
             <div className="mb-3 rounded-3xl border border-black/6 dark:border-white/10 bg-[#f5f5f7] dark:bg-white/5 p-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#43acd6] text-sm font-semibold text-white">
-                  {currentUserName?.charAt(0)?.toUpperCase() || 'A'}
+                  {currentUserName
+                    ?.charAt(0)
+                    ?.toUpperCase() ||
+                    'A'}
                 </div>
 
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
-                    {currentUserName || 'Unknown User'}
+                    {currentUserName ||
+                      'Unknown User'}
                   </div>
 
                   <div className="truncate text-xs text-[#6e6e73] dark:text-[#a1a1a6]">
-                    {currentUserRole || 'No role'}
+                    {currentUserRole ||
+                      'No role'}
                   </div>
                 </div>
               </div>
@@ -460,7 +669,10 @@ const Sidebar = ({ open = false, onClose }) => {
               onClick={handleLogout}
               className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-50 dark:hover:bg-red-500/10"
             >
-              <LogOut size={18} strokeWidth={1.8} />
+              <LogOut
+                size={18}
+                strokeWidth={1.8}
+              />
               Logout
             </button>
           </div>
