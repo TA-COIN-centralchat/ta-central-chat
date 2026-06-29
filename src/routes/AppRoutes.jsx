@@ -23,6 +23,7 @@ import CustomersPage from '../pages/CustomersPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
 import SessionWorkspacePage from '../pages/SessionWorkspacePage';
 import FacebookSessionWorkspacePage from '../pages/FacebookSessionWorkspacePage';
+import WhatsAppSessionWorkspacePage from '../pages/WhatsAppSessionWorkspacePage';
 import LiveChatPage from '../pages/LiveChatPage';
 
 import ProtectedRoute from './ProtectedRoute';
@@ -218,7 +219,7 @@ const AppRoutes = () => {
 
         <Route
           path="/whatsapp/:sessionId"
-          element={protect(ALL_ROLES, <SessionWorkspacePage />)}
+          element={protect(ALL_ROLES, <WhatsAppSessionWorkspacePage />)}
         />
 
         <Route
