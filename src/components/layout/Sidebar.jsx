@@ -134,6 +134,7 @@ const buildMenuGroups = (counts) => [
         label: 'Live Chat',
         path: '/live-chat',
         icon: Headphones,
+        count: counts.liveChatSessions,
         roles: [
           'Admin',
           'Customer Service Agent',
@@ -144,6 +145,7 @@ const buildMenuGroups = (counts) => [
         label: 'Telegram Sessions',
         path: '/telegram',
         icon: Send,
+        count: counts.telegramSessions,
         roles: [
           'Admin',
           'Customer Service Agent',
@@ -154,6 +156,7 @@ const buildMenuGroups = (counts) => [
         label: 'Facebook Sessions',
         path: '/facebook',
         icon: MessageCircle,
+        count: counts.facebookSessions,
         roles: [
           'Admin',
           'Customer Service Agent',
@@ -164,6 +167,7 @@ const buildMenuGroups = (counts) => [
         label: 'WhatsApp Sessions',
         path: '/whatsapp',
         icon: MessageCircle,
+        count: counts.whatsAppSessions,
         roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
     ],
@@ -204,6 +208,80 @@ const buildMenuGroups = (counts) => [
   },
 ];
 
+const isAdminRole = (role) => {
+  const normalizedRole = String(role || '')
+    .trim()
+    .toLowerCase();
+
+  return (
+    normalizedRole === 'admin' ||
+    normalizedRole === 'system admin'
+  );
+};
+
+const isActiveSession = (session) => {
+  const status = String(session?.status || '')
+    .trim()
+    .toLowerCase();
+
+  return (
+    status === 'active' ||
+    status === 'idle warning'
+  );
+};
+
+const sessionMatchesChannel = (
+  session,
+  channel,
+) => {
+  const metadata =
+    session?.metadata &&
+    typeof session.metadata === 'object'
+      ? session.metadata
+      : {};
+
+  const value = [
+    session?.channel,
+    metadata.channel,
+    metadata.source,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+
+  const target = String(channel || '')
+    .trim()
+    .toLowerCase();
+
+  if (target === 'live chat') {
+    return (
+      value.includes('live chat') ||
+      value.includes('website chatbot') ||
+      value.includes('website chat') ||
+      value.includes('chatbot')
+    );
+  }
+
+  if (target === 'telegram') {
+    return value.includes('telegram');
+  }
+
+  if (target === 'facebook') {
+    return value.includes('facebook');
+  }
+
+  if (target === 'whatsapp') {
+    return (
+      value.includes('whatsapp') ||
+      value.includes('whats app')
+    );
+  }
+
+  return value.includes(target);
+};
+
 const Sidebar = ({
   open = false,
   onClose,
@@ -226,6 +304,10 @@ const Sidebar = ({
       pendingInvestigation: 0,
       readyToContact: 0,
       closedTickets: 0,
+      liveChatSessions: 0,
+      telegramSessions: 0,
+      facebookSessions: 0,
+      whatsAppSessions: 0,
     });
 
   const [
@@ -243,6 +325,132 @@ const Sidebar = ({
       try {
         const tickets =
           await getTickets();
+
+        let sessionQuery =
+          supabase
+            .from('chat_sessions')
+            .select(
+              'id, channel, status, assigned_agent_id, agent_id, metadata',
+            );
+
+        // Admin sees all active sessions. Agents only see/count sessions
+        // assigned to them, matching the channel inbox access rule.
+        if (
+          !isAdminRole(
+            currentUserRole,
+          )
+        ) {
+          if (!currentAgentId) {
+            setCounts((previous) => ({
+              ...previous,
+
+              allTickets:
+                tickets.length,
+
+              waitingQueue:
+                tickets.filter(
+                  (ticket) => {
+                    const status =
+                      ticket.status
+                        ?.toLowerCase()
+                        .trim();
+
+                    return (
+                      status ===
+                        'new' ||
+                      status ===
+                        'waiting queue' ||
+                      ticket.assignedTo ===
+                        'Unassigned'
+                    );
+                  },
+                ).length,
+
+              pendingInvestigation:
+                tickets.filter(
+                  (ticket) => {
+                    const status =
+                      ticket.status
+                        ?.toLowerCase()
+                        .trim();
+
+                    return (
+                      status ===
+                        'pending investigation' ||
+                      status ===
+                        'pending review' ||
+                      status ===
+                        'investigation' ||
+                      status ===
+                        'under investigation'
+                    );
+                  },
+                ).length,
+
+              readyToContact:
+                tickets.filter(
+                  (ticket) => {
+                    const status =
+                      ticket.status
+                        ?.toLowerCase()
+                        .trim();
+
+                    return (
+                      status ===
+                        'ready to contact' ||
+                      status ===
+                        'ready-to-contact'
+                    );
+                  },
+                ).length,
+
+              closedTickets:
+                tickets.filter(
+                  (ticket) => {
+                    const status =
+                      ticket.status
+                        ?.toLowerCase()
+                        .trim();
+
+                    return (
+                      status ===
+                        'closed' ||
+                      status ===
+                        'resolved' ||
+                      status ===
+                        'completed'
+                    );
+                  },
+                ).length,
+
+              liveChatSessions: 0,
+              telegramSessions: 0,
+              facebookSessions: 0,
+              whatsAppSessions: 0,
+            }));
+
+            return;
+          }
+
+          sessionQuery =
+            sessionQuery.or(
+              `assigned_agent_id.eq.${currentAgentId},agent_id.eq.${currentAgentId}`,
+            );
+        }
+
+        const {
+          data: sessions,
+          error: sessionsError,
+        } = await sessionQuery;
+
+        if (sessionsError) {
+          throw sessionsError;
+        }
+
+        const activeSessions =
+          (sessions || []).filter(
+            isActiveSession,
+          );
 
         setCounts({
           allTickets:
@@ -322,6 +530,42 @@ const Sidebar = ({
                 );
               },
             ).length,
+
+          liveChatSessions:
+            activeSessions.filter(
+              (session) =>
+                sessionMatchesChannel(
+                  session,
+                  'Live Chat',
+                ),
+            ).length,
+
+          telegramSessions:
+            activeSessions.filter(
+              (session) =>
+                sessionMatchesChannel(
+                  session,
+                  'Telegram',
+                ),
+            ).length,
+
+          facebookSessions:
+            activeSessions.filter(
+              (session) =>
+                sessionMatchesChannel(
+                  session,
+                  'Facebook',
+                ),
+            ).length,
+
+          whatsAppSessions:
+            activeSessions.filter(
+              (session) =>
+                sessionMatchesChannel(
+                  session,
+                  'WhatsApp',
+                ),
+            ).length,
         });
       } catch (error) {
         console.error(
@@ -370,7 +614,10 @@ const Sidebar = ({
       ticketsSub.unsubscribe();
       sessionsSub.unsubscribe();
     };
-  }, []);
+  }, [
+    currentAgentId,
+    currentUserRole,
+  ]);
 
   const canAccess = (
     allowedRoles,
