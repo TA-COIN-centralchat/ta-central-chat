@@ -95,6 +95,26 @@ export const getChannelRoute = (channel, sessionId) => {
     };
   }
 
+  if (key === "whatsapp") {
+    return {
+      path: sessionId ? `/whatsapp/${sessionId}` : "/whatsapp",
+      from: "/whatsapp",
+      fromLabel: "WhatsApp Sessions",
+      mode: "whatsapp-chat",
+      channel: "WhatsApp",
+    };
+  }
+
+  if (key === "facebook") {
+    return {
+      path: sessionId ? `/facebook/${sessionId}` : "/facebook",
+      from: "/facebook",
+      fromLabel: "Facebook Sessions",
+      mode: "facebook-chat",
+      channel: "Facebook",
+    };
+  }
+
   if (key === "website chatbot" || key === "chatbot") {
     return {
       path: sessionId ? `/live-chat/${sessionId}` : "/live-chat",

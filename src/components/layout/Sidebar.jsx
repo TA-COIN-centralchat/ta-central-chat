@@ -29,6 +29,7 @@ import {
   getCurrentUserName,
   getCurrentUserRole,
 } from '../../utils/authUtils';
+import { hasTelegramSignal, hasWhatsAppSignal } from '../../utils/channel';
 
 const buildMenuGroups = (counts) => [
   {
@@ -134,7 +135,11 @@ const buildMenuGroups = (counts) => [
         label: 'Live Chat',
         path: '/live-chat',
         icon: Headphones,
+<<<<<<< HEAD
         count: counts.liveChatSessions,
+=======
+        count: counts.liveChat,
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
         roles: [
           'Admin',
           'Customer Service Agent',
@@ -145,7 +150,11 @@ const buildMenuGroups = (counts) => [
         label: 'Telegram Sessions',
         path: '/telegram',
         icon: Send,
+<<<<<<< HEAD
         count: counts.telegramSessions,
+=======
+        count: counts.telegram,
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
         roles: [
           'Admin',
           'Customer Service Agent',
@@ -156,7 +165,11 @@ const buildMenuGroups = (counts) => [
         label: 'Facebook Sessions',
         path: '/facebook',
         icon: MessageCircle,
+<<<<<<< HEAD
         count: counts.facebookSessions,
+=======
+        count: counts.facebook,
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
         roles: [
           'Admin',
           'Customer Service Agent',
@@ -167,7 +180,11 @@ const buildMenuGroups = (counts) => [
         label: 'WhatsApp Sessions',
         path: '/whatsapp',
         icon: MessageCircle,
+<<<<<<< HEAD
         count: counts.whatsAppSessions,
+=======
+        count: counts.whatsapp,
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
         roles: ['Admin', 'Customer Service Agent', 'Customer Support Agent'],
       },
     ],
@@ -304,10 +321,17 @@ const Sidebar = ({
       pendingInvestigation: 0,
       readyToContact: 0,
       closedTickets: 0,
+<<<<<<< HEAD
       liveChatSessions: 0,
       telegramSessions: 0,
       facebookSessions: 0,
       whatsAppSessions: 0,
+=======
+      liveChat: 0,
+      telegram: 0,
+      facebook: 0,
+      whatsapp: 0,
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
     });
 
   const [
@@ -326,6 +350,7 @@ const Sidebar = ({
         const tickets =
           await getTickets();
 
+<<<<<<< HEAD
         let sessionQuery =
           supabase
             .from('chat_sessions')
@@ -452,6 +477,37 @@ const Sidebar = ({
             isActiveSession,
           );
 
+=======
+        // Active (non-terminal) sessions per channel for the Channels badges.
+        const { data: sessionRows } = await supabase
+          .from('chat_sessions')
+          .select('channel, metadata, user_id')
+          .in('status', ['active', 'waiting', 'idle warning']);
+
+        const sessionCounts = {
+          liveChat: 0,
+          telegram: 0,
+          facebook: 0,
+          whatsapp: 0,
+        };
+
+        for (const s of sessionRows || []) {
+          if (hasTelegramSignal(s)) {
+            sessionCounts.telegram += 1;
+          } else if (hasWhatsAppSignal(s)) {
+            sessionCounts.whatsapp += 1;
+          } else if (
+            String(s.channel || s.metadata?.channel || '')
+              .toLowerCase()
+              .includes('facebook')
+          ) {
+            sessionCounts.facebook += 1;
+          } else {
+            sessionCounts.liveChat += 1;
+          }
+        }
+
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
         setCounts({
           allTickets:
             tickets.length,
@@ -531,6 +587,7 @@ const Sidebar = ({
               },
             ).length,
 
+<<<<<<< HEAD
           liveChatSessions:
             activeSessions.filter(
               (session) =>
@@ -566,6 +623,9 @@ const Sidebar = ({
                   'WhatsApp',
                 ),
             ).length,
+=======
+          ...sessionCounts,
+>>>>>>> 0d7a1ddb858b4ae31f80e0dd73d24a7999570e9e
         });
       } catch (error) {
         console.error(
