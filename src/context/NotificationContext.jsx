@@ -105,6 +105,16 @@ export const getChannelRoute = (channel, sessionId) => {
     };
   }
 
+  if (key === "facebook") {
+    return {
+      path: sessionId ? `/facebook/${sessionId}` : "/facebook",
+      from: "/facebook",
+      fromLabel: "Facebook Sessions",
+      mode: "facebook-chat",
+      channel: "Facebook",
+    };
+  }
+
   if (key === "website chatbot" || key === "chatbot") {
     return {
       path: sessionId ? `/live-chat/${sessionId}` : "/live-chat",
