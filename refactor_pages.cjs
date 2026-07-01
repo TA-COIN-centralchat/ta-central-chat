@@ -19,7 +19,7 @@ for (const filename of files) {
 
     // Insert useLayout import
     if (!content.includes('useLayout')) {
-        const importMatches = [...content.matchAll(/^import\s+.*?(?:\n|;)/gm)];
+        const importMatches = [...content.matchAll(/^import\s+.*?(?:\n gm)];
         if (importMatches.length > 0) {
             const lastImport = importMatches[importMatches.length - 1];
             const insertPos = lastImport.index + lastImport[0].length;

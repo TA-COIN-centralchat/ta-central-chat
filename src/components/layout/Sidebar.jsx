@@ -29,7 +29,7 @@ import {
   getCurrentUserName,
   getCurrentUserRole,
 } from '../../utils/authUtils';
-import { hasTelegramSignal, hasWhatsAppSignal } from '../../utils/channel';
+import { hasTelegramSignal, hasWhatsAppSignal, hasFacebookSignal } from '../../utils/channel';
 
 const buildMenuGroups = (counts) => [
   {
@@ -271,11 +271,7 @@ const Sidebar = ({
             sessionCounts.telegram += 1;
           } else if (hasWhatsAppSignal(s)) {
             sessionCounts.whatsapp += 1;
-          } else if (
-            String(s.channel || s.metadata?.channel || '')
-              .toLowerCase()
-              .includes('facebook')
-          ) {
+          } else if (hasFacebookSignal(s)) {
             sessionCounts.facebook += 1;
           } else {
             sessionCounts.liveChat += 1;
