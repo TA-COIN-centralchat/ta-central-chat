@@ -39,7 +39,16 @@ const getCurrentAgentId = () => {
 };
 
 const isAdmin = () => {
-  return getCurrentUserRole() === 'Admin';
+  const role = String(
+    getCurrentUserRole() || '',
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    role === 'admin' ||
+    role === 'system admin'
+  );
 };
 
 const createAuditLog = async ({
