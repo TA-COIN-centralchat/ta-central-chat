@@ -32,6 +32,7 @@ import {
   endSession,
   sendAgentVoiceReply,
   getSessionById,
+  updateSessionStatus,
 } from '../services/sessionService';
 
 import { supabase } from '../services/supabaseClient';
@@ -501,6 +502,18 @@ const FacebookSessionWorkspacePage = () => {
       return;
     }
 
+    // Belt-and-braces guard: the composer is already hidden when the session is
+    // effectively ended, but if a stale render slips through we do NOT want a
+    // downstream write to refresh expires_at and resurrect an expired session.
+    if (
+      session.expiresAt &&
+      session.status === 'Active' &&
+      new Date(session.expiresAt).getTime() <= Date.now()
+    ) {
+      alert('This session has expired. Please ask the customer to start a new session.');
+      return;
+    }
+
     const messageText = replyText.trim();
 
     if (!messageText) {
@@ -582,6 +595,13 @@ const FacebookSessionWorkspacePage = () => {
 
   const handleStartRecording = async () => {
     if (!isTelegramMode || session?.status === 'Ended') return;
+    if (
+      session?.expiresAt &&
+      session.status === 'Active' &&
+      new Date(session.expiresAt).getTime() <= Date.now()
+    ) {
+      return;
+    }
     if (isRecording || sendingVoice) return;
 
     try {
@@ -752,6 +772,37 @@ const FacebookSessionWorkspacePage = () => {
 
   const selectedTimer = getSessionTimerLabel(session);
 
+  // A session whose `expires_at` has passed while the DB still says 'active'
+  // must be treated as ended by the UI. Otherwise a fresh reply would refresh
+  // the timer and resurrect a session the customer has already abandoned.
+  const isExpired = Boolean(
+    session?.expiresAt &&
+      session.status === 'Active' &&
+      new Date(session.expiresAt).getTime() <= currentTime,
+  );
+  const isEffectivelyEnded = session?.status === 'Ended' || isExpired;
+
+  // One-shot auto-close so the DB row catches up with the UI. The server-side
+  // sweeper in realtimeChat.processChatSessionTimeouts only runs while an agent
+  // has /live-chat open, so a Facebook-only agent's expired sessions would
+  // otherwise linger as 'active'.
+  const autoClosedRef = useRef(false);
+  useEffect(() => {
+    if (!isExpired || !session?.dbId || autoClosedRef.current) return;
+    autoClosedRef.current = true;
+    updateSessionStatus({
+      sessionId: session.dbId,
+      status: 'Ended',
+      auditDetails: 'Session auto-closed after inactivity timeout expired.',
+    })
+      .then(() => loadSession({ showLoading: false }))
+      .catch((error) => {
+        console.error('Auto-close on expiry failed:', error);
+        autoClosedRef.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired, session?.dbId]);
+
   // Agent-side transcript hides the 2-minute inactivity warning. That message
   // is a nudge for the customer ("you have 2 minutes to respond") — the agent
   // can already see the countdown badge in the header, so showing it in the
@@ -832,7 +883,7 @@ const FacebookSessionWorkspacePage = () => {
       ) : (
         <div className="mx-auto max-w-7xl space-y-5">
           <section className="overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
-            <div className="flex flex-col gap-5 px-4 py-5 lg:flex-row lg:items-center lg:justify-between sm:px-5">
+            <div className="flex flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5 md:flex-row md:items-center md:justify-between">
               <div className="flex min-w-0 items-start gap-4">
                 <button
                   type="button"
@@ -894,7 +945,7 @@ const FacebookSessionWorkspacePage = () => {
                 </div>
               </div>
 
-              {session.status !== 'Ended' && (
+              {!isEffectivelyEnded && (
                 <>
                 {selectedTimer && session.status === 'Active' && (
                   <div
@@ -933,7 +984,7 @@ const FacebookSessionWorkspacePage = () => {
             </div>
           </section>
 
-          {isTelegramMode && session.status === 'Active' && (
+          {isTelegramMode && session.status === 'Active' && !isExpired && (
             <section className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">
               <div className="flex items-start gap-3">
                 <CheckCircle size={17} className="mt-0.5 shrink-0" />
@@ -941,6 +992,19 @@ const FacebookSessionWorkspacePage = () => {
                   This Telegram session is active. Replies sent here will be
                   saved in the dashboard and delivered to the customer in
                   Telegram.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {isExpired && (
+            <section className="rounded-[22px] border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+              <div className="flex items-start gap-3">
+                <Clock size={17} className="mt-0.5 shrink-0" />
+                <p>
+                  This session expired due to inactivity and has been closed.
+                  Replies are disabled. If the customer comes back, ask them to
+                  start a new session.
                 </p>
               </div>
             </section>
@@ -958,8 +1022,8 @@ const FacebookSessionWorkspacePage = () => {
             </section>
           )}
 
-          <div className="grid gap-5 lg:h-[calc(100vh-280px)] lg:min-h-150 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <section className="flex min-h-155 flex-col overflow-hidden rounded-[28px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] lg:min-h-0">
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-[minmax(0,1fr)_320px] lg:h-[calc(100vh-280px)] lg:min-h-150 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <section className="flex min-h-[70vh] flex-col overflow-hidden rounded-[22px] border border-black/6 bg-white/90 shadow-[0_14px_40px_rgba(0,0,0,0.035)] sm:min-h-[500px] sm:rounded-[28px] md:min-h-155 lg:min-h-0">
               <div className="border-b border-black/6 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef9fd] text-[#2389b8]">
@@ -1028,7 +1092,7 @@ const FacebookSessionWorkspacePage = () => {
                         }`}
                       >
                         <div
-                          className={`max-w-[78%] rounded-[22px] px-4 py-3 shadow-sm ${
+                          className={`max-w-[85%] rounded-[22px] px-4 py-3 shadow-sm sm:max-w-[78%] ${
                             isAgent
                               ? 'bg-[#43acd6] text-white'
                               : 'bg-white text-[#1d1d1f] ring-1 ring-black/6'
@@ -1096,7 +1160,7 @@ const FacebookSessionWorkspacePage = () => {
                   {!isTelegramMode &&
                     localReplies.map((reply) => (
                       <div key={reply.id} className="flex justify-end">
-                        <div className="max-w-[78%] rounded-[22px] bg-[#43acd6] px-4 py-3 text-white shadow-sm">
+                        <div className="max-w-[85%] rounded-[22px] bg-[#43acd6] px-4 py-3 text-white shadow-sm sm:max-w-[78%]">
                           <div className="text-sm leading-6">{reply.text}</div>
 
                           <div className="mt-2 text-xs text-blue-50">
@@ -1106,15 +1170,16 @@ const FacebookSessionWorkspacePage = () => {
                       </div>
                     ))}
 
-                  {session.status === 'Ended' && (
+                  {isEffectivelyEnded && (
                     <div className="mx-auto max-w-lg rounded-[22px] border border-black/6 bg-white p-4 text-center shadow-sm">
                       <div className="font-semibold text-[#1d1d1f]">
-                        Session Ended
+                        {isExpired ? 'Session Expired' : 'Session Ended'}
                       </div>
 
                       <p className="mt-1 text-sm text-[#6e6e73]">
-                        This conversation session is closed. Any raised ticket
-                        can continue internally.
+                        {isExpired
+                          ? 'This session expired due to inactivity. Any raised ticket can continue internally.'
+                          : 'This conversation session is closed. Any raised ticket can continue internally.'}
                       </p>
                     </div>
                   )}
@@ -1123,7 +1188,7 @@ const FacebookSessionWorkspacePage = () => {
                 </div>
               </div>
 
-              {session.status !== 'Ended' ? (
+              {!isEffectivelyEnded ? (
                 <div className="border-t border-black/6 bg-white px-4 py-4">
                   <div className="mx-auto max-w-4xl">
                     <div className="flex items-end gap-3 rounded-3xl border border-black/6 bg-[#f5f5f7] p-3">
@@ -1218,7 +1283,9 @@ const FacebookSessionWorkspacePage = () => {
                 </div>
               ) : (
                 <div className="border-t border-black/6 bg-[#f5f5f7] p-4 text-center text-sm text-[#6e6e73]">
-                  Reply disabled because this session has ended.
+                  {isExpired
+                    ? 'Reply disabled because this session has expired.'
+                    : 'Reply disabled because this session has ended.'}
                 </div>
               )}
             </section>
