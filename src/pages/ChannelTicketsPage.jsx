@@ -36,6 +36,7 @@ const channelToWorkspaceMode = (channelName) => {
   const normalized = channelName?.toLowerCase();
   if (normalized === 'telegram') return 'telegram-chat';
   if (normalized === 'whatsapp') return 'whatsapp-chat';
+  if (normalized === 'facebook') return 'facebook-chat';
   return 'session';
 };
 

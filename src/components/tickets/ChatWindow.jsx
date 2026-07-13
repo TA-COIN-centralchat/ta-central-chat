@@ -4,7 +4,6 @@ import {
   CheckCircle,
   Lock,
   MessageSquare,
-  Paperclip,
   SendHorizontal,
 } from 'lucide-react';
 
@@ -385,13 +384,6 @@ const ChatWindow = ({ ticket, onTicketUpdated }) => {
               </div>
 
               <div className="flex items-end gap-3 rounded-3xl border border-[#e8edf2] bg-[#f8fafc] p-3">
-                <button
-                  type="button"
-                  className="rounded-2xl p-2 text-[#8e8e93] transition hover:bg-white hover:text-[#2389b8]"
-                >
-                  <Paperclip size={18} />
-                </button>
-
                 <textarea
                   rows="2"
                   value={replyText}

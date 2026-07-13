@@ -11,7 +11,7 @@
 
 const TELEGRAM_CHAT_ID_RE = /^-?\d{6,}$/;
 
-export const hasTelegramSignal = (session) => {
+export const hasFacebookSignal = (session) => {
   if (!session) return false;
 
   const sessionChannel = String(session.channel || '').toLowerCase().trim();
@@ -21,24 +21,16 @@ export const hasTelegramSignal = (session) => {
   const customerSource = String(session.customers?.source_channel || '')
     .toLowerCase()
     .trim();
-  const userId = String(session.user_id || '').trim();
   const meta = session.metadata || {};
 
   return (
-    Boolean(meta.telegramUsername) ||
-    Boolean(meta.telegramChatId) ||
-    Boolean(meta.telegram_username) ||
-    Boolean(meta.telegram_chat_id) ||
-    Boolean(meta.telegram_user_id) ||
-    Boolean(meta.telegram) ||
-    Boolean(meta.tg_id) ||
-    Boolean(meta.tg_username) ||
-    Boolean(session.customers?.telegram_username) ||
-    sessionChannel.includes('telegram') ||
-    sessionChannel === 'tg' ||
-    metadataChannel.includes('telegram') ||
-    customerSource.includes('telegram') ||
-    TELEGRAM_CHAT_ID_RE.test(userId)
+    Boolean(meta.facebookSenderId) ||
+    Boolean(meta.facebook_sender_id) ||
+    Boolean(meta.facebookPageId) ||
+    Boolean(meta.facebook_page_id) ||
+    sessionChannel.includes('facebook') ||
+    metadataChannel.includes('facebook') ||
+    customerSource.includes('facebook')
   );
 };
 
@@ -73,21 +65,66 @@ export const hasWhatsAppSignal = (session) => {
   );
 };
 
+export const hasTelegramSignal = (session) => {
+  if (!session) return false;
+
+  const sessionChannel = String(session.channel || '').toLowerCase().trim();
+  const metadataChannel = String(session.metadata?.channel || '')
+    .toLowerCase()
+    .trim();
+  const customerSource = String(session.customers?.source_channel || '')
+    .toLowerCase()
+    .trim();
+  const userId = String(session.user_id || '').trim();
+  const meta = session.metadata || {};
+
+  const hasExplicitTelegram =
+    Boolean(meta.telegramUsername) ||
+    Boolean(meta.telegramChatId) ||
+    Boolean(meta.telegram_username) ||
+    Boolean(meta.telegram_chat_id) ||
+    Boolean(meta.telegram_user_id) ||
+    Boolean(meta.telegram) ||
+    Boolean(meta.tg_id) ||
+    Boolean(meta.tg_username) ||
+    Boolean(session.customers?.telegram_username) ||
+    sessionChannel.includes('telegram') ||
+    sessionChannel === 'tg' ||
+    metadataChannel.includes('telegram') ||
+    customerSource.includes('telegram');
+
+  if (hasExplicitTelegram) return true;
+
+  // Numeric user_id fallback — but only if no other channel claimed the session,
+  // because Facebook sender IDs are also long numeric strings.
+  if (TELEGRAM_CHAT_ID_RE.test(userId)) {
+    return !hasFacebookSignal(session) && !hasWhatsAppSignal(session);
+  }
+
+  return false;
+};
+
 export const isLiveChatSession = (session) => {
   if (!session) return false;
-  return !hasTelegramSignal(session) && !hasWhatsAppSignal(session);
+  return (
+    !hasTelegramSignal(session) &&
+    !hasWhatsAppSignal(session) &&
+    !hasFacebookSignal(session)
+  );
 };
 
 export const matchesChannel = (session, channel) => {
   const target = String(channel || '').toLowerCase().trim();
   const telegramish = hasTelegramSignal(session);
   const whatsappish = hasWhatsAppSignal(session);
+  const facebookish = hasFacebookSignal(session);
 
   if (target === 'telegram') return telegramish;
   if (target === 'whatsapp') return whatsappish;
+  if (target === 'facebook') return facebookish;
   // Website Chatbot is the catch-all for first-party web sessions: anything
-  // that isn't routed through an external relay channel (Telegram / WhatsApp).
-  if (target === 'website chatbot') return !telegramish && !whatsappish;
+  // that isn't routed through an external relay channel.
+  if (target === 'website chatbot') return !telegramish && !whatsappish && !facebookish;
 
   const sessionChannel = String(session.channel || '').toLowerCase().trim();
   const metadataChannel = String(session.metadata?.channel || '')
